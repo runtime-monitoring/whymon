@@ -7,8 +7,7 @@
 (*  Leonardo Lima (UCPH)                                           *)
 (*******************************************************************)
 
-open Base
-open Core_kernel
+open Core
 open Etc
 open Expl
 open Pred
@@ -48,7 +47,7 @@ let remove_cond_front_ne f deque =
     if (Fdeque.length d) > 1 then
       (match Fdeque.dequeue_front d with
        | None -> d
-       | Some(el', d') -> if (f el') then remove_cond_front_ne_rec d
+       | Some(el', d') -> if (f el') then remove_cond_front_ne_rec d'
                           else Fdeque.enqueue_front d' el')
     else d in
   remove_cond_front_ne_rec deque
@@ -124,7 +123,7 @@ let add_tstp_future a b nts ntp tstps_out tstps_in =
     if nts < first_ts + a then (Fdeque.enqueue_back tstps_out (nts, ntp), tstps_in)
     else (tstps_out, Fdeque.enqueue_back tstps_in (nts, ntp))
   else
-    (if nts >= a && nts <= b || a == 0 then
+    (if nts >= a && nts <= b || Int.equal a 0 then
        (tstps_out, Fdeque.enqueue_back tstps_in (nts, ntp))
      else (Fdeque.enqueue_back tstps_out (nts, ntp), tstps_in))
 
@@ -1025,7 +1024,6 @@ module Until = struct
       | None -> (nts, ntp)
       | Some(ts', tp') -> (ts', tp') in
     (* v_betas_alpha *)
-    (* Stdio.printf "nts = %d; ntp = %d; eval_tp = %d\n" nts ntp eval_tp; *)
     let v_betas_alpha_step1 = Fdeque.map v_betas_alpha ~f:(fun d ->
                                   remove_cond_front (fun (ts', p) ->
                                       (ts' < first_ts + a) || ((Proof.p_at p) < first_tp)) d) in
@@ -1068,7 +1066,7 @@ module Until = struct
     let v_alphas_out_step1 = remove_cond_front (fun (_, p) -> (Proof.p_at p) < first_tp) v_alphas_out in
     let (new_out_v_alphas, v_alphas_in') = split_out_in (fun (ts', _) -> ts')
                                              (first_ts, (first_ts + a)) v_alphas_in in
-    let v_alphas_out' = sorted_append new_out_v_alphas v_alphas_out in
+    let v_alphas_out' = sorted_append new_out_v_alphas v_alphas_out_step1 in
     (* v_betas_in *)
     let v_betas_suffix_in' = remove_cond_front (fun (_, vp) ->
                                  match Fdeque.peek_front tstps_in'' with
@@ -1087,7 +1085,6 @@ module Until = struct
     ; optimal_proofs }
 
   let eval_step a (nts, ntp) ts tp muaux =
-    let optimal_proofs_initial_length = Fdeque.length muaux.optimal_proofs in
     let cur_alphas_beta = Fdeque.peek_front_exn muaux.s_alphas_beta in
     let optimal_proofs_step1 = if not (Fdeque.is_empty cur_alphas_beta) then
                                  (match Fdeque.peek_front_exn cur_alphas_beta with
@@ -1137,7 +1134,6 @@ module Until = struct
         eval_step a (nts, ntp) ts tp muaux')
 
   let update i nts ntp p1 p2 muaux =
-    (* Stdio.printf "nts = %d; ntp = %d\n" nts ntp; *)
     let a = Interval.left i in
     let b = match Interval.right i with
       | None -> raise (Invalid_argument "Until interval is unbounded")
@@ -1195,14 +1191,15 @@ module MFormula = struct
   type t =
     | MTT
     | MFF
+    | MEqConst      of string * Domain.t
     | MPredicate    of string * Term.t list
     | MNeg          of t
     | MAnd          of t * t * (Expl.t, Expl.t) Buf2.t
     | MOr           of t * t * (Expl.t, Expl.t) Buf2.t
     | MImp          of t * t * (Expl.t, Expl.t) Buf2.t
     | MIff          of t * t * (Expl.t, Expl.t) Buf2.t
-    | MExists       of Term.t * Domain.tt * t
-    | MForall       of Term.t * Domain.tt * t
+    | MExists       of string * Domain.tt * t
+    | MForall       of string * Domain.tt * t
     | MPrev         of Interval.t * t * bool * (Expl.t, timestamp) Buft.t
     | MNext         of Interval.t * t * bool * timestamp list
     | MOnce         of Interval.t * t * (timestamp * timepoint) list * Once.t Expl.Pdt.t
@@ -1214,7 +1211,8 @@ module MFormula = struct
 
   let rec var_tt x = function
     | MTT | MFF -> []
-    | MPredicate (r, trms) -> (match (List.findi trms ~f:(fun i y -> Pred.Term.equal x y)) with
+    | MEqConst _ -> []
+    | MPredicate (r, trms) -> (match (List.findi trms ~f:(fun i y -> Pred.Term.equal (Var x) y)) with
                                | None -> []
                                | Some (i, _) -> let props = Hashtbl.find_exn Pred.Sig.table r in
                                                 [snd (List.nth_exn props.ntconsts i)])
@@ -1237,6 +1235,7 @@ module MFormula = struct
   let rec init = function
     | Formula.TT -> MTT
     | Formula.FF -> MFF
+    | Formula.EqConst (x, c) -> MEqConst (x, c)
     | Formula.Predicate (r, trms) -> MPredicate (r, trms)
     | Formula.Neg (f) -> MNeg (init f)
     | Formula.And (f, g) -> MAnd (init f, init g, ([], []))
@@ -1244,7 +1243,7 @@ module MFormula = struct
     | Formula.Imp (f, g) -> MImp (init f, init g, ([], []))
     | Formula.Iff (f, g) -> MIff (init f, init g, ([], []))
     | Formula.Exists (x, f) -> let mf = init f in MExists (x, List.hd_exn (var_tt x mf), mf)
-    | Formula.Forall (x, f) -> let mf = init f in MForall (x, List.hd_exn (var_tt x mf), init f)
+    | Formula.Forall (x, f) -> let mf = init f in MForall (x, List.hd_exn (var_tt x mf), mf)
     | Formula.Prev (i, f) -> MPrev (i, init f, true, ([], []))
     | Formula.Next (i, f) -> MNext (i, init f, true, [])
     | Formula.Once (i, f) -> MOnce (i, init f, [], Leaf (Once.init ()))
@@ -1257,14 +1256,15 @@ module MFormula = struct
   let rec to_string_rec l = function
     | MTT -> Printf.sprintf "⊤"
     | MFF -> Printf.sprintf "⊥"
+    | MEqConst (x, c) -> Printf.sprintf "%s ≈ %s" x (Domain.to_string c)
     | MPredicate (r, trms) -> Printf.sprintf "%s(%s)" r (Term.list_to_string trms)
     | MNeg f -> Printf.sprintf "¬%a" (fun x -> to_string_rec 5) f
     | MAnd (f, g, _) -> Printf.sprintf (Etc.paren l 4 "%a ∧ %a") (fun x -> to_string_rec 4) f (fun x -> to_string_rec 4) g
     | MOr (f, g, _) -> Printf.sprintf (Etc.paren l 3 "%a ∨ %a") (fun x -> to_string_rec 3) f (fun x -> to_string_rec 4) g
     | MImp (f, g, _) -> Printf.sprintf (Etc.paren l 4 "%a → %a") (fun x -> to_string_rec 4) f (fun x -> to_string_rec 4) g
     | MIff (f, g, _) -> Printf.sprintf (Etc.paren l 4 "%a ↔ %a") (fun x -> to_string_rec 4) f (fun x -> to_string_rec 4) g
-    | MExists (x, _, f) -> Printf.sprintf (Etc.paren l 5 "∃%s. %a") (Term.unvar x) (fun x -> to_string_rec 5) f
-    | MForall (x, _, f) -> Printf.sprintf (Etc.paren l 5 "∀%s. %a") (Term.unvar x) (fun x -> to_string_rec 5) f
+    | MExists (x, _, f) -> Printf.sprintf (Etc.paren l 5 "∃%s. %a") x (fun x -> to_string_rec 5) f
+    | MForall (x, _, f) -> Printf.sprintf (Etc.paren l 5 "∀%s. %a") x (fun x -> to_string_rec 5) f
     | MPrev (i, f, _, _) -> Printf.sprintf (Etc.paren l 5 "●%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
     | MNext (i, f, _, _) -> Printf.sprintf (Etc.paren l 5 "○%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
     | MOnce (i, f, _, _) -> Printf.sprintf (Etc.paren l 5 "⧫%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
@@ -1338,17 +1338,17 @@ let rec match_terms trms ds map =
   | Term.Const c :: trms, d :: ds -> if Domain.equal c d then match_terms trms ds map else None
   | Var x :: trms, d :: ds -> (match match_terms trms ds map with
                                | None -> None
-                               | Some(map') -> (match Map.find map' (Term.Var x) with
-                                                | None -> let map'' = Map.add_exn map' (Term.Var x) d in Some(map'')
+                               | Some(map') -> (match Map.find map' x with
+                                                | None -> let map'' = Map.add_exn map' ~key:x ~data:d in Some(map'')
                                                 | Some z -> (if Domain.equal d z then Some map' else None)))
   | _, _ -> None
 
 let print_maps maps =
-  (* Stdio.print_endline "> Map:"; *)
-  List.iter maps ~f:(fun map -> Map.iteri map (fun ~key:k ~data:v ->
+  Stdio.print_endline "> Map:";
+  List.iter maps ~f:(fun map -> Map.iteri map ~f:(fun ~key:k ~data:v ->
                                     Stdio.printf "%s -> %s\n" (Term.to_string k) (Domain.to_string v)))
 
-let rec pdt_of tp r trms vars maps : Expl.t = match vars with
+let rec pdt_of tp r trms (vars: string list) maps : Expl.t = match vars with
   | [] -> if List.is_empty maps then Leaf (V (VPred (tp, r, trms)))
           else Leaf (S (SPred (tp, r, trms)))
   | x :: vars ->
@@ -1370,16 +1370,21 @@ let rec meval vars ts tp (db: Db.t) = function
   | MTT -> ([Pdt.Leaf (Proof.S (STT tp))], MTT)
   | MFF -> ([Leaf (V (VFF tp))], MFF)
   | MPredicate (r, trms) ->
-     let db' = Set.filter db (fun evt -> String.equal r (fst(evt))) in
-     let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module Term)) :: acc) in
-     let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
-                                                               | None -> false
-                                                               | Some(map) -> not (Map.is_empty map)))
-                   ~f:(fun map_opt -> Option.value_exn map_opt) in
-     let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
-     let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:Pred.Term.equal) in
-     let expl = pdt_of tp r trms fv_vars maps' in
-     ([expl], MPredicate (r, trms))
+     let db' = Set.filter db ~f:(fun evt -> String.equal r (fst(evt))) in
+     if List.is_empty trms then
+       (let expl = if Set.is_empty db' then Pdt.Leaf (Proof.V (VPred (tp, r, trms)))
+                   else Leaf (S (SPred (tp, r, trms))) in
+        ([expl], MPredicate (r, trms)))
+     else
+       let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
+       let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
+                                                                 | None -> false
+                                                                 | Some(map) -> not (Map.is_empty map)))
+                     ~f:(fun map_opt -> Option.value_exn map_opt) in
+       let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
+       let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:String.equal) in
+       let expl = pdt_of tp r trms fv_vars maps' in
+       ([expl], MPredicate (r, trms))
   | MNeg (mf) ->
      let (expls, mf') = meval vars ts tp db mf in
      let f_expls = List.map expls ~f:(fun expl -> (Pdt.apply1 vars (fun p -> do_neg p) expl)) in
@@ -1526,6 +1531,7 @@ let rec meval vars ts tp (db: Db.t) = function
                          ) muaux_pdt') in
      let expls' = Pdt.split_list es' in
      (expls', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'))
+  | _ -> failwith "not implemented yet"
 
 module MState = struct
 
@@ -1565,7 +1571,6 @@ module MState = struct
 end
 
 let mstep mode vars ts db (ms: MState.t) =
-  (* Stdio.printf "mstep: ts = %d; tp = %d;\n" ts ms.tp_cur; *)
   let (expls, mf') = meval vars ts ms.tp_cur db ms.mf in
   Queue.enqueue ms.ts_waiting ts;
   let tstps = List.zip_exn (List.take (Queue.to_list ms.ts_waiting) (List.length expls))
@@ -1608,7 +1613,7 @@ let exec_vis (obj_opt: MState.t option) f log =
       if pb.ts >= last_ts then
         let (tstps_expls, ms') = mstep Out.Plain.UNVERIFIED (Set.elements (Formula.fv f)) pb.ts pb.db ms in
         let tp_out' = List.fold tstps_expls ~init:ms'.tp_out
-                            ~f:(fun acc ((ts, tp), _) -> Hashtbl.add_exn ms.tpts (acc + 1) ts; acc + 1) in
+                            ~f:(fun acc ((ts, tp), _) -> Hashtbl.add_exn ms.tpts ~key:(acc + 1) ~data:ts; acc + 1) in
         let json_expls = Out.Json.expls ms.tpts f (List.map tstps_expls ~f:snd) in
         let json_db = Out.Json.db pb.ts ms.tp_cur pb.db f in
         (None, (json_expls, [json_db]),

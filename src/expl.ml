@@ -382,13 +382,13 @@ module Proof = struct
     | VUntilInf (tp, ltp, vp2s) -> vuntilinf (tp, ltp, Fdeque.enqueue_back vp2s vp2)
     | _ -> raise (Invalid_argument "vappend is not defined for this vp")
 
-  let s_drop = function
+  let s_drop sp = match sp.Hashcons.node with
     | SUntil (sp2, sp1s) -> (match Fdeque.drop_front sp1s with
                              | None -> None
                              | Some(sp1s') -> Some (suntil (sp2, sp1s')))
     | _ -> raise (Invalid_argument "sdrop is not defined for this sp")
 
-  let v_drop = function
+  let v_drop vp = match vp.Hashcons.node with
     | VUntil (tp, vp1, vp2s) -> (match Fdeque.drop_front vp2s with
                                  | None -> None
                                  | Some(vp2s') -> Some (vuntil (tp, vp1, vp2s')))
@@ -460,11 +460,11 @@ module Proof = struct
     | S s_p -> s_at s_p
     | V v_p -> v_at v_p
 
-  let s_ltp = function
+  let s_ltp sp = match sp.Hashcons.node with
     | SUntil (sp2, _) -> s_at sp2
     | _ -> raise (Invalid_argument "s_ltp is not defined for this sp")
 
-  let v_etp = function
+  let v_etp vp = match vp.Hashcons.node with
     | VUntil (tp, _, vp2s) -> if Fdeque.is_empty vp2s then tp
                               else v_at (Fdeque.peek_front_exn vp2s)
     | _ -> raise (Invalid_argument "v_etp is not defined for this vp")

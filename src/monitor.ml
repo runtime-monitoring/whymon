@@ -283,12 +283,12 @@ module Once = struct
 
   let eval tp moaux =
     if not (Fdeque.is_empty moaux.s_alphas_in) then
-      [Proof.S (SOnce (tp, Proof.unS(snd(Fdeque.peek_front_exn moaux.s_alphas_in))))]
+      [Proof.S (Proof.sonce (tp, Proof.unS(snd(Fdeque.peek_front_exn moaux.s_alphas_in))))]
     else
       let etp = match Fdeque.is_empty moaux.v_alphas_in with
         | true -> etp moaux.tstps_in moaux.tstps_out tp
         | false -> Proof.v_at (snd(Fdeque.peek_front_exn moaux.v_alphas_in)) in
-      [Proof.V (VOnce (tp, etp, Fdeque.map moaux.v_alphas_in ~f:snd))]
+      [Proof.V (Proof.vonce (tp, etp, Fdeque.map moaux.v_alphas_in ~f:snd))]
 
   let update i ts tp p1 moaux =
     let a = Interval.left i in
@@ -298,7 +298,7 @@ module Once = struct
     let moaux_subps = add_subps ts p1 moaux_z in
     if ts < (Option.value_exn moaux_subps.ts_zero) + a then
       ({ moaux_subps with tstps_out = Fdeque.enqueue_back moaux_subps.tstps_out (ts, tp) },
-       [Proof.V (VOnceOut tp)])
+       [Proof.V (Proof.vonceout tp)])
     else
       let b = Interval.right i in
       let l = if (Option.is_some b) then max 0 (ts - (Option.value_exn b))
@@ -360,14 +360,14 @@ module Eventually = struct
       (if not (Fdeque.is_empty meaux.s_alphas_in) then
          (match Fdeque.peek_front_exn meaux.s_alphas_in with
           | (_, S sp) -> Fdeque.enqueue_back meaux.optimal_proofs
-                           (ts, S (SEventually (tp, Proof.unS(snd(Fdeque.peek_front_exn meaux.s_alphas_in)))))
+                           (ts, S (Proof.seventually (tp, Proof.unS(snd(Fdeque.peek_front_exn meaux.s_alphas_in)))))
           | _ -> raise (Invalid_argument "found V proof in S deque"))
        else
          (let ltp = match Fdeque.peek_back meaux.v_alphas_in with
             | None -> snd(Fdeque.peek_back_exn meaux.tstps_out)
             | Some (_, vp2) -> Proof.v_at vp2 in
           Fdeque.enqueue_back meaux.optimal_proofs
-            (ts, V (VEventually (tp, ltp, Fdeque.map meaux.v_alphas_in ~f:snd))))) in
+            (ts, V (Proof.veventually (tp, ltp, Fdeque.map meaux.v_alphas_in ~f:snd))))) in
     { (adjust a (nts, ntp) meaux) with optimal_proofs }
 
   let shift (a, b) (nts, ntp) meaux =
@@ -492,12 +492,12 @@ module Historically = struct
 
   let eval tp mhaux =
     if not (Fdeque.is_empty mhaux.v_alphas_in) then
-      [Proof.V (VHistorically (tp, Proof.unV(snd(Fdeque.peek_front_exn mhaux.v_alphas_in))))]
+      [Proof.V (Proof.vhistorically (tp, Proof.unV(snd(Fdeque.peek_front_exn mhaux.v_alphas_in))))]
     else
       let etp = match Fdeque.is_empty mhaux.s_alphas_in with
         | true -> etp mhaux.tstps_in mhaux.tstps_out tp
         | false -> Proof.s_at (snd(Fdeque.peek_front_exn mhaux.s_alphas_in)) in
-      [S (SHistorically (tp, etp, Fdeque.map mhaux.s_alphas_in ~f:snd))]
+      [S (Proof.shistorically (tp, etp, Fdeque.map mhaux.s_alphas_in ~f:snd))]
 
   let update i ts tp p1 mhaux =
     let a = Interval.left i in
@@ -507,7 +507,7 @@ module Historically = struct
     let mhaux_subps = add_subps ts p1 mhaux_z in
     if ts < (Option.value_exn mhaux_subps.ts_zero) + a then
       ({ mhaux_subps with tstps_out = Fdeque.enqueue_back mhaux_subps.tstps_out (ts, tp) },
-       [Proof.S (SHistoricallyOut tp)])
+       [Proof.S (Proof.shistoricallyout tp)])
     else
       let b = Interval.right i in
       let l = if (Option.is_some b) then max 0 (ts - (Option.value_exn b))
@@ -568,13 +568,13 @@ module Always = struct
       (if not (Fdeque.is_empty maaux.v_alphas_in) then
          (match Fdeque.peek_front_exn maaux.v_alphas_in with
           | (_, V vp) -> Fdeque.enqueue_back maaux.optimal_proofs
-                           (ts, V (VAlways (tp, Proof.unV(snd(Fdeque.peek_front_exn maaux.v_alphas_in)))))
+                           (ts, V (Proof.valways (tp, Proof.unV(snd(Fdeque.peek_front_exn maaux.v_alphas_in)))))
           | _ -> raise (Invalid_argument "found S proof in V deque"))
        else
          (let ltp = match Fdeque.peek_back maaux.s_alphas_in with
             | None -> snd(Fdeque.peek_back_exn maaux.tstps_out)
             | Some (_, sp) -> Proof.s_at sp in
-          Fdeque.enqueue_back maaux.optimal_proofs (ts, S (SAlways (tp, ltp, Fdeque.map maaux.s_alphas_in ~f:snd))))) in
+          Fdeque.enqueue_back maaux.optimal_proofs (ts, S (Proof.salways (tp, ltp, Fdeque.map maaux.s_alphas_in ~f:snd))))) in
     { (adjust a (nts, ntp) maaux) with optimal_proofs }
 
   let shift (a, b) (nts, ntp) maaux =
@@ -697,7 +697,7 @@ module Since = struct
                         | None -> Fdeque.empty
                         | Some(vp2) -> let acc' = v_append_deque vp2 acc in
                                        let vp2s = Fdeque.enqueue_back Fdeque.empty vp2 in
-                                       let vp = Proof.V (VSince (tp, vp1, vp2s)) in
+                                       let vp = Proof.V (Proof.vsince (tp, vp1, vp2s)) in
                                        Fdeque.enqueue_back acc' (ts, vp)))
 
   let add_new_ps_v_alpha_betas_in tp new_in v_alpha_betas_in =
@@ -709,7 +709,9 @@ module Since = struct
   let update_v_alpha_betas_in_tps tp v_alpha_betas_in =
     Fdeque.map v_alpha_betas_in ~f:(fun (ts, vvp) ->
         match vvp with
-        | Proof.V (VSince (_, vp1, vp2s)) -> (ts, Proof.V (VSince (tp, vp1, vp2s)))
+        | Proof.V vp -> (match vp.Hashcons.node with
+                         | Proof.VSince (_, vp1, vp2s) -> (ts, Proof.V (Proof.vsince (tp, vp1, vp2s)))
+                         | _ -> raise (Invalid_argument "found other proof in VSince deque"))
         | _ -> raise (Invalid_argument "found S proof in V deque"))
 
   let update_v_alpha_betas_in tp new_in v_alpha_betas_in =
@@ -725,7 +727,7 @@ module Since = struct
     | S sp1, S sp2 ->
        let s_beta_alphas_in = s_append_deque sp1 msaux.s_beta_alphas_in in
        let s_beta_alphas_out = s_append_deque sp1 msaux.s_beta_alphas_out in
-       let s_beta_alphas_out' = Fdeque.enqueue_back s_beta_alphas_out (ts, Proof.S (SSince (sp2, Fdeque.empty))) in
+       let s_beta_alphas_out' = Fdeque.enqueue_back s_beta_alphas_out (ts, Proof.S (Proof.ssince (sp2, Fdeque.empty))) in
        let v_alphas_betas_out = Fdeque.enqueue_back msaux.v_alphas_betas_out (ts, None, None) in
        { msaux with s_beta_alphas_in; s_beta_alphas_out = s_beta_alphas_out'; v_alphas_betas_out }
     | S sp1, V vp2 ->
@@ -734,7 +736,7 @@ module Since = struct
        let v_alphas_betas_out = Fdeque.enqueue_back msaux.v_alphas_betas_out (ts, None, Some(vp2)) in
        { msaux with s_beta_alphas_in; s_beta_alphas_out; v_alphas_betas_out }
     | V vp1, S sp2 ->
-       let s_beta_alphas_out = Fdeque.enqueue_back Fdeque.empty (ts, Proof.S (SSince (sp2, Fdeque.empty))) in
+       let s_beta_alphas_out = Fdeque.enqueue_back Fdeque.empty (ts, Proof.S (Proof.ssince (sp2, Fdeque.empty))) in
        let v_alphas_out = sorted_enqueue (ts, (V vp1)) msaux.v_alphas_out in
        let v_alphas_betas_out = Fdeque.enqueue_back msaux.v_alphas_betas_out (ts, Some(vp1), None) in
        { msaux with s_beta_alphas_in = Fdeque.empty; s_beta_alphas_out; v_alphas_out; v_alphas_betas_out }
@@ -781,14 +783,14 @@ module Since = struct
       let cp2 = if not (Fdeque.is_empty msaux.v_alphas_out) then
                   let vp_f2 = snd(Fdeque.peek_front_exn msaux.v_alphas_out) in
                   match vp_f2 with
-                  | V f2 -> [Proof.V (VSince (tp, f2, Fdeque.empty))]
+                  | V f2 -> [Proof.V (Proof.vsince (tp, f2, Fdeque.empty))]
                   | S _ -> raise (Invalid_argument "found S proof in V deque")
                 else [] in
       let cp3 = if Int.equal (Fdeque.length msaux.v_betas_in) (Fdeque.length msaux.tstps_in) then
                   let etp = match Fdeque.is_empty msaux.v_betas_in with
                     | true -> etp msaux.tstps_in msaux.tstps_out tp
                     | false -> Proof.v_at (snd(Fdeque.peek_front_exn msaux.v_betas_in)) in
-                  [Proof.V (VSinceInf (tp, etp, Fdeque.map msaux.v_betas_in ~f:snd))]
+                  [Proof.V (Proof.vsinceinf (tp, etp, Fdeque.map msaux.v_betas_in ~f:snd))]
                 else [] in
       [minp_list (cp1 @ cp2 @ cp3)]
 
@@ -800,7 +802,7 @@ module Since = struct
     let msaux_subps = add_subps ts p1 p2 msaux_z in
     if ts < (Option.value_exn msaux_subps.ts_zero) + a then
       ({ msaux_subps with tstps_out = Fdeque.enqueue_back msaux_subps.tstps_out (ts, tp) },
-       [Proof.V (VSinceOut tp)])
+       [Proof.V (Proof.vsinceout tp)])
     else
       (let b = Interval.right i in
        let l = if (Option.is_some b) then max 0 (ts - (Option.value_exn b))
@@ -922,7 +924,7 @@ module Until = struct
     | S sp1, S sp2 ->
        let s_alphas_beta = if ts >= first_ts + a then
                              let cur_s_alphas_beta = Fdeque.peek_back_exn muaux.s_alphas_beta in
-                             let sp = Proof.S (SUntil (sp2, Fdeque.map muaux.s_alphas_suffix ~f:snd)) in
+                             let sp = Proof.S (Proof.suntil (sp2, Fdeque.map muaux.s_alphas_suffix ~f:snd)) in
                              let cur_s_alphas_beta_add = sorted_enqueue (ts, sp) cur_s_alphas_beta in
                              Fdeque.enqueue_back (Fdeque.drop_back_exn muaux.s_alphas_beta) cur_s_alphas_beta_add
                            else muaux.s_alphas_beta in
@@ -942,7 +944,7 @@ module Until = struct
     | V vp1, S sp2 ->
        let s_alphas_beta = if ts >= first_ts + a then
                              (let cur_s_alphas_beta = Fdeque.peek_back_exn muaux.s_alphas_beta in
-                              let ssp = Proof.S (SUntil (sp2, Fdeque.map muaux.s_alphas_suffix ~f:snd)) in
+                              let ssp = Proof.S (Proof.suntil (sp2, Fdeque.map muaux.s_alphas_suffix ~f:snd)) in
                               let cur_s_alphas_beta_add = sorted_enqueue (ts, ssp) cur_s_alphas_beta in
                               let s_alphas_beta' = Fdeque.enqueue_back (Fdeque.drop_back_exn muaux.s_alphas_beta)
                                                      cur_s_alphas_beta_add in
@@ -971,7 +973,7 @@ module Until = struct
                                else muaux.v_betas_suffix_in in
        let v_betas_alpha = if ts >= first_ts + a then
                              (let cur_v_betas_alpha = Fdeque.peek_back_exn muaux.v_betas_alpha in
-                              let vvp = Proof.V (VUntil (tp, vp1, Fdeque.map v_betas_suffix_in ~f:snd)) in
+                              let vvp = Proof.V (Proof.vuntil (tp, vp1, Fdeque.map v_betas_suffix_in ~f:snd)) in
                               let cur_v_betas_alpha_add = sorted_enqueue (ts, vvp) cur_v_betas_alpha in
                               Fdeque.enqueue_back (Fdeque.drop_back_exn muaux.v_betas_alpha)
                                 cur_v_betas_alpha_add)
@@ -1099,27 +1101,29 @@ module Until = struct
                     let cur_betas_alpha = Fdeque.peek_front_exn muaux.v_betas_alpha in
                     (if not (Fdeque.is_empty cur_betas_alpha) then
                        match Fdeque.peek_front_exn cur_betas_alpha with
-                       | (_, V VUntil(_, vp1, vp2s)) ->
-                          (match Fdeque.peek_front muaux.tstps_in with
-                           | None -> []
-                           | Some(_, first_tp_in) ->
-                              if Proof.v_etp (VUntil(tp, vp1, vp2s)) = first_tp_in then
-                                [Proof.V (VUntil(tp, vp1, vp2s))]
-                              else [])
-                       | _ -> raise (Invalid_argument "proof should be VUntil")
+                       | (_, V vp) ->
+                          (match vp.Hashcons.node with
+                           | VUntil(_, vp1, vp2s) -> (match Fdeque.peek_front muaux.tstps_in with
+                                                      | None -> []
+                                                      | Some(_, first_tp_in) ->
+                                                         if Proof.v_etp (Proof.vuntil(tp, vp1, vp2s)) = first_tp_in then
+                                                           [Proof.V (Proof.vuntil(tp, vp1, vp2s))]
+                                                         else [])
+                           | _ -> raise (Invalid_argument "proof should be VUntil"))
+                       | _ -> raise (Invalid_argument "proof should be V")
                      else [])
                   else [] in
          let c2 = if not (Fdeque.is_empty muaux.v_alphas_out) then
                     let vvp1 = snd(Fdeque.peek_front_exn muaux.v_alphas_out) in
                     match vvp1 with
-                    | V vp1 -> [Proof.V (VUntil (tp, vp1, Fdeque.empty))]
+                    | V vp1 -> [Proof.V (Proof.vuntil (tp, vp1, Fdeque.empty))]
                     | S _ -> raise (Invalid_argument "found S proof in V deque")
                   else [] in
          let c3 = if Int.equal (Fdeque.length muaux.v_betas_suffix_in) (Fdeque.length muaux.tstps_in) then
                     let ltp = match Fdeque.peek_back muaux.v_betas_suffix_in with
                       | None -> snd(Fdeque.peek_back_exn muaux.tstps_out)
                       | Some(_, vp2) -> (Proof.v_at vp2) in
-                    [Proof.V (VUntilInf (tp, ltp, Fdeque.map muaux.v_betas_suffix_in ~f:snd))]
+                    [Proof.V (Proof.vuntilinf (tp, ltp, Fdeque.map muaux.v_betas_suffix_in ~f:snd))]
                   else [] in
          let cps = c1 @ c2 @ c3 in
          if List.length cps > 0 then
@@ -1166,21 +1170,21 @@ module Prev_Next = struct
     let c1 = (match p with
               | Proof.S sp -> if Interval.mem (ts' - ts) i then
                                 (match op with
-                                 | Prev -> [Proof.S (SPrev sp)]
-                                 | Next -> [S (SNext sp)])
+                                 | Prev -> [Proof.S (Proof.sprev sp)]
+                                 | Next -> [S (Proof.snext sp)])
                               else []
               | V vp -> (match op with
-                         | Prev -> [V (VPrev vp)]
-                         | Next -> [V (VNext vp)])) in
+                         | Prev -> [V (Proof.vprev vp)]
+                         | Next -> [V (Proof.vnext vp)])) in
     let c2 = if Interval.below (ts' - ts) i then
                (match op with
-                | Prev -> [Proof.V (VPrevOutL ((Proof.p_at p)+1))]
-                | Next -> [V (VNextOutL ((Proof.p_at p)-1))])
+                | Prev -> [Proof.V (Proof.vprevoutl ((Proof.p_at p)+1))]
+                | Next -> [V (Proof.vnextoutl ((Proof.p_at p)-1))])
              else [] in
     let c3 = if (Interval.above (ts' - ts) i) then
                (match op with
-                | Prev -> [Proof.V (VPrevOutR ((Proof.p_at p)+1))]
-                | Next -> [V (VNextOutR ((Proof.p_at p)-1))])
+                | Prev -> [Proof.V (Proof.vprevoutr ((Proof.p_at p)+1))]
+                | Next -> [V (Proof.vnextoutr ((Proof.p_at p)-1))])
              else [] in
     minp_list (c1 @ c2 @ c3)
 
@@ -1280,57 +1284,57 @@ end
 include MFormula
 
 let do_neg = function
-  | Proof.S sp -> Proof.V (VNeg sp)
-  | V vp -> S (SNeg vp)
+  | Proof.S sp -> Proof.V (Proof.vneg sp)
+  | V vp -> S (Proof.sneg vp)
 
 let do_and (p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
-  | S sp1, S sp2 -> [S (SAnd (sp1, sp2))]
-  | S _ , V vp2 -> [V (VAndR (vp2))]
-  | V vp1, S _ -> [V (VAndL (vp1))]
-  | V vp1, V vp2 -> [(V (VAndL (vp1))); (V (VAndR (vp2)))]
+  | S sp1, S sp2 -> [S (Proof.sand (sp1, sp2))]
+  | S _ , V vp2 -> [V (Proof.vandr (vp2))]
+  | V vp1, S _ -> [V (Proof.vandl (vp1))]
+  | V vp1, V vp2 -> [(V (Proof.vandl (vp1))); (V (Proof.vandr (vp2)))]
 
 let do_or (p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
-  | S sp1, S sp2 -> [(S (SOrL (sp1))); (S (SOrR(sp2)))]
-  | S sp1, V _ -> [S (SOrL (sp1))]
-  | V _ , S sp2 -> [S (SOrR (sp2))]
-  | V vp1, V vp2 -> [V (VOr (vp1, vp2))]
+  | S sp1, S sp2 -> [(S (Proof.sorl (sp1))); (S (Proof.sorr(sp2)))]
+  | S sp1, V _ -> [S (Proof.sorl (sp1))]
+  | V _ , S sp2 -> [S (Proof.sorr (sp2))]
+  | V vp1, V vp2 -> [V (Proof.vor (vp1, vp2))]
 
 let do_imp (p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
-  | S _, S sp2 -> [S (SImpR sp2)]
-  | S sp1, V vp2 -> [V (VImp (sp1, vp2))]
-  | V vp1, S sp2 -> [S (SImpL vp1); S (SImpR sp2)]
-  | V vp1, V _ -> [S (SImpL vp1)]
+  | S _, S sp2 -> [S (Proof.simpr sp2)]
+  | S sp1, V vp2 -> [V (Proof.vimp (sp1, vp2))]
+  | V vp1, S sp2 -> [S (Proof.simpl vp1); S (Proof.simpr sp2)]
+  | V vp1, V _ -> [S (Proof.simpl vp1)]
 
 let do_iff (p1: Proof.t) (p2: Proof.t) : Proof.t = match p1, p2 with
-  | S sp1, S sp2 -> S (SIffSS (sp1, sp2))
-  | S sp1, V vp2 -> V (VIffSV (sp1, vp2))
-  | V vp1, S sp2 -> V (VIffVS (vp1, sp2))
-  | V vp1, V vp2 -> S (SIffVV (vp1, vp2))
+  | S sp1, S sp2 -> S (Proof.siffss (sp1, sp2))
+  | S sp1, V vp2 -> V (Proof.viffsv (sp1, vp2))
+  | V vp1, S sp2 -> V (Proof.viffvs (vp1, sp2))
+  | V vp1, V vp2 -> S (Proof.siffvv (vp1, vp2))
 
 let do_exists x tc = function
   | First p -> (match p with
-                | Proof.S sp -> [Proof.S (SExists (x, Domain.tt_default tc, sp))]
-                | V vp -> [Proof.V (VExists (x, Part.trivial vp))])
+                | Proof.S sp -> [Proof.S (Proof.sexists (x, Domain.tt_default tc, sp))]
+                | V vp -> [Proof.V (Proof.vexists (x, Part.trivial vp))])
   | Second part -> if Part.exists part Proof.isS then
                      (let sats = Part.filter part (fun p -> Proof.isS p) in
                       List.map sats ~f:(fun (s, p) ->
                           match p with
-                          | S sp -> Proof.S (SExists (x, Setc.some_elt tc s, sp))
+                          | S sp -> Proof.S (Proof.sexists (x, Setc.some_elt tc s, sp))
                           | V vp -> raise (Invalid_argument "found V proof in S list")))
-                   else [V (VExists (x, Part.map part Proof.unV))]
+                   else [V (Proof.vexists (x, Part.map part Proof.unV))]
 
 let do_forall x tc = function
   | First p -> (match p with
-                | Proof.S sp -> [Proof.S (SForall (x, Part.trivial sp))]
-                | V vp -> [Proof.V (VForall (x, Domain.tt_default tc, vp))])
+                | Proof.S sp -> [Proof.S (Proof.sforall (x, Part.trivial sp))]
+                | V vp -> [Proof.V (Proof.vforall (x, Domain.tt_default tc, vp))])
   | Second part -> if Part.for_all part Proof.isS then
-                     [S (SForall (x, Part.map part Proof.unS))]
+                     [S (Proof.sforall (x, Part.map part Proof.unS))]
                    else
                      (let vios = Part.filter part (fun p -> Proof.isV p) in
                       List.map vios ~f:(fun (s, p) ->
                           match p with
                           | S sp -> raise (Invalid_argument "found S proof in V list")
-                          | V vp -> Proof.V (VForall (x, Setc.some_elt tc s, vp))))
+                          | V vp -> Proof.V (Proof.vforall (x, Setc.some_elt tc s, vp))))
 
 let rec match_terms trms ds map =
   match trms, ds with
@@ -1349,8 +1353,8 @@ let print_maps maps =
                                     Stdio.printf "%s -> %s\n" (Term.to_string k) (Domain.to_string v)))
 
 let rec pdt_of tp r trms (vars: string list) maps : Expl.t = match vars with
-  | [] -> if List.is_empty maps then Leaf (V (VPred (tp, r, trms)))
-          else Leaf (S (SPred (tp, r, trms)))
+  | [] -> if List.is_empty maps then Leaf (V (Proof.vpred (tp, r, trms)))
+          else Leaf (S (Proof.spred (tp, r, trms)))
   | x :: vars ->
      let ds = List.fold maps ~init:[]
                 ~f:(fun acc map -> match Map.find map x with
@@ -1367,13 +1371,13 @@ let rec pdt_of tp r trms (vars: string list) maps : Expl.t = match vars with
      Node (x, part)
 
 let rec meval vars ts tp (db: Db.t) = function
-  | MTT -> ([Pdt.Leaf (Proof.S (STT tp))], MTT)
-  | MFF -> ([Leaf (V (VFF tp))], MFF)
+  | MTT -> ([Pdt.Leaf (Proof.S (Proof.stt tp))], MTT)
+  | MFF -> ([Leaf (V (Proof.vff tp))], MFF)
   | MPredicate (r, trms) ->
      let db' = Set.filter db ~f:(fun evt -> String.equal r (fst(evt))) in
      if List.is_empty trms then
-       (let expl = if Set.is_empty db' then Pdt.Leaf (Proof.V (VPred (tp, r, trms)))
-                   else Leaf (S (SPred (tp, r, trms))) in
+       (let expl = if Set.is_empty db' then Pdt.Leaf (Proof.V (Proof.vpred (tp, r, trms)))
+                   else Leaf (S (Proof.spred (tp, r, trms))) in
         ([expl], MPredicate (r, trms)))
      else
        let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
@@ -1437,7 +1441,7 @@ let rec meval vars ts tp (db: Db.t) = function
        Buft.another_take
          (fun expl ts ts' -> Pdt.apply1 vars (fun p -> Prev_Next.update_eval Prev i p ts ts') expl)
          (buf @ expls, tss @ [ts]) in
-     ((if first then (Leaf (V VPrev0) :: f_expls) else f_expls), MPrev (i, mf', false, (buf', tss')))
+     ((if first then (Leaf (V Proof.vprev0) :: f_expls) else f_expls), MPrev (i, mf', false, (buf', tss')))
   | MNext (i, mf, first, tss) ->
      let (expls, mf') = meval vars ts tp db mf in
      let (expls', first) = if first && (List.length expls) > 0 then (List.tl_exn expls, false)

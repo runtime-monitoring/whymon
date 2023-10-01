@@ -61,7 +61,7 @@ module Checker_interface = struct
     let part_lst = List.map part ~f:(fun (coset, vp) ->
                        (to_fset coset, convert_vp vp)) in
     abs_part (part_lst)
-  and convert_sp (sp: Proof.sp) : (event_data sproof) = match sp with
+  and convert_sp (sp: Proof.sp) : (event_data sproof) = match sp.Hashcons.node with
     | STT tp -> STT (nat_of_int tp)
     | SEqConst (tp, x, c) -> SEq_Const (nat_of_int tp, x, to_event_data c)
     | SPred (tp, s, trms) -> SPred (nat_of_int tp, s, List.map trms ~f:convert_term)
@@ -92,7 +92,7 @@ module Checker_interface = struct
     | SUntil (sp2, sp1s) ->
        let sp1s' = List.rev(Fdeque.fold sp1s ~init:[] ~f:(fun acc sp1 -> (convert_sp sp1)::acc)) in
        SUntil (sp1s', convert_sp sp2)
-  and convert_vp (vp: Proof.vp) : (event_data vproof) = match vp with
+  and convert_vp (vp: Proof.vp) : (event_data vproof) = match vp.Hashcons.node with
     | VFF tp -> VFF (nat_of_int tp)
     | VEqConst (tp, x, c) -> VEq_Const (nat_of_int tp, x, to_event_data c)
     | VPred (tp, s, trms) -> VPred (nat_of_int tp, s, List.map trms ~f:convert_term)

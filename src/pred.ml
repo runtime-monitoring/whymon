@@ -21,6 +21,10 @@ module Term = struct
       | Var x -> x
       | Const _ -> raise (Invalid_argument "unvar is undefined for Consts")
 
+    let unconst = function
+      | Var _ -> raise (Invalid_argument "unconst is undefined for Vars")
+      | Const c -> c
+
     let rec fv_list = function
       | [] -> []
       | Const c :: trms -> fv_list trms

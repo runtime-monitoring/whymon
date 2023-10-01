@@ -83,7 +83,8 @@ end
 
 module Proof = struct
 
-  type sp =
+  type sp = sp_ Hashcons.hash_consed
+  and sp_ =
     | STT of int
     | SEqConst of int * string * Domain.t
     | SPred of int * string * Term.t list
@@ -106,7 +107,8 @@ module Proof = struct
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
-  and vp =
+  and vp = vp_ Hashcons.hash_consed
+  and vp_ =
     | VFF of int
     | VEqConst of int * string * Domain.t
     | VPred of int * string * Term.t list
@@ -139,6 +141,219 @@ module Proof = struct
 
   type t = S of sp | V of vp
 
+  let m1 = Hashcons.create 271
+  let m2 = Hashcons.create 271
+
+  let hash x = x.Hashcons.hkey
+  let head x = x.Hashcons.node
+
+  let s_hash = function
+    | STT tp -> Hashtbl.hash (2, tp)
+    | SEqConst (tp, x, c) -> Hashtbl.hash (3, tp, x, c)
+    | SPred (tp, r, terms) -> Hashtbl.hash (5, tp, r, terms)
+    | SNeg vp -> Hashtbl.hash (7, vp)
+    | SOrL sp1 -> Hashtbl.hash (11, sp1)
+    | SOrR sp2 -> Hashtbl.hash (13, sp2)
+    | SAnd (sp1, sp2) -> Hashtbl.hash (17, sp1, sp2)
+    | SImpL vp1 -> Hashtbl.hash (19, vp1)
+    | SImpR sp2 -> Hashtbl.hash (23, sp2)
+    | SIffSS (sp1, sp2) -> Hashtbl.hash (29, sp1, sp2)
+    | SIffVV (vp1, vp2) -> Hashtbl.hash (31, vp1, vp2)
+    | SExists (x, d, sp) -> Hashtbl.hash (37, x, d, sp)
+    | SForall (x, part) -> Hashtbl.hash (41, x, part)
+    | SPrev sp -> Hashtbl.hash (43, sp)
+    | SNext sp -> Hashtbl.hash (47, sp)
+    | SOnce (tp, sp) -> Hashtbl.hash (53, tp, sp)
+    | SEventually (tp, sp) -> Hashtbl.hash (59, tp, sp)
+    | SHistorically (tp, ltp, sps) -> Hashtbl.hash (61, tp, ltp, sps)
+    | SHistoricallyOut tp -> Hashtbl.hash (67, tp)
+    | SAlways (tp, htp, sps) -> Hashtbl.hash (71, tp, htp, sps)
+    | SSince (sp2, sp1s) -> Hashtbl.hash (73, sp2, sp1s)
+    | SUntil (sp2, sp1s) -> Hashtbl.hash (79, sp2, sp1s)
+  and v_hash = function
+    | VFF tp -> Hashtbl.hash (83, tp)
+    | VEqConst (tp, x, c) -> Hashtbl.hash (89, tp, x, c)
+    | VPred (tp, r, terms) -> Hashtbl.hash (97, tp, r, terms)
+    | VNeg sp -> Hashtbl.hash (101, sp)
+    | VOr (vp1, vp2) -> Hashtbl.hash (103, vp1, vp2)
+    | VAndL vp1 -> Hashtbl.hash (107, vp1)
+    | VAndR vp2 -> Hashtbl.hash (109, vp2)
+    | VImp (sp1, vp2) -> Hashtbl.hash (113, sp1, vp2)
+    | VIffSV (sp1, vp2) -> Hashtbl.hash (127, sp1, vp2)
+    | VIffVS (vp1, sp2) -> Hashtbl.hash (131, vp1, sp2)
+    | VExists (x, part) -> Hashtbl.hash (137, x, part)
+    | VForall (x, d, vp) -> Hashtbl.hash (139, x, d, vp)
+    | VPrev vp -> Hashtbl.hash (149, vp)
+    | VPrev0 -> Hashtbl.hash (151)
+    | VPrevOutL tp -> Hashtbl.hash (157, tp)
+    | VPrevOutR tp -> Hashtbl.hash (163, tp)
+    | VNext vp -> Hashtbl.hash (167, vp)
+    | VNextOutL tp -> Hashtbl.hash (173, tp)
+    | VNextOutR tp -> Hashtbl.hash (179, tp)
+    | VOnceOut tp -> Hashtbl.hash (181, tp)
+    | VOnce (tp, ltp, vps) -> Hashtbl.hash (191, tp, ltp, vps)
+    | VEventually (tp, htp, vps) -> Hashtbl.hash (193, tp, htp, vps)
+    | VHistorically (tp, vp) -> Hashtbl.hash (197, tp, vp)
+    | VAlways (tp, vp) -> Hashtbl.hash (199, tp, vp)
+    | VSinceOut tp -> Hashtbl.hash (211, tp)
+    | VSince (tp, vp1, vp2s) -> Hashtbl.hash (223, tp, vp1, vp2s)
+    | VSinceInf (tp, ltp, vp2s) -> Hashtbl.hash (227, tp, ltp, vp2s)
+    | VUntil (tp, vp1, vp2s) -> Hashtbl.hash (229, tp, vp1, vp2s)
+    | VUntilInf (tp, htp, vp2s) -> Hashtbl.hash (233, tp, htp, vp2s)
+
+  let s_hashcons =
+    let s_equal x y = match x, y with
+      | STT tp, STT tp' -> Int.equal tp tp'
+      | SEqConst (tp, x, c), SEqConst (tp', x', c') -> Int.equal tp tp' && String.equal x x' && Domain.equal c c'
+      | SPred (tp, r, terms), SPred (tp', r', terms') -> Int.equal tp tp' && String.equal r r' &&
+                                                           Int.equal (List.length terms) (List.length terms') &&
+                                                             List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
+      | SNeg vp, SNeg vp'
+        | SImpL vp, SImpL vp' -> phys_equal vp vp'
+      | SImpR sp, SImpR sp'
+        | SOrL sp, SOrL sp'
+        | SOrR sp, SOrR sp'
+        | SPrev sp, SPrev sp'
+        | SNext sp, SNext sp' -> phys_equal sp sp'
+      | SAnd (sp1, sp2), SAnd (sp1', sp2')
+        | SIffSS (sp1, sp2), SIffSS (sp1', sp2') -> phys_equal sp1 sp1' && phys_equal sp2 sp2'
+      | SIffVV (vp1, vp2), SIffVV (vp1', vp2') -> phys_equal vp1 vp1' && phys_equal vp2 vp2'
+      | SExists (x, d, sp), SExists (x', d', sp') -> String.equal x x' && Domain.equal d d' && phys_equal sp sp'
+      | SForall (x, part), SForall (x', part') -> String.equal x x' && List.for_all2_exn part part' ~f:(fun (s, p) (s', p') ->
+                                                                           Setc.equal s s' && phys_equal p p')
+      | SOnce (tp, sp), SOnce (tp', sp')
+        | SEventually (tp, sp), SEventually (tp', sp') -> Int.equal tp tp' && phys_equal sp sp'
+      | SHistoricallyOut tp, SHistoricallyOut tp' -> Int.equal tp tp'
+      | SHistorically (tp, ltp, sps), SHistorically (tp', li', sps') -> Int.equal tp tp' && Int.equal ltp li' &&
+                                                                         Int.equal (Fdeque.length sps) (Fdeque.length sps') &&
+                                                                           Etc.fdeque_for_all2_exn sps sps' ~f:(fun sp sp' -> phys_equal sp sp')
+      | SAlways (tp, htp, sps), SAlways (tp', hi', sps') -> Int.equal tp tp' && Int.equal htp hi' &&
+                                                             Int.equal (Fdeque.length sps) (Fdeque.length sps') &&
+                                                               Etc.fdeque_for_all2_exn sps sps' ~f:(fun sp sp' -> phys_equal sp sp')
+      | SSince (sp2, sp1s), SSince (sp2', sp1s')
+        | SUntil (sp2, sp1s), SUntil (sp2', sp1s') -> phys_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
+                                                        Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> phys_equal sp1 sp1')
+      | _ -> false in
+    Hashcons.hashcons s_hash s_equal m1
+
+  let v_hashcons =
+    let v_equal x y = match x, y with
+      | VFF tp, VFF tp' -> Int.equal tp tp'
+      | VEqConst (tp, x, c), VEqConst (tp', x', c') -> Int.equal tp tp' && String.equal x x' && Domain.equal c c'
+      | VPred (tp, r, terms), VPred (tp', r', terms') -> Int.equal tp tp' && String.equal r r' &&
+                                                           Int.equal (List.length terms) (List.length terms') &&
+                                                             List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
+      | VNeg sp, VNeg sp' -> phys_equal sp sp'
+      | VAndL vp, VAndL vp'
+        | VAndR vp, VAndR vp'
+        | VPrev vp, VPrev vp'
+        | VNext vp, VNext vp' -> phys_equal vp vp'
+      | VOr (vp1, vp2), VOr (vp1', vp2') -> phys_equal vp1 vp1' && phys_equal vp2 vp2'
+      | VImp (sp1, vp2), VImp (sp1', vp2')
+        | VIffSV (sp1, vp2), VIffSV (sp1', vp2') -> phys_equal sp1 sp1' && phys_equal vp2 vp2'
+      | VIffVS (vp1, sp2), VIffVS (vp1', sp2') -> phys_equal vp1 vp1' && phys_equal sp2 sp2'
+      | VExists (x, part), VExists (x', part') -> String.equal x x' && List.for_all2_exn part part' ~f:(fun (s, p) (s', p') ->
+                                                                           Setc.equal s s' && phys_equal p p')
+      | VForall (x, d, vp), VForall (x', d', vp') -> String.equal x x' && Domain.equal d d' && phys_equal vp vp'
+      | VPrev0, VPrev0 -> true
+      | VPrevOutL tp, VPrevOutL tp'
+        | VPrevOutR tp, VPrevOutR tp'
+        | VNextOutL tp, VNextOutL tp'
+        | VNextOutR tp, VNextOutR tp'
+        | VOnceOut tp, VOnceOut tp'
+        | VSinceOut tp, VSinceOut tp' -> Int.equal tp tp'
+      | VOnce (tp, ltp, vps), VOnce (tp', li', vps') -> Int.equal tp tp' && Int.equal ltp li' &&
+                                                         Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
+                                                           Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> phys_equal vp vp')
+      | VEventually (tp, htp, vps), VEventually (tp', hi', vps') -> Int.equal tp tp' && Int.equal htp hi' &&
+                                                                     Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
+                                                                       Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> phys_equal vp vp')
+      | VHistorically (tp, vp), VHistorically (tp', vp')
+        | VAlways (tp, vp), VAlways (tp', vp') -> Int.equal tp tp'
+      | VSince (tp, vp1, vp2s), VSince (tp', vp1', vp2s')
+        | VUntil (tp, vp1, vp2s), VUntil (tp', vp1', vp2s') -> Int.equal tp tp' && phys_equal vp1 vp1' &&
+                                                                 Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
+                                                                   Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> phys_equal vp2 vp2')
+      | VSinceInf (tp, ltp, vp2s), VSinceInf (tp', li', vp2s') -> Int.equal tp tp' && Int.equal ltp li' &&
+                                                                   Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
+                                                                     Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> phys_equal vp2 vp2')
+
+      | VUntilInf (tp, htp, vp2s), VUntilInf (tp', hi', vp2s') -> Int.equal tp tp' && Int.equal htp hi' &&
+                                                                   Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
+                                                                     Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> phys_equal vp2 vp2')
+      | _ -> false in
+    Hashcons.hashcons v_hash v_equal m2
+
+  let stt tp = s_hashcons (STT tp)
+  let seqconst (tp, x, d) = s_hashcons (SEqConst (tp, x, d))
+  let spred (tp, r, terms) = s_hashcons (SPred (tp, r, terms))
+  let sneg vp = s_hashcons (SNeg vp)
+  let sorl sp = s_hashcons (SOrL sp)
+  let sorr sp = s_hashcons (SOrR sp)
+  let sand (sp1, sp2) = s_hashcons (SAnd (sp1, sp2))
+  let simpl vp = s_hashcons (SImpL vp)
+  let simpr sp = s_hashcons (SImpR sp)
+  let siffss (sp1, sp2) = s_hashcons (SIffSS (sp1, sp2))
+  let siffvv (vp1, vp2) = s_hashcons (SIffVV (vp1, vp2))
+  let sexists (x, d, sp) = s_hashcons (SExists (x, d, sp))
+  let sforall (x, part) = s_hashcons (SForall (x, part))
+  let sprev sp = s_hashcons (SPrev sp)
+  let snext sp = s_hashcons (SNext sp)
+  let sonce (tp, sp) = s_hashcons (SOnce (tp, sp))
+  let seventually (tp, sp) = s_hashcons (SEventually (tp, sp))
+  let shistorically (tp, ltp, sps) = s_hashcons (SHistorically (tp, ltp, sps))
+  let shistoricallyout tp = s_hashcons (SHistoricallyOut tp)
+  let salways (tp, htp, sps) = s_hashcons (SAlways (tp, htp, sps))
+  let ssince (sp1, sp2s) = s_hashcons (SSince (sp1, sp2s))
+  let suntil (sp1, sp2s) = s_hashcons (SUntil (sp1, sp2s))
+
+  let suntil (p1, p2s) = s_hashcons (SUntil (p1, p2s))
+
+  let vff tp = v_hashcons (VFF tp)
+  let veqconst (tp, x, d) = v_hashcons (VEqConst (tp, x, d))
+  let vpred (tp, r, terms) = v_hashcons (VPred (tp, r, terms))
+  let vneg sp = v_hashcons (VNeg sp)
+  let vor (vp1, vp2) = v_hashcons (VOr (vp1, vp2))
+  let vandl vp1 = v_hashcons (VAndL vp1)
+  let vandr vp2 = v_hashcons (VAndR vp2)
+  let vimp (sp1, vp2) = v_hashcons (VImp (sp1, vp2))
+  let viffsv (sp1, vp2) = v_hashcons (VIffSV (sp1, vp2))
+  let viffvs (vp1, sp2) = v_hashcons (VIffVS (vp1, sp2))
+  let vexists (x, part) = v_hashcons (VExists (x, part))
+  let vforall (x, d, vp) = v_hashcons (VForall (x, d, vp))
+  let vprev vp = v_hashcons (VPrev vp)
+  let vprev0 = v_hashcons VPrev0
+  let vprevoutl tp = v_hashcons (VPrevOutL tp)
+  let vprevoutr tp = v_hashcons (VPrevOutR tp)
+  let vnext vp = v_hashcons (VNext vp)
+  let vnextoutl tp = v_hashcons (VNextOutL tp)
+  let vnextoutr tp = v_hashcons (VNextOutR tp)
+  let vonceout tp = v_hashcons (VOnceOut tp)
+  let vonce (tp, ltp, vps) = v_hashcons (VOnce (tp, ltp, vps))
+  let veventually (tp, htp, vps) = v_hashcons (VEventually (tp, htp, vps))
+  let vhistorically (tp, vp) = v_hashcons (VHistorically (tp, vp))
+  let valways (tp, vp) = v_hashcons (VAlways (tp, vp))
+  let vsinceout tp = v_hashcons (VSinceOut tp)
+  let vsince (tp, vp1, vp2s) = v_hashcons (VSince (tp, vp1, vp2s))
+  let vsinceinf (tp, ltp, vp2s) = v_hashcons (VSinceInf (tp, ltp, vp2s))
+  let vuntil (tp, vp1, vp2s) = v_hashcons (VUntil (tp, vp1, vp2s))
+  let vuntilinf (tp, htp, vp2s) = v_hashcons (VUntilInf (tp, htp, vp2s))
+
+  let memo_rec f =
+    let t1 = ref Hmap.empty in
+    let t2 = ref Hmap.empty in
+    let rec s_aux sp =
+      try Hmap.find sp !t1
+      with Not_found ->
+        let z = f s_aux v_aux (S sp) in
+        t1 := Hmap.add sp z !t1; z
+    and v_aux vp =
+      try Hmap.find vp !t2
+      with Not_found ->
+        let z = f s_aux v_aux (V vp) in
+        t2 := Hmap.add vp z !t2; z
+    in (s_aux, v_aux)
+
   let unS = function
     | S sp -> sp
     | _ -> raise (Invalid_argument "unS is not defined for V proofs")
@@ -155,88 +370,91 @@ module Proof = struct
     | S _ -> false
     | V _ -> true
 
-  let s_append sp sp1 = match sp with
-    | SSince (sp2, sp1s) -> SSince (sp2, Fdeque.enqueue_back sp1s sp1)
-    | SUntil (sp2, sp1s) -> SUntil (sp2, Fdeque.enqueue_back sp1s sp1)
+  let s_append sp sp1 = match sp.Hashcons.node with
+    | SSince (sp2, sp1s) -> ssince (sp2, Fdeque.enqueue_back sp1s sp1)
+    | SUntil (sp2, sp1s) -> suntil (sp2, Fdeque.enqueue_back sp1s sp1)
     | _ -> raise (Invalid_argument "sappend is not defined for this sp")
 
-  let v_append vp vp2 = match vp with
-    | VSince (tp, vp1, vp2s) -> VSince (tp,  vp1, Fdeque.enqueue_back vp2s vp2)
-    | VSinceInf (tp, etp, vp2s) -> VSinceInf (tp, etp, Fdeque.enqueue_back vp2s vp2)
-    | VUntil (tp, vp1, vp2s) -> VUntil (tp, vp1, Fdeque.enqueue_back vp2s vp2)
-    | VUntilInf (tp, ltp, vp2s) -> VUntilInf (tp, ltp, Fdeque.enqueue_back vp2s vp2)
+  let v_append vp vp2 = match vp.Hashcons.node with
+    | VSince (tp, vp1, vp2s) -> vsince (tp,  vp1, Fdeque.enqueue_back vp2s vp2)
+    | VSinceInf (tp, etp, vp2s) -> vsinceinf (tp, etp, Fdeque.enqueue_back vp2s vp2)
+    | VUntil (tp, vp1, vp2s) -> vuntil (tp, vp1, Fdeque.enqueue_back vp2s vp2)
+    | VUntilInf (tp, ltp, vp2s) -> vuntilinf (tp, ltp, Fdeque.enqueue_back vp2s vp2)
     | _ -> raise (Invalid_argument "vappend is not defined for this vp")
 
   let s_drop = function
     | SUntil (sp2, sp1s) -> (match Fdeque.drop_front sp1s with
                              | None -> None
-                             | Some(sp1s') -> Some (SUntil (sp2, sp1s')))
+                             | Some(sp1s') -> Some (suntil (sp2, sp1s')))
     | _ -> raise (Invalid_argument "sdrop is not defined for this sp")
 
   let v_drop = function
     | VUntil (tp, vp1, vp2s) -> (match Fdeque.drop_front vp2s with
                                  | None -> None
-                                 | Some(vp2s') -> Some (VUntil (tp, vp1, vp2s')))
+                                 | Some(vp2s') -> Some (vuntil (tp, vp1, vp2s')))
     | VUntilInf (tp, ltp, vp2s) -> (match Fdeque.drop_front vp2s with
                                     | None -> None
-                                    | Some(vp2s') -> Some (VUntilInf (tp, ltp, vp2s)))
+                                    | Some(vp2s') -> Some (vuntilinf (tp, ltp, vp2s)))
     | _ -> raise (Invalid_argument "vdrop is not defined for this vp")
 
-  let rec s_at = function
-    | STT tp -> tp
-    | SEqConst (tp, _, _) -> tp
-    | SPred (tp, _, _) -> tp
-    | SNeg vp -> v_at vp
-    | SOrL sp1 -> s_at sp1
-    | SOrR sp2 -> s_at sp2
-    | SAnd (sp1, _) -> s_at sp1
-    | SImpL vp1 -> v_at vp1
-    | SImpR sp2 -> s_at sp2
-    | SIffSS (sp1, _) -> s_at sp1
-    | SIffVV (vp1, _) -> v_at vp1
-    | SExists (_, _, sp) -> s_at sp
-    | SForall (_, part) -> s_at (Part.hd part)
-    | SPrev sp -> s_at sp + 1
-    | SNext sp -> s_at sp - 1
-    | SOnce (tp, _) -> tp
-    | SEventually (tp, _) -> tp
-    | SHistorically (tp, _, _) -> tp
-    | SHistoricallyOut tp -> tp
-    | SAlways (tp, _, _) -> tp
-    | SSince (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
-                            else s_at (Fdeque.peek_back_exn sp1s)
-    | SUntil (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
-                            else s_at (Fdeque.peek_front_exn sp1s)
-  and v_at = function
-    | VFF tp -> tp
-    | VEqConst (tp, _, _) -> tp
-    | VPred (tp, _, _) -> tp
-    | VNeg sp -> s_at sp
-    | VOr (vp1, _) -> v_at vp1
-    | VAndL vp1 -> v_at vp1
-    | VAndR vp2 -> v_at vp2
-    | VImp (sp1, _) -> s_at sp1
-    | VIffSV (sp1, _) -> s_at sp1
-    | VIffVS (vp1, _) -> v_at vp1
-    | VExists (_, part) -> v_at (Part.hd part)
-    | VForall (_, _, vp) -> v_at vp
-    | VPrev vp -> v_at vp + 1
-    | VPrev0 -> 0
-    | VPrevOutL tp -> tp
-    | VPrevOutR tp -> tp
-    | VNext vp -> v_at vp - 1
-    | VNextOutL tp -> tp
-    | VNextOutR tp -> tp
-    | VOnceOut tp -> tp
-    | VOnce (tp, _, _) -> tp
-    | VEventually (tp, _, _) -> tp
-    | VHistorically (tp, _) -> tp
-    | VAlways (tp, _) -> tp
-    | VSinceOut tp -> tp
-    | VSince (tp, _, _) -> tp
-    | VSinceInf (tp, _, _) -> tp
-    | VUntil (tp, _, _) -> tp
-    | VUntilInf (tp, _, _) -> tp
+  let (s_at, v_at) =
+    memo_rec (fun s_at v_at p ->
+        match p with
+        | S sp -> (match sp.node with
+                   | STT tp -> tp
+                   | SEqConst (tp, _, _) -> tp
+                   | SPred (tp, _, _) -> tp
+                   | SNeg vp -> v_at vp
+                   | SOrL sp1 -> s_at sp1
+                   | SOrR sp2 -> s_at sp2
+                   | SAnd (sp1, _) -> s_at sp1
+                   | SImpL vp1 -> v_at vp1
+                   | SImpR sp2 -> s_at sp2
+                   | SIffSS (sp1, _) -> s_at sp1
+                   | SIffVV (vp1, _) -> v_at vp1
+                   | SExists (_, _, sp) -> s_at sp
+                   | SForall (_, part) -> s_at (Part.hd part)
+                   | SPrev sp -> s_at sp + 1
+                   | SNext sp -> s_at sp - 1
+                   | SOnce (tp, _) -> tp
+                   | SEventually (tp, _) -> tp
+                   | SHistorically (tp, _, _) -> tp
+                   | SHistoricallyOut tp -> tp
+                   | SAlways (tp, _, _) -> tp
+                   | SSince (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
+                                           else s_at (Fdeque.peek_back_exn sp1s)
+                   | SUntil (sp2, sp1s) -> if Fdeque.is_empty sp1s then s_at sp2
+                                           else s_at (Fdeque.peek_front_exn sp1s))
+        | V vp -> (match vp.node with
+                   | VFF tp -> tp
+                   | VEqConst (tp, _, _) -> tp
+                   | VPred (tp, _, _) -> tp
+                   | VNeg sp -> s_at sp
+                   | VOr (vp1, _) -> v_at vp1
+                   | VAndL vp1 -> v_at vp1
+                   | VAndR vp2 -> v_at vp2
+                   | VImp (sp1, _) -> s_at sp1
+                   | VIffSV (sp1, _) -> s_at sp1
+                   | VIffVS (vp1, _) -> v_at vp1
+                   | VExists (_, part) -> v_at (Part.hd part)
+                   | VForall (_, _, vp) -> v_at vp
+                   | VPrev vp -> v_at vp + 1
+                   | VPrev0 -> 0
+                   | VPrevOutL tp -> tp
+                   | VPrevOutR tp -> tp
+                   | VNext vp -> v_at vp - 1
+                   | VNextOutL tp -> tp
+                   | VNextOutR tp -> tp
+                   | VOnceOut tp -> tp
+                   | VOnce (tp, _, _) -> tp
+                   | VEventually (tp, _, _) -> tp
+                   | VHistorically (tp, _) -> tp
+                   | VAlways (tp, _) -> tp
+                   | VSinceOut tp -> tp
+                   | VSince (tp, _, _) -> tp
+                   | VSinceInf (tp, _, _) -> tp
+                   | VUntil (tp, _, _) -> tp
+                   | VUntilInf (tp, _, _) -> tp))
 
   let p_at = function
     | S s_p -> s_at s_p
@@ -255,7 +473,7 @@ module Proof = struct
 
   let rec s_to_string indent p =
     let indent' = "\t" ^ indent in
-    match p with
+    match p.Hashcons.node with
     | STT i -> Printf.sprintf "%strue{%d}" indent i
     | SEqConst (tp, x, c) -> Printf.sprintf "%sSEqConst(%d, %s, %s)" indent tp x (Domain.to_string c)
     | SPred (tp, r, trms) -> Printf.sprintf "%sSPred(%d, %s, %s)" indent tp r (Term.list_to_string trms)
@@ -272,7 +490,7 @@ module Proof = struct
                              (v_to_string indent' vp1) (v_to_string indent' vp2)
     | SExists (x, d, sp) -> Printf.sprintf "%sSExists{%d}{%s=%s}\n%s\n" indent (s_at p)
                               x (Domain.to_string d) (s_to_string indent' sp)
-    | SForall (x, part) -> Printf.sprintf "%sSForall{%d}{%s}\n%s\n" indent (s_at (SForall (x, part)))
+    | SForall (x, part) -> Printf.sprintf "%sSForall{%d}{%s}\n%s\n" indent (s_at (sforall (x, part)))
                              x (Part.to_string indent' (Var x) s_to_string part)
     | SPrev sp -> Printf.sprintf "%sSPrev{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
     | SNext sp -> Printf.sprintf "%sSNext{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
@@ -290,7 +508,7 @@ module Proof = struct
                               (Etc.deque_to_string indent' s_to_string sp1s) (s_to_string indent' sp2)
   and v_to_string indent p =
     let indent' = "\t" ^ indent in
-    match p with
+    match p.node with
     | VFF i -> Printf.sprintf "%sfalse{%d}" indent i
     | VEqConst (tp, x, c) -> Printf.sprintf "%sVEqConst(%d, %s, %s)" indent tp x (Domain.to_string c)
     | VPred (tp, r, trms) -> Printf.sprintf "%sVPred(%d, %s, %s)" indent tp r (Term.list_to_string trms)
@@ -301,7 +519,7 @@ module Proof = struct
     | VImp (sp1, vp2) -> Printf.sprintf "%sVImp{%d}\n%s\n%s" indent (v_at p) (s_to_string indent' sp1) (v_to_string indent' vp2)
     | VIffSV (sp1, vp2) -> Printf.sprintf "%sVIffSV{%d}\n%s\n%s" indent (v_at p) (s_to_string indent' sp1) (v_to_string indent' vp2)
     | VIffVS (vp1, sp2) -> Printf.sprintf "%sVIffVS{%d}\n%s\n%s" indent (v_at p) (v_to_string indent' vp1) (s_to_string indent' sp2)
-    | VExists (x, part) -> Printf.sprintf "%sVExists{%d}{%s}\n%s\n" indent (v_at (VExists (x, part)))
+    | VExists (x, part) -> Printf.sprintf "%sVExists{%d}{%s}\n%s\n" indent (v_at (vexists (x, part)))
                              x (Part.to_string indent' (Var x) v_to_string part)
     | VForall (x, d, vp) -> Printf.sprintf "%sVForall{%d}{%s=%s}\n%s\n" indent (v_at p)
                               x (Domain.to_string d) (v_to_string indent' vp)
@@ -339,7 +557,7 @@ module Proof = struct
 
   let rec s_to_latex indent v idx p (h: Formula.t) =
     let indent' = "\t" ^ indent in
-    match p, h with
+    match p.Hashcons.node, h with
     | STT tp, TT  ->
        Printf.sprintf "\\infer[\\top]{%s, %d \\pvd true}{}\n" (val_changes_to_latex v) tp
     | SEqConst (tp, x, c), EqConst (_, _) ->
@@ -427,7 +645,7 @@ module Proof = struct
     | _ -> ""
   and v_to_latex indent v idx p (h: Formula.t) =
     let indent' = "\t" ^ indent in
-    match p, h with
+    match p.node, h with
     | VFF tp, FF ->
        Printf.sprintf "\\infer[\\bot]{%s, %d \\nvd false}{}\n" (val_changes_to_latex v) tp
     | VEqConst (tp, x, c), EqConst (_, _) ->
@@ -544,59 +762,62 @@ module Proof = struct
 
     let sum f d = Fdeque.fold d ~init:0 ~f:(fun acc p -> acc + f p)
 
-    let rec s = function
-      | STT _ -> 1
-      | SEqConst _ -> 1
-      | SPred _ -> 1
-      | SNeg vp -> 1 + v vp
-      | SOrL sp1 -> 1 + s sp1
-      | SOrR sp2 -> 1 + s sp2
-      | SAnd (sp1, sp2) -> 1 + s sp1 + s sp2
-      | SImpL vp1 -> 1 + v vp1
-      | SImpR sp2 -> 1 + s sp2
-      | SIffSS (sp1, sp2) -> 1 + s sp1 + s sp2
-      | SIffVV (vp1, vp2) -> 1 + v vp1 + v vp2
-      | SExists (_, _, sp) -> 1 + s sp
-      | SForall (_, part) -> 1 + (Part.fold_left part 0 (fun a sp -> a + s sp))
-      | SPrev sp -> 1 + s sp
-      | SNext sp -> 1 + s sp
-      | SOnce (_, sp) -> 1 + s sp
-      | SEventually (_, sp) -> 1 + s sp
-      | SHistorically (_, _, sps) -> 1 + sum s sps
-      | SHistoricallyOut _ -> 1
-      | SAlways (_, _, sps) -> 1 + sum s sps
-      | SSince (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
-      | SUntil (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
-    and v = function
-      | VFF _ -> 1
-      | VEqConst _ -> 1
-      | VPred _ -> 1
-      | VNeg sp -> 1 + s sp
-      | VOr (vp1, vp2) -> 1 + v vp1 + v vp2
-      | VAndL vp1 -> 1 + v vp1
-      | VAndR vp2 -> 1 + v vp2
-      | VImp (sp1, vp2) -> 1 + s sp1 + v vp2
-      | VIffSV (sp1, vp2) -> 1 + s sp1 + v vp2
-      | VIffVS (vp1, sp2) -> 1 + v vp1 + s sp2
-      | VExists (_, part) -> 1 + (Part.fold_left part 0 (fun a vp -> a + v vp))
-      | VForall (_, _, vp) -> 1 + v vp
-      | VPrev vp -> 1 + v vp
-      | VPrev0 -> 1
-      | VPrevOutL _ -> 1
-      | VPrevOutR _ -> 1
-      | VNext vp -> 1 + v vp
-      | VNextOutL _ -> 1
-      | VNextOutR _ -> 1
-      | VOnceOut _ -> 1
-      | VOnce (_, _, vp1s) -> 1 + sum v vp1s
-      | VEventually (_, _, vp1s) -> 1 + sum v vp1s
-      | VHistorically (_, vp1) -> 1 + v vp1
-      | VAlways (_, vp1) -> 1 + v vp1
-      | VSinceOut _ -> 1
-      | VSince (_, vp1, vp2s) -> 1 + v vp1 + sum v vp2s
-      | VSinceInf (_, _, vp2s) -> 1 + sum v vp2s
-      | VUntil (_, vp1, vp2s) -> 1 + v vp1 + sum v vp2s
-      | VUntilInf (_, _, vp2s) -> 1 + sum v vp2s
+    let (s, v) =
+      memo_rec (fun s v p ->
+          match p with
+          | S sp -> (match sp.node with
+                     | STT _ -> 1
+                     | SEqConst _ -> 1
+                     | SPred _ -> 1
+                     | SNeg vp -> 1 + v vp
+                     | SOrL sp1 -> 1 + s sp1
+                     | SOrR sp2 -> 1 + s sp2
+                     | SAnd (sp1, sp2) -> 1 + s sp1 + s sp2
+                     | SImpL vp1 -> 1 + v vp1
+                     | SImpR sp2 -> 1 + s sp2
+                     | SIffSS (sp1, sp2) -> 1 + s sp1 + s sp2
+                     | SIffVV (vp1, vp2) -> 1 + v vp1 + v vp2
+                     | SExists (_, _, sp) -> 1 + s sp
+                     | SForall (_, part) -> 1 + (Part.fold_left part 0 (fun a sp -> a + s sp))
+                     | SPrev sp -> 1 + s sp
+                     | SNext sp -> 1 + s sp
+                     | SOnce (_, sp) -> 1 + s sp
+                     | SEventually (_, sp) -> 1 + s sp
+                     | SHistorically (_, _, sps) -> 1 + sum s sps
+                     | SHistoricallyOut _ -> 1
+                     | SAlways (_, _, sps) -> 1 + sum s sps
+                     | SSince (sp2, sp1s) -> 1 + s sp2 + sum s sp1s
+                     | SUntil (sp2, sp1s) -> 1 + s sp2 + sum s sp1s)
+          | V vp -> (match vp.node with
+                     | VFF _ -> 1
+                     | VEqConst _ -> 1
+                     | VPred _ -> 1
+                     | VNeg sp -> 1 + s sp
+                     | VOr (vp1, vp2) -> 1 + v vp1 + v vp2
+                     | VAndL vp1 -> 1 + v vp1
+                     | VAndR vp2 -> 1 + v vp2
+                     | VImp (sp1, vp2) -> 1 + s sp1 + v vp2
+                     | VIffSV (sp1, vp2) -> 1 + s sp1 + v vp2
+                     | VIffVS (vp1, sp2) -> 1 + v vp1 + s sp2
+                     | VExists (_, part) -> 1 + (Part.fold_left part 0 (fun a vp -> a + v vp))
+                     | VForall (_, _, vp) -> 1 + v vp
+                     | VPrev vp -> 1 + v vp
+                     | VPrev0 -> 1
+                     | VPrevOutL _ -> 1
+                     | VPrevOutR _ -> 1
+                     | VNext vp -> 1 + v vp
+                     | VNextOutL _ -> 1
+                     | VNextOutR _ -> 1
+                     | VOnceOut _ -> 1
+                     | VOnce (_, _, vp1s) -> 1 + sum v vp1s
+                     | VEventually (_, _, vp1s) -> 1 + sum v vp1s
+                     | VHistorically (_, vp1) -> 1 + v vp1
+                     | VAlways (_, vp1) -> 1 + v vp1
+                     | VSinceOut _ -> 1
+                     | VSince (_, vp1, vp2s) -> 1 + v vp1 + sum v vp2s
+                     | VSinceInf (_, _, vp2s) -> 1 + sum v vp2s
+                     | VUntil (_, vp1, vp2s) -> 1 + v vp1 + sum v vp2s
+                     | VUntilInf (_, _, vp2s) -> 1 + sum v vp2s))
 
     let p = function
       | S s_p -> s s_p

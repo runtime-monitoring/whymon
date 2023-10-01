@@ -37,7 +37,8 @@ end
 
 module Proof : sig
 
-  type sp =
+  type sp = sp_ Hashcons.hash_consed
+  and sp_ =
     | STT of int
     | SEqConst of int * string * Domain.t
     | SPred of int * string * Term.t list
@@ -60,7 +61,8 @@ module Proof : sig
     | SAlways of int * int * sp Fdeque.t
     | SSince of sp * sp Fdeque.t
     | SUntil of sp * sp Fdeque.t
-  and vp =
+  and vp = vp_ Hashcons.hash_consed
+  and vp_ =
     | VFF of int
     | VEqConst of int * string * Domain.t
     | VPred of int * string * Term.t list
@@ -92,6 +94,59 @@ module Proof : sig
     | VUntilInf of int * int * vp Fdeque.t
 
   type t = S of sp | V of vp
+
+  val stt: int -> sp
+  val seqconst: int * string * Domain.t -> sp
+  val spred: int * string * Term.t list -> sp
+  val sneg: vp -> sp
+  val sorl: sp -> sp
+  val sorr: sp -> sp
+  val sand: sp * sp -> sp
+  val simpl: vp -> sp
+  val simpr: sp -> sp
+  val siffss: sp * sp -> sp
+  val siffvv: vp * vp -> sp
+  val sexists: string * Domain.t * sp -> sp
+  val sforall: string * sp Part.t -> sp
+  val sprev: sp -> sp
+  val snext: sp -> sp
+  val sonce: int * sp -> sp
+  val seventually: int * sp -> sp
+  val shistorically: int * int * sp Fdeque.t -> sp
+  val shistoricallyout: int -> sp
+  val salways: int * int * sp Fdeque.t -> sp
+  val ssince: sp * sp Fdeque.t -> sp
+  val suntil: sp * sp Fdeque.t -> sp
+
+  val vff: int -> vp
+  val veqconst: int * string * Domain.t -> vp
+  val vpred: int * string * Term.t list -> vp
+  val vneg: sp -> vp
+  val vor: vp * vp -> vp
+  val vandl: vp -> vp
+  val vandr: vp -> vp
+  val vimp: sp * vp -> vp
+  val viffsv: sp * vp -> vp
+  val viffvs: vp * sp -> vp
+  val vexists: string * vp Part.t -> vp
+  val vforall: string * Domain.t * vp -> vp
+  val vprev: vp -> vp
+  val vprev0: vp
+  val vprevoutl: int -> vp
+  val vprevoutr: int -> vp
+  val vnext: vp -> vp
+  val vnextoutl: int -> vp
+  val vnextoutr: int -> vp
+  val vonceout: int -> vp
+  val vonce: int * int * vp Fdeque.t -> vp
+  val veventually: int * int * vp Fdeque.t -> vp
+  val vhistorically: int * vp -> vp
+  val valways: int * vp -> vp
+  val vsinceout: int -> vp
+  val vsince: int * vp * vp Fdeque.t -> vp
+  val vsinceinf: int * int * vp Fdeque.t -> vp
+  val vuntil: int * vp * vp Fdeque.t -> vp
+  val vuntilinf: int * int * vp Fdeque.t -> vp
 
   val unS: t -> sp
   val unV: t -> vp

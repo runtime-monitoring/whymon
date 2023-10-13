@@ -4,8 +4,6 @@
 (*           (see file LICENSE for more details)                   *)
 (*                                                                 *)
 (*  Copyright 2021:                                                *)
-(*  Dmitriy Traytel (UCPH)                                         *)
-(*  Leonardo Lima (UCPH)                                           *)
 (*******************************************************************)
 
 open Js_of_ocaml

@@ -4,8 +4,6 @@
 (*           (see file LICENSE for more details)                   *)
 (*                                                                 *)
 (*  Copyright 2023:                                                *)
-(*  Dmitriy Traytel (UCPH)                                         *)
-(*  Leonardo Lima (UCPH)                                           *)
 (*******************************************************************)
 
 type ut = UI of int

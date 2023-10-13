@@ -4,7 +4,6 @@
 (*           (see file LICENSE for more details)                   *)
 (*                                                                 *)
 (*  Copyright 2023:                                                *)
-(*  Leonardo Lima (UCPH)                                           *)
 (*******************************************************************)
 
 module MFormula : sig

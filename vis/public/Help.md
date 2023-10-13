@@ -1,6 +1,8 @@
 # Help
 
-Welcome! To start, you can select one of the predefined examples using the dropdown menu.
+Welcome!
+
+To start, you can select one of the predefined examples using the dropdown menu.
 
 Alternatively, you can specify your own Metric First-Order Temporal Logic formula, trace and signature. The syntax is the following:
 
@@ -58,6 +60,9 @@ Note that this tool also supports the equivalent Unicode characters (on the righ
 
 ### Trace
 ```
+{VALUES} ::=   string
+             | string, {VALUES}
+
 {TRACE} :=   @{NAT} {PREDICATE}(VALUES)*
            | @{NAT} {PREDICATE}()* \n {TRACE}
 ```

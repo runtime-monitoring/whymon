@@ -7,9 +7,9 @@
 (source
  (github runtime-monitoring/whymon))
 
-(authors "Leonardo Lima")
+(authors "")
 
-(maintainers "Leonardo Lima")
+(maintainers "")
 
 (license LICENSE)
 

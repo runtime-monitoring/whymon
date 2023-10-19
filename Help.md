@@ -1,78 +1,111 @@
 # Help
 
-To start, you can select one of the predefined examples using the dropdown menu.
+Welcome! To start, you can select one of the predefined examples using the dropdown menu.
 
-Alternatively, you can write your own Metric Temporal Logic specification and trace. The syntax is the following:
+Alternatively, you can specify your own Metric First-Order Temporal Logic formula, trace and signature. <br/>
+The syntax is the following:
 
-### Metric Temporal Logic
+### Metric First-Order Temporal Logic
 ```
-{f} ::=   {ATOM}
-        | true                (⊤)
-        | false               (⊥)
-        | NOT {f}             (¬)
-        | {f} AND {f}         (∧)
-        | {f} OR  {f}         (∨)
-        | {f} IFF {f}         (↔)
-        | {f} IMPLIES {f}     (→)
-        | PREV{i} {f}         (●)
-        | NEXT{i} {f}         (○)
-        | ONCE{i} {f}         (⧫)
-        | EVENTUALLY{i} {f}   (◊)
-        | HISTORICALLY{i} {f} (■)
-        | ALWAYS{i} {f}       (□)
-        | {f} SINCE{i} {f}    (S)
-        | {f} UNTIL{i} {f}    (U)
-        | {f} TRIGGER{i} {f}  (T)
-        | {f} RELEASE{i} {f}  (R)
+{PRED} ::= string
 
-{i}  ::= [{NAT}, {UPPERBOUND}]
+{VAR} ::= string
+
+{VARS} ::=   {VAR}
+           | {VAR}, {VARS}
+
+{CONST} ::= quoted string
+
+{I}  ::= [{NAT}, {UPPERBOUND}]
+
 {UPPERBOUND} ::=   {NAT}
                  | INFINITY   (∞)
+
+{f} ::=   {PRED}({VARS})
+        | true                  (⊤)
+        | false                 (⊥)
+        | {VAR} EQCONST {CONST} (=)
+        | NOT {f}               (¬)
+        | {f} AND {f}           (∧)
+        | {f} OR  {f}           (∨)
+        | {f} IMPLIES {f}       (→)
+        | {f} IFF {f}           (↔)
+        | EXISTS {VAR}. {f}     (∃)
+        | FORALL {VAR}. {f}     (∀)
+        | PREV{I} {f}           (●)
+        | NEXT{I} {f}           (○)
+        | ONCE{I} {f}           (⧫)
+        | EVENTUALLY{I} {f}     (◊)
+        | HISTORICALLY{I} {f}   (■)
+        | ALWAYS{I} {f}         (□)
+        | {f} SINCE{I} {f}      (S)
+        | {f} UNTIL{I} {f}      (U)
+        | {f} TRIGGER{I} {f}    (T)
+        | {f} RELEASE{I} {f}    (R)
 ```
 
 Note that this tool also supports the equivalent Unicode characters (on the right).
 
 ### Trace
 ```
-{TRACE} :=   @{NAT} {ATOM}*
-           | @{NAT} {ATOM}* \n {TRACE}
+{TRACE} :=   @{NAT} {PREDICATE}(VALUES)*
+           | @{NAT} {PREDICATE}()* \n {TRACE}
 ```
 
-Once you have a valid MTL formula and trace, you can enter the monitoring state by clicking on the button:
+### Signature
+```
+{TYPE} ::= string | int
 
-<img alt="Button to start monitoring state" src="./assets/monitoring_button.png" style="margin:0px 25px; max-width: 200px; height: auto;" />
+{VARTYPES} ::=   {VAR}:{TYPE}
+               | {VAR}:{TYPE}, {VARTYPES}
 
-At this point, you should be able to see a table with satisfactions and violations, where each row corresponds to a single event.
-The first columns consist of the atomic propositions occurring in your formula.
-Next, you have two columns: TS (time-stamps) and TP (time-points).
-Up until this column, the table solely represents the trace (from top to bottom).
-The following columns correspond to different subformulas of your MTL formula ϕ.
+{SIG} ::=   {PRED}({VARTYPES})
+          | {PRED}({VARTYPES}) \n {SIG}
+```
 
-The first column corresponds to ϕ itself, and at every time-point where it is possible to output a verdict, Explanator2 shows a Boolean verdict for ϕ.
+### Usage
 
-Moreover, in the table header only the main operator of a subformula is shown.
-To see the entire subformula, you can hover your cursor over a Boolean verdict:
+Once you have a valid signature, trace and MFOTL formula, you can enter the monitoring state by clicking on:
 
-<img alt="Popover feature" src="./assets/popover.png" style="margin:0px 25px; max-width: 125px; height: auto;" />
+<img alt="Button to enter monitoring state" src="./assets/monitor_button.png" style="margin:0px 25px; max-width: 175px; height: auto;" />
 
-In addition, you can inspect a Boolean verdict by clicking on it:
+At this point, you should be able to see a table where each row corresponds to a specific time-point. <br/>
+This table includes the columns TP (time-points), TS (time-stamps), and Values. <br/>
+The other columns correspond to the different subformulas of your input MFOTL formula ϕ.
 
-<img alt="Verdict inspection" src="./assets/click.png" style="margin:0px 25px; max-width: 230px; height: auto;" />
+For each time-point, the Values column includes buttons for satisfactions or violations or both. <br/>
+After clicking on such a button, you are presented with a dropdown menu, where it is possible to choose a variable assignment for each of the free variables in ϕ. <br/>
+From now on, we will consider the *publish-approve-manager* example. <br/>
+A possible selection at time-point 3 corresponds to:
 
-Whenever you click on a Boolean verdict, Explanator2 shows and highlights the Boolean verdicts for subformulas that justify the verdict for the
-overall formula according to the standard MTL semantics.
-Furthermore, it also highlights the time interval associated with the corresponding subformula.
-You may further inspect Boolean verdicts until you reach atomic propositions.
+<img alt="Assignment selection" src="./assets/selection_new.png" style="margin:0px 25px; max-width: 300px; height: auto;" />
 
-Multiple Boolean verdicts can be explored simultaneously, so Explanator2 additionally highlights the overall Boolean verdict
-(i.e., the context) of the current inspection:
+Note that in the table header only the main operator of each subformula is shown. <br/>
+After deciding the variable assignments, a Boolean verdict will appear in the next column → (representing ϕ itself). <br/>
+To see the entire subformula, you can hover your cursor over a Boolean verdict. <br/>
+For instance, hovering the Boolean verdict of ϕ at time-point 3 results in:
 
-<img alt="Verdict inspection" src="./assets/click_context.png" style="margin:0px 25px; max-width: 230px; height: auto;" />
+<img alt="Popover feature" src="./assets/popover_new.png" style="margin:0px 25px; max-width: 650px; height: auto;" />
 
-In the monitoring state, three different buttons are displayed:
+This will also show the variable assignment considering in your current inspection. <br/>
+At this point, you can inspect the Boolean verdict by clicking on it:
+
+<img alt="Verdict inspection" src="./assets/highlights_new.png" style="margin:0px 25px; max-width: 900px; height: auto;" />
+
+Whenever you click on a Boolean verdict, **WhyMon** shows and highlights the Boolean verdicts associated with its justification. <br/>
+Furthermore, it highlights the columns of the subformulas of the current inspection (here in yellow and teal). <br/>
+If the topmost operator of the current inspection is a temporal operator, the time interval associated with it is also highlighted. <br/>
+You may further inspect Boolean verdicts until you reach predicates.
+
+You can also enable some optional features. <br/>
+For instance, you can select the option Trace and see the events for each time-point:
+
+<img alt="Verdict inspection" src="./assets/trace_new.png" style="margin:0px 25px; max-width: 400px; height: auto;" />
+
+Lastly, three different buttons are displayed in the monitoring state:
 
 <img alt="Buttons in the monitoring state" src="./assets/buttons.png" style="margin:0px 25px; max-width: 250px; height: auto;" />
 
-You can add events to your trace using the text area on the left and clicking on the *plus* button.
-At every moment you can reset the state of your table by clicking on the *refresh* button.
-Lastly, you can make changes to your MTL formula and/or trace by clicking on the *close* button, exiting the monitoring state.
+You can append events to the trace by using the text area *New events* on the left and clicking on the *plus* button. <br/>
+At every moment you can reset the state of the table by clicking on the *refresh* button. <br/>
+You can exit the monitoring state by clicking on the *close* button.

@@ -15,7 +15,7 @@ module Term = struct
 
   module T = struct
 
-    type t = Var of string | Const of Domain.t [@@deriving compare, sexp_of, hash]
+    type t = Var of string | Const of Dom.t [@@deriving compare, sexp_of, hash]
 
     let unvar = function
       | Var x -> x
@@ -32,24 +32,24 @@ module Term = struct
 
     let equal t t' = match t, t' with
       | Var x, Var x' -> String.equal x x'
-      | Const d, Const d' -> Domain.equal d d'
+      | Const d, Const d' -> Dom.equal d d'
       | _ -> false
 
     let to_string = function
       | Var x -> Printf.sprintf "Var %s" x
-      | Const d -> Printf.sprintf "Const %s" (Domain.to_string d)
+      | Const d -> Printf.sprintf "Const %s" (Dom.to_string d)
 
     let value_to_string = function
       | Var x -> Printf.sprintf "%s" x
-      | Const d -> Printf.sprintf "%s" (Domain.to_string d)
+      | Const d -> Printf.sprintf "%s" (Dom.to_string d)
 
     let rec list_to_string trms =
       match trms with
       | [] -> ""
       | (Var x) :: trms -> if List.is_empty trms then x
                            else Printf.sprintf "%s, %s" x (list_to_string trms)
-      | (Const d) :: trms -> if List.is_empty trms then (Domain.to_string d)
-                             else Printf.sprintf "%s, %s" (Domain.to_string d) (list_to_string trms)
+      | (Const d) :: trms -> if List.is_empty trms then (Dom.to_string d)
+                             else Printf.sprintf "%s, %s" (Dom.to_string d) (list_to_string trms)
 
   end
 
@@ -60,7 +60,7 @@ end
 
 module Sig = struct
 
-  type props = { arity: int; ntconsts: (string * Domain.tt) list } [@@deriving compare, sexp_of, hash]
+  type props = { arity: int; ntconsts: (string * Dom.tt) list } [@@deriving compare, sexp_of, hash]
 
   type t = string * props [@@deriving compare, sexp_of, hash]
 
@@ -75,7 +75,7 @@ module Sig = struct
     Hashtbl.iteri table ~f:(fun ~key:n ~data:ps ->
         Stdio.printf "%s(%s)\n" n
           (String.drop_prefix (List.fold ps.ntconsts ~init:"" ~f:(fun acc (var, tt) ->
-                                   acc ^ "," ^ var ^ ":" ^ (Domain.tt_to_string tt))) 1))
+                                   acc ^ "," ^ var ^ ":" ^ (Dom.tt_to_string tt))) 1))
 
 end
 
@@ -85,6 +85,6 @@ let check_terms p_name trms =
     if (List.for_all2_exn trms sig_pred.ntconsts
           ~f:(fun t ntc -> match t with
                            | Term.Var x -> true
-                           | Const c -> Domain.tt_equal (Domain.tt_of_domain c) (snd ntc))) then trms
+                           | Const c -> Dom.tt_equal (Dom.tt_of_domain c) (snd ntc))) then trms
     else raise (Invalid_argument (Printf.sprintf "type of terms of %s do not match the signature" p_name))
   else raise (Invalid_argument (Printf.sprintf "arity of %s is %d" p_name sig_pred.arity))

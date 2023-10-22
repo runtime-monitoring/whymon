@@ -12,13 +12,13 @@ open Base
 
 module Term : sig
 
-  type t = Var of string | Const of Domain.t [@@deriving compare, sexp_of, hash]
+  type t = Var of string | Const of Dom.t [@@deriving compare, sexp_of, hash]
 
   type comparator_witness
 
   val unvar: t -> string
 
-  val unconst: t -> Domain.t
+  val unconst: t -> Dom.t
 
   val comparator: (t, comparator_witness) Comparator.t
 
@@ -36,13 +36,13 @@ end
 
 module Sig : sig
 
-  type props = { arity: int; ntconsts: (string * Domain.tt) list } [@@deriving compare, sexp_of, hash]
+  type props = { arity: int; ntconsts: (string * Dom.tt) list } [@@deriving compare, sexp_of, hash]
 
   type t = string * props [@@deriving compare, sexp_of, hash]
 
   val table: (string, props) Hashtbl.t
 
-  val add: string -> (string * Domain.tt) list -> unit
+  val add: string -> (string * Dom.tt) list -> unit
 
   val vars: string -> string list
 

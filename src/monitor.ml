@@ -1384,32 +1384,40 @@ let rec meval vars ts tp (db: Db.t) = function
      let f_expls = List.map expls ~f:(fun expl -> (Pdt.apply1_reduce Proof.equal vars (fun p -> do_neg p) expl)) in
      (f_expls, MNeg(mf'))
   | MAnd (mf1, mf2, buf2) ->
-     let (expls1, mf1') = meval vars ts tp db mf1 in
-     let (expls2, mf2') = meval vars ts tp db mf2 in
+     let d1 = Domain.spawn (fun _ -> meval vars ts tp db mf1) in
+     let d2 = Domain.spawn (fun _ -> meval vars ts tp db mf2) in
+     let (expls1, mf1') = Domain.join d1 in
+     let (expls2, mf2') = Domain.join d2 in
      let (f_expls, buf2') =
        Buf2.take
          (fun expl1 expl2 -> Pdt.apply2_reduce Proof.equal vars (fun p1 p2 -> minp_list (do_and p1 p2)) expl1 expl2)
          (Buf2.add expls1 expls2 buf2) in
      (f_expls, MAnd (mf1', mf2', buf2'))
   | MOr (mf1, mf2, buf2) ->
-     let (expls1, mf1') = meval vars ts tp db mf1 in
-     let (expls2, mf2') = meval vars ts tp db mf2 in
+     let d1 = Domain.spawn (fun _ -> meval vars ts tp db mf1) in
+     let d2 = Domain.spawn (fun _ -> meval vars ts tp db mf2) in
+     let (expls1, mf1') = Domain.join d1 in
+     let (expls2, mf2') = Domain.join d2 in
      let (f_expls, buf2') =
        Buf2.take
          (fun expl1 expl2 -> Pdt.apply2_reduce Proof.equal vars (fun p1 p2 -> minp_list (do_or p1 p2)) expl1 expl2)
          (Buf2.add expls1 expls2 buf2) in
      (f_expls, MOr (mf1', mf2', buf2'))
   | MImp (mf1, mf2, buf2) ->
-     let (expls1, mf1') = meval vars ts tp db mf1 in
-     let (expls2, mf2') = meval vars ts tp db mf2 in
+     let d1 = Domain.spawn (fun _ -> meval vars ts tp db mf1) in
+     let d2 = Domain.spawn (fun _ -> meval vars ts tp db mf2) in
+     let (expls1, mf1') = Domain.join d1 in
+     let (expls2, mf2') = Domain.join d2 in
      let (f_expls, buf2') =
        Buf2.take
          (fun expl1 expl2 -> Pdt.apply2_reduce Proof.equal vars (fun p1 p2 -> minp_list (do_imp p1 p2)) expl1 expl2)
          (Buf2.add expls1 expls2 buf2) in
      (f_expls, MImp (mf1', mf2', buf2'))
   | MIff (mf1, mf2, buf2) ->
-     let (expls1, mf1') = meval vars ts tp db mf1 in
-     let (expls2, mf2') = meval vars ts tp db mf2 in
+     let d1 = Domain.spawn (fun _ -> meval vars ts tp db mf1) in
+     let d2 = Domain.spawn (fun _ -> meval vars ts tp db mf2) in
+     let (expls1, mf1') = Domain.join d1 in
+     let (expls2, mf2') = Domain.join d2 in
      let (f_expls, buf2') =
        Buf2.take
          (fun expl1 expl2 -> Pdt.apply2_reduce Proof.equal vars (fun p1 p2 -> do_iff p1 p2) expl1 expl2)
@@ -1494,8 +1502,10 @@ let rec meval vars ts tp (db: Db.t) = function
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      (expls'', MAlways (i, mf', (buf', ntstps'), maaux_pdt'))
   | MSince (i, mf1, mf2, (buf2, tstps), msaux_pdt) ->
-     let (expls1, mf1') = meval vars ts tp db mf1 in
-     let (expls2, mf2') = meval vars ts tp db mf2 in
+     let d1 = Domain.spawn (fun _ -> meval vars ts tp db mf1) in
+     let d2 = Domain.spawn (fun _ -> meval vars ts tp db mf2) in
+     let (expls1, mf1') = Domain.join d1 in
+     let (expls2, mf2') = Domain.join d2 in
      let ((msaux_pdt', expls'), (buf2', tstps')) =
        Buf2t.take
          (fun expl1 expl2 ts tp (aux_pdt, es) ->
@@ -1506,8 +1516,10 @@ let rec meval vars ts tp (db: Db.t) = function
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      (expls'', MSince (i, mf1', mf2', (buf2', tstps'), msaux_pdt'))
   | MUntil (i, mf1, mf2, (buf2, ntstps), muaux_pdt) ->
-     let (expls1, mf1') = meval vars ts tp db mf1 in
-     let (expls2, mf2') = meval vars ts tp db mf2 in
+     let d1 = Domain.spawn (fun _ -> meval vars ts tp db mf1) in
+     let d2 = Domain.spawn (fun _ -> meval vars ts tp db mf2) in
+     let (expls1, mf1') = Domain.join d1 in
+     let (expls2, mf2') = Domain.join d2 in
      let (muaux_pdt', (buf2', ntstps')) =
        Buf2t.take
          (fun expl1 expl2 ts tp aux_pdt ->

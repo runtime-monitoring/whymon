@@ -411,3 +411,25 @@ export function translateError(error) {
   //          };
   // }
 }
+
+export function positionToIndex(row, column, lines) {
+  // var lines = this.$lines || this.getAllLines();
+  // var newlineLength = this.getNewLineCharacter().length;
+  // var index = 0;
+  // var row = Math.min(pos.row, lines.length);
+  // for (var i = startRow || 0; i < row; ++i)
+  //   index += lines[i].length + newlineLength;
+
+  // return index + pos.column;
+
+  let newlineLength = 1;
+  let index = 0;
+
+  row = Math.min(row, lines.length);
+
+  for (let i = 0; i < row; ++i) {
+    index += lines[i].length + newlineLength;
+  }
+
+  return index + column;
+}

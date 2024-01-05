@@ -159,21 +159,28 @@ lemma i_le_LTPi_add: "i \<le> LTP \<sigma> (\<tau> \<sigma> i + n)"
   using i_le_LTPi
   by (simp add: add_increasing2 i_LTP_tau)
 
-lemma i_le_LTPi_minus: "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i \<Longrightarrow> i > 0 \<Longrightarrow> n > 0 \<Longrightarrow>
-  LTP \<sigma> (\<tau> \<sigma> i - n) < i"
+lemma i_le_LTPi_minus:
+  assumes "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i" "i > 0" "n > 0"
+  shows "LTP \<sigma> (\<tau> \<sigma> i - n) < i"
   unfolding LTP_def
-  apply (subst Max_less_iff)
-    apply (auto simp: finite_nat_set_iff_bounded_le)
-  subgoal apply (rule exI[of _ i]; auto)
-    apply (erule contrapos_pp) back back back
-    apply (auto simp: not_le dest!: \<tau>_mono[of i _ \<sigma>] less_imp_le[of i])
-    done
-  subgoal apply (rule exI[of _ 0]; auto) done
-  subgoal for a
-    apply (erule contrapos_pp)
-    apply (auto simp: not_less dest!: \<tau>_mono[of i a \<sigma>])
-    done
-  done
+proof (subst Max_less_iff; (intro ballI; elim CollectE)?)
+  show "finite {j. \<tau> \<sigma> j \<le> \<tau> \<sigma> i - n}"
+    unfolding finite_nat_set_iff_bounded_le
+  proof (intro exI[of _ i], safe)
+    fix j
+    assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i - n"
+    with assms(1,3) show "j \<le> i"
+      by (metis add_leD2 add_strict_increasing le_add_diff_inverse less_\<tau>D less_or_eq_imp_le)
+  qed
+next
+  from assms(1) show "{j. \<tau> \<sigma> j \<le> \<tau> \<sigma> i - n} \<noteq> {}"
+    by (auto simp: le_diff_conv2)
+next
+  fix j
+  assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i - n"
+  with assms(1,3) show "j < i"
+    by (metis add_leD2 add_strict_increasing le_add_diff_inverse less_\<tau>D)
+qed
 
 lemma i_ge_etpi: "ETP \<sigma> (\<tau> \<sigma> i) \<le> i"
   using i_ETP_tau by auto
@@ -197,31 +204,29 @@ proof -
     unfolding ETP_def by (intro Least_le) (auto split: enat.splits)
   moreover
   { fix j
-    assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i"
-    moreover obtain k where "\<tau> \<sigma> i < \<tau> \<sigma> k" "i < k"
+    assume j: "\<tau> \<sigma> j \<le> \<tau> \<sigma> i"
+    then obtain k where k: "\<tau> \<sigma> i < \<tau> \<sigma> k"
       by (meson ex_le_\<tau> gt_ex less_le_trans)
-    ultimately have "j \<le> ETP \<sigma> (Suc (\<tau> \<sigma> i))"
+    have "j \<le> ETP \<sigma> (Suc (\<tau> \<sigma> i))"
       unfolding ETP_def
-      apply -
-      apply (rule LeastI2[of _ k])
-       apply (auto simp: Suc_le_eq)
-      by (meson \<tau>_mono leD less_le_trans linear)
+    proof (intro LeastI2[of _ k "\<lambda>i. j \<le> i"])
+      fix l
+      assume "Suc (\<tau> \<sigma> i) \<le> \<tau> \<sigma> l"
+      with j show "j \<le> l"
+        by (metis lessI less_\<tau>D nless_le order_less_le_trans)
+    qed (auto simp: Suc_le_eq k(1))
   } note * = this
   { fix k
-    assume k: "k \<in> {j <.. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}"
-    with j(3) have "mem (\<tau> \<sigma> i - \<tau> \<sigma> k) I"
-      unfolding LTP_def
-      apply (auto simp: le_diff_conv2 add.commute)
-       apply (subst (asm) Max_ge_iff)
-         apply auto
-        prefer 2
-      using \<tau>_mono le_trans nat_add_left_cancel_le apply blast
-       apply (rule finite_subset[of _ "{0 .. ETP \<sigma> (\<tau> \<sigma> i + 1)}"])
-        apply (auto simp: * Suc_le_eq) [2]
-      apply (cases "right I")
-       apply (auto simp: le_diff_conv)
-      by (meson \<tau>_mono add_mono_thms_linordered_semiring(2) le_trans less_imp_le)
-
+    assume "k \<in> {j <.. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}"
+    with j(3) have k: "j < k" "k \<le> i" "k \<le> Max {j. left I + \<tau> \<sigma> j \<le> \<tau> \<sigma> i}"
+      by (auto simp: LTP_def le_diff_conv2 add.commute)
+    with j(3) obtain l where "left I + \<tau> \<sigma> l \<le> \<tau> \<sigma> i" "k \<le> l"
+      by (subst (asm) Max_ge_iff) (auto simp: le_diff_conv2 *
+          intro!: finite_subset[of _ "{0 .. ETP \<sigma> (\<tau> \<sigma> i + 1)}"])
+    then have "mem (\<tau> \<sigma> i - \<tau> \<sigma> k) I"
+      using k(1,2) j(3)
+      by (cases "right I") (auto simp: le_diff_conv le_diff_conv2 add.commute dest: \<tau>_mono
+         elim: order_trans[rotated] order_trans)
     with Max_ge[of A k] k have "\<not> Formula.sat \<sigma> v k \<psi>"
       unfolding j_def[symmetric] unfolding A_def
       by auto
@@ -250,9 +255,8 @@ proof -
     unfolding j_def[symmetric] unfolding A_def
     by fastforce+
   moreover have "case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> j \<le> LTP \<sigma> (\<tau> \<sigma> i + n)"
-    using i_LTP_tau[of \<sigma> j]
-    apply (auto split: enat.splits)
-    by (smt (verit, ccfv_SIG) \<tau>_mono add_diff_cancel_left' enat_ord_simps(1) i0 i_LTP_tau j(1) j(3) le_add1 le_add_diff_inverse2 le_diff_conv2 le_trans)
+    using i0 j(1,3)
+    by (auto simp: i_LTP_tau trans_le_add1 split: enat.splits)
   moreover
   { fix k
     assume k_def: "k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) ..< j}"
@@ -363,8 +367,7 @@ proof (induct v i \<phi> rule: SAT_VIO.induct)
   case (VOnceOut i I v \<phi>)
   { fix j
     from \<tau>_mono have j0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> j" by auto
-    then have "\<tau> \<sigma> i < \<tau> \<sigma> j + left I" using VOnceOut apply simp
-      using j0 by linarith
+    then have "\<tau> \<sigma> i < \<tau> \<sigma> j + left I" using VOnceOut by linarith
     then have "\<delta> \<sigma> i j < left I"
       using VOnceOut less_\<tau>D verit_comp_simplify1(3) by fastforce
     then have "\<not> mem (\<delta> \<sigma> i j) I" by auto }
@@ -442,8 +445,7 @@ next
   case (SHistoricallyOut i I v \<phi>)
   { fix j
     from \<tau>_mono have j0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> j" by auto
-    then have "\<tau> \<sigma> i < \<tau> \<sigma> j + left I" using SHistoricallyOut apply simp
-      using j0 by linarith
+    then have "\<tau> \<sigma> i < \<tau> \<sigma> j + left I" using SHistoricallyOut by linarith
     then have "\<delta> \<sigma> i j < left I"
       using SHistoricallyOut less_\<tau>D not_le by fastforce
     then have "\<not> mem (\<delta> \<sigma> i j) I" by auto }
@@ -501,8 +503,8 @@ next
     then have k_ltp: "k \<le> LTP \<sigma> (\<tau> \<sigma> i - left I)"
       using VSince i_LTP_tau add_le_imp_le_diff
       by blast
-    then have "k < j" using k_def VSince apply simp
-      by (meson diff_is_0_eq not_gr_zero zero_less_diff)
+    then have "k < j" using k_def VSince(7)[of k]
+      by force
     then have "j \<in> {k <.. i} \<and> \<not> Formula.sat \<sigma> v j \<phi>" using VSince
       by auto }
   then show ?case using VSince
@@ -709,33 +711,49 @@ end
 
 subsection \<open>Proof Objects\<close>
 
-lemma part_list_set_eq: 
-  "{xs :: ('d set \<times> 'a) list. (\<Union>X \<in> fst ` set xs. X) = UNIV
-    \<and> (\<forall>i < length xs. \<forall>j < length xs. i \<noteq> j 
-      \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {}) \<and> {} \<notin> fst ` set xs}
-  = {xs :: ('d set \<times> 'a) list. partition_on UNIV (set (map fst xs)) \<and> distinct (map fst xs)}"
-proof ((intro set_eqI iffI; clarsimp simp: partition_on_def), goal_cases)
-  case (1 xs)
-  hence "disjoint (fst ` set xs)"
+lemma part_list_set_eq_aux1:
+  assumes
+    "\<forall>i<length xs. \<forall>j<length xs. i \<noteq> j \<longrightarrow>  fst (xs ! i) \<inter> fst (xs ! j) = {}"
+    "{} \<notin> fst ` set xs"
+  shows "disjoint (fst ` set xs) \<and> distinct (map fst xs)"
+proof -
+  from assms(1) have "disjoint (fst ` set xs)"
     by (metis disjnt_def in_set_conv_nth pairwise_imageI)
   moreover have "distinct (map fst xs)"
-    using 1
+    using assms
     by (smt (verit) distinct_conv_nth image_iff inf.idem 
         length_map nth_map nth_mem) 
-  ultimately show ?case 
+  ultimately show ?thesis
     by blast
-next
-  case (2 xs i j)
-  hence "fst (xs ! i) \<in> fst ` set xs"
+qed
+
+lemma part_list_set_eq_aux2:
+  assumes
+    "disjoint (fst ` set xs)"
+    "distinct (map fst xs)"
+    "i < length xs"
+    "j < length xs"
+    "i \<noteq> j"
+  shows "fst (xs ! i) \<inter> fst (xs ! j) = {}"
+proof -
+  from assms have "fst (xs ! i) \<in> fst ` set xs"
     and "fst (xs ! j) \<in> fst ` set xs"
     by auto
   moreover have "fst (xs ! i) \<noteq> fst (xs ! j)"
-    using 2(4-) nth_eq_iff_index_eq 
+    using assms(2-) nth_eq_iff_index_eq 
     by fastforce 
-  ultimately show ?case
-    using 2(2) unfolding disjoint_def
+  ultimately show ?thesis
+    using assms(1) unfolding disjoint_def
     by blast
 qed
+
+lemma part_list_eq: 
+  "(\<Union>X \<in> fst ` set xs. X) = UNIV
+    \<and> (\<forall>i < length xs. \<forall>j < length xs. i \<noteq> j 
+      \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {}) \<and> {} \<notin> fst ` set xs
+  \<longleftrightarrow> partition_on UNIV (set (map fst xs)) \<and> distinct (map fst xs)"
+  using part_list_set_eq_aux1 part_list_set_eq_aux2
+  unfolding partition_on_def by (auto 5 0)
 
 (* 'd: domain (such that the union of 'd sets form a partition) *)
 typedef ('d, 'a) part = "{xs :: ('d set \<times> 'a) list. partition_on UNIV (set (map fst xs)) \<and> distinct (map fst xs)}"
@@ -745,7 +763,7 @@ typedef ('d, 'a) part = "{xs :: ('d set \<times> 'a) list. partition_on UNIV (se
 setup_lifting type_definition_part
 
 lift_bnf (no_warn_wits, no_warn_transfer) (dead 'd, Vals: 'a) part
-  unfolding part_list_set_eq[symmetric]
+  unfolding part_list_eq[symmetric]
   by (auto simp: image_iff)
 
 subsection \<open>\<^const>\<open>size\<close> setup\<close>
@@ -882,30 +900,39 @@ lift_definition tabulate :: "'d list \<Rightarrow> ('d \<Rightarrow> 'v) \<Right
 lift_definition lookup_part :: "('d, 'a) part \<Rightarrow> 'd \<Rightarrow> 'a" is "\<lambda>xs d. snd (the (find (\<lambda>(D, _). d \<in> D) xs))" .
 
 lemma part_hd_Vals[simp]: "part_hd part \<in> Vals part"
-  apply transfer
-  subgoal for xs
-    by (cases xs) (auto simp: partition_on_def)
-  done
+  by transfer (auto simp: partition_on_def image_iff intro!: hd_in_set)
 
 lemma lookup_part_Vals[simp]: "lookup_part part d \<in> Vals part"
-  apply transfer
-  subgoal for xs d
-    apply (cases "find (\<lambda>(D, _). d \<in> D) xs")
-     apply (auto simp: partition_on_def find_None_iff find_Some_iff image_iff)
-     apply (metis UNIV_I UN_iff prod.collapse)
-    apply (metis (no_types, lifting) find_Some_iff nth_mem option.sel prod.simps(2))
-    done
-  done
+proof (transfer, goal_cases part)
+  case (part xs d)
+  then have unique: "(\<forall>i<length xs. \<forall>j<length xs. i \<noteq> j \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {})"
+    using part_list_eq[of xs]
+    by simp
+  from part obtain D x where D: "(D, x) \<in> set xs" "d \<in> D"
+    unfolding partition_on_def
+    by fastforce
+  with unique have "find (\<lambda>(D, _). d \<in> D) xs = Some (D, x)"
+    unfolding set_eq_iff
+    by (auto simp: find_Some_iff in_set_conv_nth split_beta)
+  with D show ?case
+    by (force simp: image_iff)
+qed
 
 lemma lookup_part_SubsVals: "\<exists>D. d \<in> D \<and> (D, lookup_part part d) \<in> SubsVals part"
-  apply transfer
-  subgoal for d xs
-    apply (cases "find (\<lambda>(D, _). d \<in> D) xs")
-     apply (auto simp: partition_on_def find_None_iff find_Some_iff image_iff)
-     apply (metis UNIV_I UN_iff prod.collapse)
-    apply (metis (mono_tags, lifting) find_Some_iff nth_mem option.sel prod.exhaust_sel prod.simps(2))
-    done
-  done
+proof (transfer, goal_cases part)
+  case (part d xs)
+  then have unique: "(\<forall>i<length xs. \<forall>j<length xs. i \<noteq> j \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {})"
+    using part_list_eq[of xs]
+    by simp
+  from part obtain D x where D: "(D, x) \<in> set xs" "d \<in> D"
+    unfolding partition_on_def
+    by fastforce
+  with unique have "find (\<lambda>(D, _). d \<in> D) xs = Some (D, x)"
+    unfolding set_eq_iff
+    by (auto simp: find_Some_iff in_set_conv_nth split_beta)
+  with D show ?case
+    by (force simp: image_iff)
+qed
 
 lemma size_lookup_part_estimation[termination_simp]: "size (lookup_part part d) < Suc (size_part (\<lambda>_. 0) size part)"
   unfolding less_Suc_eq_le

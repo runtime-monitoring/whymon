@@ -38,8 +38,9 @@ module Whymon = struct
     let check_step last_ts_opt db =
       try
         (match Other_parser.Trace.parse_from_string db with
-         | None -> (None, false)
-         | Some (_, pb) ->
+         | Finished -> (None, true)
+         | Skipped _ -> (None, false)
+         | Processed pb ->
             if (Option.is_none last_ts_opt) || pb.ts >= (Option.value_exn last_ts_opt) then
               (Some(pb.ts), true)
             else (None, false))

@@ -124,12 +124,16 @@ end
 
 module Trace = struct
 
+  type cursor = Processed of Parsebuf.t
+              | Skipped   of Parsebuf.t * string
+              | Finished
+
   let parse_aux (pb: Parsebuf.t) =
     let rec parse_init () =
       match pb.token with
       | AT -> Parsebuf.next pb; parse_ts ()
-      | EOF -> None
-      | t -> raise (Failure ("expected '@' but found " ^ string_of_token t))
+      | EOF -> Finished
+      | t -> Skipped (pb, "expected '@' but found " ^ string_of_token t)
     and parse_ts () =
       match pb.token with
       | STR s -> let ts = try Some (Int.of_string s)
@@ -138,8 +142,8 @@ module Trace = struct
                   | Some ts -> Parsebuf.next pb;
                                pb.ts <- ts;
                                parse_db ()
-                  | None -> raise (Failure ("expected a time-stamp but found " ^ s)))
-      | t -> raise (Failure ("expected a time-stamp but found " ^ string_of_token t))
+                  | None -> Skipped (pb, "expected a time-stamp but found " ^ s))
+      | t -> Skipped (pb, "expected a time-stamp but found " ^ string_of_token t)
     and parse_db () =
       match pb.token with
       | STR s -> (match Hashtbl.find Pred.Sig.table s with
@@ -148,36 +152,36 @@ module Trace = struct
                                    (match pb.token with
                                     | LPA -> Parsebuf.next pb;
                                              parse_tuple ()
-                                    | t -> raise (Failure ("expected '(' but found " ^ string_of_token t))))
-                  | None -> raise (Failure ("predicate " ^ s ^ " was not specified")))
-      | AT -> Some (true, pb)
-      | EOF -> Some (false, pb)
-      | SEP -> Parsebuf.next pb; Some (true, pb)
-      | t -> raise (Failure ("expected a predicate or '@' but found " ^ string_of_token t))
+                                    | t -> Skipped (pb, "expected '(' but found " ^ string_of_token t)))
+                  | None -> Skipped (pb, "predicate " ^ s ^ " was not specified"))
+      | AT -> Processed pb
+      | EOF -> Processed pb
+      | SEP -> Parsebuf.next pb; Processed pb
+      | t -> Skipped (pb, "expected a predicate or '@' but found " ^ string_of_token t)
     and parse_tuple () =
       match pb.token with
       | RPA -> parse_tuple_cont (Queue.create ())
       | STR s -> Parsebuf.next pb;
                  parse_tuple_cont (Queue.of_list [s])
-      | t -> raise (Failure ("expected a tuple or ')' but found " ^ string_of_token t))
+      | t -> Skipped (pb, "expected a tuple or ')' but found " ^ string_of_token t)
     and parse_tuple_cont q =
       match pb.token with
       | RPA -> Parsebuf.next pb;
                (if Int.equal (Queue.length q) (Parsebuf.arity pb) then
                   let evt = Db.event (Parsebuf.pred pb) (Queue.to_list q) in
-                  Parsebuf.add_event evt pb
-                else raise (Failure (Printf.sprintf "expected a tuple of arity %d but found %d arguments"
-                                       (Parsebuf.arity pb) (Queue.length q))));
-               (match pb.token with
-                | LPA -> Parsebuf.next pb; parse_tuple ()
-                | _ -> parse_db ())
+                  Parsebuf.add_event evt pb;
+                  (match pb.token with
+                   | LPA -> Parsebuf.next pb; parse_tuple ()
+                   | _ -> parse_db ())
+                else Skipped (pb, Printf.sprintf "expected a tuple of arity %d but found %d arguments"
+                                    (Parsebuf.arity pb) (Queue.length q)))
       | COM -> Parsebuf.next pb;
                (match pb.token with
                 | STR s -> Parsebuf.next pb;
                            Queue.enqueue q s;
                            parse_tuple_cont q
-                | t -> raise (Failure ("expected a tuple but found " ^ string_of_token t)))
-      | t -> raise (Failure ("expected ',' or ')' but found " ^ string_of_token t)) in
+                | t -> Skipped (pb, "expected a tuple but found " ^ string_of_token t))
+      | t -> Skipped (pb, "expected ',' or ')' but found " ^ string_of_token t) in
     parse_init ()
 
   let parse_from_channel inc pb_opt =

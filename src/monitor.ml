@@ -1576,24 +1576,27 @@ let mstep mode vars ts db (ms: MState.t) =
 
 let exec mode measure f inc =
   let vars = Set.elements (Formula.fv f) in
+  let out tstp_expls (ms: MState.t) =
+    match mode with
+    | Out.Plain.UNVERIFIED -> Out.Plain.expls tstp_expls None None None mode
+    | Out.Plain.LATEX      -> Out.Plain.expls tstp_expls None None (Some(f)) mode
+    | Out.Plain.LIGHT      -> Out.Plain.expls tstp_expls None None None mode
+    | Out.Plain.VERIFIED ->
+       let c = Checker_interface.check (Queue.to_list ms.tsdbs) f (List.map tstp_expls ~f:snd) in
+       Out.Plain.expls tstp_expls (Some(c)) None None mode
+    | Out.Plain.DEBUG ->
+       let c = Checker_interface.check (Queue.to_list ms.tsdbs) f (List.map tstp_expls ~f:snd) in
+       let paths = Checker_interface.false_paths (Queue.to_list ms.tsdbs) f (List.map tstp_expls ~f:snd) in
+       Out.Plain.expls tstp_expls (Some(c)) (Some(paths)) None mode
+    | Out.Plain.DEBUGVIS -> raise (Failure "function exec is undefined for the mode debugvis") in
   let rec step pb_opt ms =
     match Other_parser.Trace.parse_from_channel inc pb_opt with
-    | None -> ()
-    | Some (more, pb) ->
-       (let (tstp_expls, ms') = mstep mode vars pb.ts pb.db ms in
-        (match mode with
-         | Out.Plain.UNVERIFIED -> Out.Plain.expls tstp_expls None None None mode
-         | Out.Plain.LATEX -> Out.Plain.expls tstp_expls None None (Some(f)) mode
-         | Out.Plain.LIGHT -> Out.Plain.expls tstp_expls None None None mode
-         | Out.Plain.DEBUGVIS -> raise (Failure "function exec is undefined for the mode debugvis")
-         | Out.Plain.VERIFIED ->
-            let c = Checker_interface.check (Queue.to_list ms'.tsdbs) f (List.map tstp_expls ~f:snd) in
-            Out.Plain.expls tstp_expls (Some(c)) None None mode
-         | Out.Plain.DEBUG ->
-            let c = Checker_interface.check (Queue.to_list ms'.tsdbs) f (List.map tstp_expls ~f:snd) in
-            let paths = Checker_interface.false_paths (Queue.to_list ms'.tsdbs) f (List.map tstp_expls ~f:snd) in
-            Out.Plain.expls tstp_expls (Some(c)) (Some(paths)) None mode);
-        if more then step (Some(pb)) ms') in
+    | Finished -> ()
+    | Skipped (pb, msg) -> Stdio.printf "The parser skipped an event because %s" msg;
+                           step (Some(pb)) ms
+    | Processed pb -> let (tstp_expls, ms) = mstep mode vars pb.ts pb.db ms in
+                      out tstp_expls ms;
+                      step (Some(pb)) ms in
   let mf = init f in
   let ms = MState.init mf in
   step None ms
@@ -1601,21 +1604,21 @@ let exec mode measure f inc =
 let exec_vis (obj_opt: MState.t option) f log =
   let vars = Set.elements (Formula.fv f) in
   let step (ms: MState.t) db =
-    try
-      (match Other_parser.Trace.parse_from_string db with
-       | None -> None
-       | Some (_, pb) ->
-          (let last_ts = Hashtbl.fold ms.tpts ~init:0 ~f:(fun ~key:_ ~data:ts l_ts -> if ts > l_ts then ts else l_ts) in
-           if pb.ts >= last_ts then
-             let (tstps_expls, ms') = mstep Out.Plain.UNVERIFIED vars pb.ts pb.db ms in
-             let tp_out' = List.fold tstps_expls ~init:ms'.tp_out
-                             ~f:(fun acc ((ts, tp), _) -> Hashtbl.add_exn ms.tpts ~key:(acc + 1) ~data:ts; acc + 1) in
-             let json_expls = Out.Json.expls ms.tpts f (List.map tstps_expls ~f:snd) in
-             let json_db = Out.Json.db pb.ts ms.tp_cur pb.db f in
-             Some (None, (json_expls, [json_db]), { ms' with tp_out = tp_out' })
-           else raise (Failure "trace is not monotonic")))
-    with Failure msg -> Some (Some(msg), ([], []), ms) in
-  let ms = match obj_opt with
+    (match Other_parser.Trace.parse_from_string db with
+     | Finished -> None
+     | Skipped (_, msg) -> Some (Some(msg), ([], []), ms)
+     | Processed pb ->
+        let last_ts = Hashtbl.fold ms.tpts ~init:0
+                        ~f:(fun ~key:_ ~data:ts l_ts -> if ts > l_ts then ts else l_ts) in
+        if pb.ts >= last_ts then
+          (let (tstps_expls, ms') = mstep Out.Plain.UNVERIFIED vars pb.ts pb.db ms in
+           let tp_out' = List.fold tstps_expls ~init:ms'.tp_out ~f:(fun acc ((ts, tp), _) ->
+                             Hashtbl.add_exn ms.tpts ~key:(acc + 1) ~data:ts; acc + 1) in
+           let json_expls = Out.Json.expls ms.tpts f (List.map tstps_expls ~f:snd) in
+           let json_db = Out.Json.db pb.ts ms.tp_cur pb.db f in
+           Some (None, (json_expls, [json_db]), { ms' with tp_out = tp_out' }))
+        else (Some (Some ("trace is not monotonic"), ([], []), ms))) in
+     let ms = match obj_opt with
     | None -> let mf = init f in
               MState.init mf
     | Some (ms') -> { ms' with tp_cur = ms'.tp_out + (Queue.length ms'.ts_waiting) + 1 } in

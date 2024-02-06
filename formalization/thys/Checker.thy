@@ -211,16 +211,14 @@ next
   proof (cases \<phi>)
     case (Since \<phi> I \<psi>)
     show ?thesis
-      using SSince
+      using SSince(3)
       unfolding Since
-      apply (intro SAT_VIO.SSince[of "s_at spsi"])
-         apply (auto simp: Let_def le_Suc_eq Cons_eq_append_conv Cons_eq_upt_conv
-          split: if_splits list.splits)
-      subgoal for k z zs
-        apply (cases "k \<le> s_at z")
-         apply (fastforce simp: le_Suc_eq elim!: map_setE[of _ _ _ k])+
-        done
-      done
+    proof (intro SAT_VIO.SSince[of "s_at spsi"], goal_cases le mem SAT\<psi> SAT\<phi>)
+      case (SAT\<phi> k)
+      then show ?case
+        by (cases "k \<le> s_at (hd sps)")
+          (auto 0 3 simp: Let_def elim: map_setE[of _ _ _ k] intro: SSince(2) dest!: sym[of "s_at _" "Suc (s_at _)"])
+    qed (auto simp: Let_def intro: SSince(1))
   qed auto
 next
   case (SOnce i sp)
@@ -230,9 +228,7 @@ next
     show ?thesis
       using SOnce
       unfolding Once
-      apply (intro SAT_VIO.SOnce[of "s_at sp"])
-        apply (auto simp: Let_def)
-      done
+      by (intro SAT_VIO.SOnce[of "s_at sp"]) (auto simp: Let_def)
   qed auto
 next
   case (SEventually i sp)
@@ -242,9 +238,7 @@ next
     show ?thesis
       using SEventually
       unfolding Eventually
-      apply (intro SAT_VIO.SEventually[of _ "s_at sp"])
-        apply (auto simp: Let_def)
-      done
+      by (intro SAT_VIO.SEventually[of _ "s_at sp"]) (auto simp: Let_def)
   qed auto
 next
   case SHistoricallyOut
@@ -261,17 +255,15 @@ next
         by (auto simp: Let_def)
       then have kset: "k \<in> set ([j ..< Suc (LTP_p \<sigma> i I)])" using j_def k_def by auto
       then obtain x where x: "x \<in> set sps"  "s_at x = k" using k_def map
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis list.set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "SAT \<sigma> v k \<phi>" using SHistorically unfolding Historically
         by (auto simp: Let_def)
     } note * = this
     show ?thesis
-      using SHistorically
+      using SHistorically *
       unfolding Historically
-      apply (auto simp: Let_def intro!: SAT_VIO.SHistorically)
-      using SHistorically.IH *  by (auto split: if_splits)
+      by (auto simp: Let_def intro!: SAT_VIO.SHistorically)
   qed (auto intro: SAT_VIO.intros)
 next
   case (SAlways i hi sps)
@@ -288,9 +280,8 @@ next
         by (auto simp: Let_def n_def)
       then have kset: "k \<in> set ([(ETP_f \<sigma> i I) ..< Suc j])" using k_def j_def by auto
       then obtain x where x: "x \<in> set sps" "s_at x = k" using k_def map
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "SAT \<sigma> v k \<phi>" using SAlways unfolding Always
         by (auto simp: Let_def n_def)
     } note * = this
@@ -305,16 +296,14 @@ next
   proof (cases \<phi>)
     case (Until \<phi> I \<psi>)
     show ?thesis
-      using SUntil
+      using SUntil(3)
       unfolding Until
-      apply (intro SAT_VIO.SUntil[of _ "s_at spsi"])
-         apply (auto simp: Let_def le_Suc_eq Cons_eq_append_conv Cons_eq_upt_conv
-          split: if_splits list.splits)
-      subgoal for k z zs
-        apply (cases "k \<le> s_at z")
-         apply (fastforce simp: le_Suc_eq elim!: map_setE[of _ _ _ k])+
-        done
-      done
+    proof (intro SAT_VIO.SUntil[of _ "s_at spsi"], goal_cases le mem SAT\<psi> SAT\<phi>)
+      case (SAT\<phi> k)
+      then show ?case
+        by (cases "k \<le> s_at (hd sps)")
+          (auto 0 3 simp: Let_def elim: map_setE[of _ _ _ k] intro: SUntil(1))
+    qed (auto simp: Let_def intro: SUntil(2))
   qed auto
 next
   case (SNext sp)
@@ -388,17 +377,15 @@ next
         by (auto simp: Let_def)
       then have kset: "k \<in> set ([j ..< Suc (LTP_p \<sigma> i I)])" using j_def k_def by auto
       then obtain x where x: "x \<in> set vps"  "v_at x = k" using k_def map
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis list.set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "VIO \<sigma> v k \<phi>" using VOnce unfolding Once
         by (auto simp: Let_def)
     } note * = this
     show ?thesis
-      using VOnce
+      using VOnce *
       unfolding Once
-      apply (auto simp: Let_def intro!: SAT_VIO.VOnce)
-      using VOnce.IH *  by (auto split: if_splits)
+      by (auto simp: Let_def intro!: SAT_VIO.VOnce)
   qed (auto intro: SAT_VIO.intros)
 next
   case (VEventually i hi vps)
@@ -415,9 +402,8 @@ next
         by (auto simp: Let_def n_def)
       then have kset: "k \<in> set ([(ETP_f \<sigma> i I) ..< Suc j])" using k_def j_def by auto
       then obtain x where x: "x \<in> set vps" "v_at x = k" using k_def map
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "VIO \<sigma> v k \<phi>" using VEventually unfolding Eventually
         by (auto simp: Let_def n_def)
     } note * = this
@@ -434,9 +420,7 @@ next
     show ?thesis
       using VHistorically
       unfolding Historically
-      apply (intro SAT_VIO.VHistorically[of "v_at vp"])
-        apply (auto simp: Let_def)
-      done
+      by (intro SAT_VIO.VHistorically[of "v_at vp"]) (auto simp: Let_def)
   qed auto
 next
   case (VAlways i vp)
@@ -446,9 +430,7 @@ next
     show ?thesis
       using VAlways
       unfolding Always
-      apply (intro SAT_VIO.VAlways[of _ "v_at vp"])
-        apply (auto simp: Let_def)
-      done
+      by (intro SAT_VIO.VAlways[of _ "v_at vp"]) (auto simp: Let_def)
   qed auto
 next
   case VNext
@@ -485,18 +467,16 @@ next
         by (auto simp: Let_def)
       then have kset: "k \<in> set ([(v_at vp) ..< Suc (LTP_p \<sigma> i I)])" using k_def by auto
       then obtain x where x: "x \<in> set vps" "v_at x = k" using k_def map kset
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis list.set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "VIO \<sigma> v k \<psi>" using VSince unfolding Since
         by (auto simp: Let_def)
     } note * = this
     show ?thesis
-      using VSince
+      using VSince *
       unfolding Since
-      apply (auto simp: Let_def split: enat.splits if_splits
+      by (auto simp: Let_def split: enat.splits if_splits
           intro!: SAT_VIO.VSince[of _ i "v_at vp"])
-      using VSince.IH * by (auto split: if_splits)
   qed (auto intro: SAT_VIO.intros)
 next
   case (VUntil i vps vp)
@@ -509,9 +489,8 @@ next
         by (auto simp: Let_def)
       then have kset: "k \<in> set ([(ETP_f \<sigma> i I) ..< Suc (v_at vp)])" using k_def by auto
       then obtain x where x: "x \<in> set vps" "v_at x = k" using k_def map kset
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis list.set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "VIO \<sigma> v k \<psi>" using VUntil unfolding Until
         by (auto simp: Let_def)
     } note * = this
@@ -533,17 +512,15 @@ next
         by (auto simp: Let_def)
       then have kset: "k \<in> set ([j ..< Suc (LTP_p \<sigma> i I)])" using j_def k_def by auto
       then obtain x where x: "x \<in> set vps"  "v_at x = k" using k_def map
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis list.set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "VIO \<sigma> v k \<psi>" using VSinceInf unfolding Since
         by (auto simp: Let_def)
     } note * = this
     show ?thesis
-      using VSinceInf
+      using VSinceInf *
       unfolding Since
-      apply (auto simp: Let_def intro!: SAT_VIO.VSinceInf)
-      using VSinceInf.IH *  by (auto split: if_splits)
+      by (auto simp: Let_def intro!: SAT_VIO.VSinceInf)
   qed (auto intro: SAT_VIO.intros)
 next
   case (VUntilInf i hi vps)
@@ -560,9 +537,8 @@ next
         by (auto simp: Let_def n_def)
       then have kset: "k \<in> set ([(ETP_f \<sigma> i I) ..< Suc j])" using k_def j_def by auto
       then obtain x where x: "x \<in> set vps" "v_at x = k" using k_def map
-        apply auto
-         apply (metis imageE insertI1)
-        by (metis list.set_map imageE kset map)
+        unfolding set_map set_eq_iff image_iff
+        by metis
       then have "VIO \<sigma> v k \<psi>" using VUntilInf unfolding Until
         by (auto simp: Let_def n_def)
     } note * = this
@@ -590,8 +566,7 @@ primrec positions :: "'a list \<Rightarrow> 'a \<Rightarrow> nat list"
 
 lemma eq_positions_iff: "length xs = length ys
   \<Longrightarrow> positions xs x = positions ys y \<longleftrightarrow> (\<forall>n< length xs. xs ! n = x \<longleftrightarrow> ys ! n = y)"
-  apply (induct xs ys arbitrary: x y rule: list_induct2)
-  using less_Suc_eq_0_disj by auto
+  by (induct xs ys arbitrary: x y rule: list_induct2) (use less_Suc_eq_0_disj in auto)
 
 lemma positions_eq_nil_iff: "positions xs x = [] \<longleftrightarrow> x \<notin> set xs"
   by (induct xs) simp_all
@@ -601,9 +576,8 @@ lemma positions_nth: "n \<in> set (positions xs x) \<Longrightarrow> xs ! n = x"
     (auto simp: positions_eq_nil_iff[symmetric] split: if_splits)
 
 lemma set_positions_eq: "set (positions xs x) = {n. xs ! n = x \<and> n < length xs}"
-  apply (induct xs arbitrary: x)
-  using less_Suc_eq_0_disj
-  by (auto simp: positions_eq_nil_iff[symmetric] image_iff split: if_splits)
+  by (induct xs arbitrary: x)
+    (use less_Suc_eq_0_disj in \<open>auto simp: positions_eq_nil_iff[symmetric] image_iff split: if_splits\<close>)
 
 lemma positions_length: "n \<in> set (positions xs x) \<Longrightarrow> n < length xs"
   by (induct xs arbitrary: n x)
@@ -622,8 +596,7 @@ lemma hd_positions_eq_fst_pos: "x \<in> set xs \<Longrightarrow> hd (positions x
     (auto simp: hd_map fst_pos_None_iff positions_eq_nil_iff split: option.splits)
 
 lemma sorted_positions: "sorted (positions xs x)"
-  apply (induct xs arbitrary: x)
-  by simp_all (simp_all add: sorted_iff_nth_Suc)
+  by (induct xs arbitrary: x) (auto simp add: sorted_iff_nth_Suc nth_Cons' gr0_conv_Suc)
 
 lemma Min_sorted_list: "sorted xs \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> Min (set xs) = hd xs"
   by (induct xs)
@@ -665,8 +638,8 @@ lemma compatible_vals_antimono:
 
 lemma compatible_extensible: 
   "(\<forall>x. vs x \<noteq> {}) \<Longrightarrow> compatible X vs v \<Longrightarrow> X \<subseteq> Y \<Longrightarrow> \<exists>v'. compatible Y vs v' \<and> (\<forall>x\<in>X. v x = v' x)" 
-  apply (rule_tac x="override_on v (\<lambda>x. SOME y. y \<in> vs x) (Y-X)" in exI)
-  using some_in_eq[of "vs _"] by (auto simp: override_on_def compatible_def)
+  using some_in_eq[of "vs _"] by (auto simp: override_on_def compatible_def
+    intro: exI[where x="override_on v (\<lambda>x. SOME y. y \<in> vs x) (Y-X)"])
 
 lemmas compatible_vals_extensible = compatible_extensible[unfolded compatible_alt]
 
@@ -695,26 +668,36 @@ lemma mk_values_nth_cong: "Formula.Var x \<in> set (map fst tXs)
   \<Longrightarrow> m \<in> set (positions (map fst tXs) (Formula.Var x))
   \<Longrightarrow> vs \<in> mk_values tXs
   \<Longrightarrow> vs ! n = vs ! m"
-  apply (induct tXs arbitrary: n m vs x)
-   apply simp
-  subgoal for tX tXs n m v x
-    apply (cases "fst tX = Formula.Var x"; cases "Formula.Var x \<in> set (map fst tXs)")
-    subgoal
-      apply (simp add: image_iff split: prod.splits)
-      apply (elim disjE; simp?)
-        apply (metis hd_in_set length_greater_0_conv length_pos_if_in_set nth_Cons_0 nth_Cons_Suc)
-       apply (metis hd_in_set length_greater_0_conv length_pos_if_in_set nth_Cons_0 nth_Cons_Suc)
-      apply (metis nth_Cons_Suc)
-      done
-    subgoal
-      by (simp add: image_iff split: prod.splits)
-        (smt (verit, ccfv_threshold) empty_iff empty_set in_set_conv_nth length_map nth_map positions_eq_nil_iff)
-    subgoal
-      apply (clarsimp simp: image_iff set_Cons_def split: Formula.trm.splits)
-      by (split if_splits; simp add: image_iff set_Cons_def)
-        (metis fst_conv nth_Cons_Suc)+
-    by clarsimp
-  done
+proof (induct tXs arbitrary: n m vs x)
+  case (Cons tX tXs)
+  show ?case
+  proof (cases n)
+    case 0
+    then show ?thesis
+    proof (cases m)
+      case (Suc m')
+      with 0 show ?thesis
+        using Cons(2-) Cons.hyps(1)[of x m' _ "tl vs"] positions_eq_nil_iff[of "map fst tXs" "trm.Var x"]
+        by (fastforce split: if_splits simp: in_set_conv_nth
+          Let_def nth_Cons' gr0_conv_Suc neq_Nil_conv)
+    qed simp
+  next
+    case n: (Suc n')
+    then show ?thesis
+    proof (cases m)
+      case 0
+      with n show ?thesis
+        using Cons(2-) Cons.hyps(1)[of x _ n' "tl vs"] positions_eq_nil_iff[of "map fst tXs" "trm.Var x"]
+        by (fastforce split: if_splits simp: in_set_conv_nth
+          Let_def nth_Cons' gr0_conv_Suc neq_Nil_conv)
+    next
+      case (Suc m')
+      with n show ?thesis
+        using Cons(1)[of x n' m' "tl vs"] Cons(2-)
+        by (fastforce simp: set_Cons_def set_positions_eq split: trm.splits if_splits)
+    qed
+  qed
+qed simp
 
 unbundle MFOTL_notation \<comment> \<open> enable notation \<close>
 
@@ -778,9 +761,10 @@ lemma infinite_mk_values1: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Long
 proof (induct tXs arbitrary: tY)
   case (Cons tX tXs)
   show ?case
-  proof (auto simp add: Let_def image_iff split: prod.splits trm.splits,
-      goal_cases var_in var_out const)
-    case (var_in X x Y)
+    unfolding Let_def image_iff mk_values.simps split_beta
+      trm.split[of infinite] if_split[of infinite]
+  proof (safe, goal_cases var_in var_out const)
+    case (var_in x)
     hence "\<forall>tX\<in>set tXs. snd tX \<noteq> {}"
       by (simp add: Cons.prems(1))
     moreover have "\<forall>Z. (trm.Var x, Z) \<in> set tXs \<longrightarrow> infinite Z"
@@ -789,7 +773,7 @@ proof (induct tXs arbitrary: tY)
         (metis (no_types, lifting) Cons.hyps Cons.prems(1)
             finite_imageD inj_on_def list.inject list.set_intros(2))
     ultimately have "infinite (mk_values tXs)"
-      using Cons.hyps[OF _ \<open>(trm.Var x, Y) \<in> set tXs\<close>]
+      using Cons.hyps var_in
       by auto
     moreover have "inj (\<lambda>xs. xs ! hd (positions (map fst tXs) (trm.Var x)) # xs)"
       by (clarsimp simp: inj_on_def)
@@ -797,28 +781,26 @@ proof (induct tXs arbitrary: tY)
       using var_in(3) finite_imageD inj_on_subset 
       by fastforce
   next
-    case (var_out Y x)
-    hence "infinite Y"
-      using Cons.prems
-      by (metis Cons.hyps fst_conv infinite_set_ConsI(2) 
-          insert_iff list.simps(15) snd_conv)
+    case (var_out x)
+    hence "infinite (snd tX)"
+      using Cons
+      by (metis infinite_set_ConsI(2) insert_iff list.simps(15) prod.collapse)
     moreover have "mk_values tXs \<noteq> {}"
       using Cons.prems 
       by (auto intro!: mk_values_nemptyI)
     then show ?case
-      using Cons var_out infinite_set_ConsI(1)[OF \<open>mk_values tXs \<noteq> {}\<close> \<open>infinite Y\<close>]
+      using Cons var_out infinite_set_ConsI(1)[OF \<open>mk_values tXs \<noteq> {}\<close> \<open>infinite (snd tX)\<close>]
       by auto
   next
-    case (const Y c)
-    hence "infinite Y"
-      using Cons.prems
-      by (metis Cons.hyps fst_conv infinite_set_ConsI(2) 
-          insert_iff list.simps(15) snd_conv)
+    case (const c)
+    hence "infinite (snd tX)"
+      using Cons
+      by (metis infinite_set_ConsI(2) insert_iff list.simps(15) prod.collapse)
     moreover have "mk_values tXs \<noteq> {}"
       using Cons.prems 
       by (auto intro!: mk_values_nemptyI)
     then show ?case
-      using Cons const infinite_set_ConsI(1)[OF \<open>mk_values tXs \<noteq> {}\<close> \<open>infinite Y\<close>]
+      using Cons const infinite_set_ConsI(1)[OF \<open>mk_values tXs \<noteq> {}\<close> \<open>infinite (snd tX)\<close>]
       by auto
   qed
 qed simp
@@ -835,21 +817,23 @@ lemma Max_eqI: "finite A \<Longrightarrow> A \<noteq> {} \<Longrightarrow> (\<An
   by (rule antisym[OF Max.boundedI Max_ge_iff[THEN iffD2]]; clarsimp)
 
 lemma Max_Suc: "X \<noteq> {} \<Longrightarrow> finite X \<Longrightarrow> Max (Suc ` X) = Suc (Max X)"
-  apply (rule Max_eqI; clarsimp)
-  using Max_ge Max_in by blast
+  using Max_ge Max_in
+  by (intro Max_eqI) blast+
 
 lemma Max_insert0: "X \<noteq> {} \<Longrightarrow> finite X \<Longrightarrow> Max (insert (0::nat) X) = Max X"
-  apply (rule Max_eqI; clarsimp)
-  using Max_ge Max_in by blast+
+  using Max_ge Max_in
+  by (intro Max_eqI) blast+
 
 lemma positions_Cons_notin_tail: "x \<notin> set xs \<Longrightarrow> positions (x # xs) x = [0::nat]"
   by (cases xs) (auto simp: positions_eq_nil_iff)
 
-lemma Max_set_positions_Cons: 
-  "x \<notin> set xs \<Longrightarrow> Max (set (positions (x # xs) x)) = 0"
+lemma Max_set_positions_Cons_hd: 
+  "x \<notin> set xs \<Longrightarrow> Max (set (positions (x # xs) x)) = 0" 
+  by (subst positions_Cons_notin_tail) simp_all
+
+lemma Max_set_positions_Cons_tl:
   "y \<in> set xs \<Longrightarrow> Max (set (positions (x # xs) y)) = Suc (Max (set (positions xs y)))"
-  apply (subst positions_Cons_notin_tail)
-  by simp_all (subst Max_Suc; clarsimp simp: positions_eq_nil_iff)+
+  by (auto simp: Max_Suc positions_eq_nil_iff)
 
 lemma infinite_mk_values2: "\<forall>tX\<in>set tXs. snd tX \<noteq> {} 
   \<Longrightarrow> tY \<in> set tXs \<Longrightarrow> infinite (snd tY) 
@@ -862,14 +846,13 @@ proof (induct tXs arbitrary: tY)
   note IH = Cons.hyps[OF obs1 _ \<open>infinite (snd tY)\<close>]
   have obs2: "tY \<in> set tXs 
     \<Longrightarrow> Max (set (positions (map fst tXs) (fst tY))) \<le> Max (set (positions tXs tY))"
-    using Cons.prems(4)
-    apply (simp only: list.map(2))
-    by (subst (asm) Max_set_positions_Cons, simp)+
-      linarith
+    using Cons.prems(4) unfolding list.map
+    by (metis Max_set_positions_Cons_tl Suc_le_mono positions_eq_nil_iff set_empty2 subset_empty subset_positions_map_fst)
   show ?case
-  proof (auto simp add: Let_def image_iff split: prod.splits trm.splits,
-      goal_cases var_in var_out const)
-    case (var_in X x Y)
+    unfolding Let_def image_iff mk_values.simps split_beta
+      trm.split[of infinite] if_split[of infinite]
+  proof (safe, goal_cases var_in var_out const)
+    case (var_in x)
     then show ?case
     proof (cases "tY \<in> set tXs")
       case True
@@ -883,48 +866,48 @@ proof (induct tXs arbitrary: tY)
       = Suc (Max (set (positions (map fst tXs) (fst tY))))"
         using Cons.prems var_in
         by (simp only: list.map(2))
-          (subst Max_set_positions_Cons; force simp: image_iff)
+          (subst Max_set_positions_Cons_tl; force simp: image_iff)
       moreover have "tY \<notin> set tXs \<Longrightarrow> Max (set (positions (tX # tXs) tY)) = (0::nat)"
-        using Cons.prems Max_set_positions_Cons(1) by fastforce
+        using Cons.prems Max_set_positions_Cons_hd by fastforce
       ultimately show "False"
         using Cons.prems(4) False
         by linarith 
     qed
   next
-    case (var_out X x)
+    case (var_out x)
     then show ?case
     proof (cases "tY \<in> set tXs")
       case True
       hence "infinite (mk_values tXs)"
         using IH obs2 by blast
-      hence "infinite (set_Cons X (mk_values tXs))"
-        by (metis Cons.prems(1) infinite_set_ConsI(2) list.set_intros(1) snd_conv var_out(2))
+      hence "infinite (set_Cons (snd tX) (mk_values tXs))"
+        by (metis Cons.prems(1) infinite_set_ConsI(2) list.set_intros(1))
       then show "False"
         using var_out by blast
     next
       case False
-      hence "snd tY = X" and "infinite X"
+      hence "snd tY = snd tX" and "infinite (snd tX)"
         using var_out Cons.prems
         by auto
-      hence "infinite (set_Cons X (mk_values tXs))"
+      hence "infinite (set_Cons (snd tX) (mk_values tXs))"
         by (simp add: infinite_set_ConsI(1) mk_values_nemptyI obs1)
       then show "False"
         using var_out by blast
     qed
   next
-    case (const Y c)
+    case (const c)
     then show ?case
     proof (cases "tY \<in> set tXs")
       case True
       hence "infinite (mk_values tXs)"
         using IH obs2 by blast
-      hence "infinite (set_Cons Y (mk_values tXs))"
-        by (metis Cons.prems(1) const(1) infinite_set_ConsI(2) list.set_intros(1) snd_conv)
+      hence "infinite (set_Cons (snd tX) (mk_values tXs))"
+        by (metis Cons.prems(1) infinite_set_ConsI(2) list.set_intros(1))
       then show "False"
         using const by blast
     next
       case False
-      hence "infinite (set_Cons Y (mk_values tXs))"
+      hence "infinite (set_Cons (snd tX) (mk_values tXs))"
         using const Cons.prems
         by (simp add: infinite_set_ConsI(1) mk_values_nemptyI obs1)
       then show "False"
@@ -933,11 +916,13 @@ proof (induct tXs arbitrary: tY)
   qed
 qed simp
 
-lemma mk_values_subset_iff: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} 
-  \<Longrightarrow> mk_values_subset p tXs X \<longleftrightarrow> {p} \<times> mk_values tXs \<subseteq> X"
-proof (clarsimp simp: mk_values_subset_def image_iff Let_def comp_def, safe)
-  assume "\<forall>tX\<in>set tXs. snd tX \<noteq> {}" and "finite X" 
-    and filter1: "filter (\<lambda>x. infinite (snd x) \<and> (\<exists>b. (fst x, b) \<in> set tXs \<and> finite b)) tXs = []" 
+lemma mk_values_subset_iff: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Longrightarrow>
+   mk_values_subset p tXs X \<longleftrightarrow> {p} \<times> mk_values tXs \<subseteq> X"
+  unfolding mk_values_subset_def image_iff Let_def comp_def split_beta if_split_eq1
+    partition_filter1 partition_filter2 o_apply set_map set_filter filter_filter bex_simps
+proof safe
+  assume "\<forall>tX\<in>set tXs. snd tX \<noteq> {}" and "finite X"
+    and filter1: "filter (\<lambda>xy. infinite (snd xy) \<and> (\<exists>ab. (ab \<in> set tXs \<and> finite (snd ab)) \<and> fst xy = fst ab)) tXs = []" 
     and filter2: "filter (\<lambda>x. infinite (snd x)) tXs \<noteq> []"
   then obtain tY where "tY \<in> set tXs" and "infinite (snd tY)"
     by auto (metis (mono_tags, lifting) filter_False prod.collapse)
@@ -957,7 +942,7 @@ next
     and "finite X" 
     and ex_dupl_inf: "\<not> list_all (\<lambda>tX. Max (set (positions tXs tX)) 
     < Max (set (positions (map fst tXs) (fst tX))))
-        (filter (\<lambda>x. infinite (snd x) \<and> (\<exists>b. (fst x, b) \<in> set tXs \<and> finite b)) tXs)" 
+        (filter (\<lambda>xy. infinite (snd xy) \<and> (\<exists>ab. (ab \<in> set tXs \<and> finite (snd ab)) \<and> fst xy = fst ab)) tXs)" 
     and filter: "filter (\<lambda>x. infinite (snd x)) tXs \<noteq> []"
   then obtain tY and Z where "tY \<in> set tXs" 
     and "infinite (snd tY)"
@@ -973,7 +958,7 @@ next
   thus "{p} \<times> mk_values tXs \<subseteq> X \<Longrightarrow> False"
     using \<open>finite X\<close>
     by (simp add: finite_subset)
-qed
+qed auto
 
 unbundle MFOTL_notation \<comment> \<open> enable notation \<close>
 
@@ -1026,10 +1011,11 @@ proof (induct ts arbitrary: cs vs)
     next
       case False
       hence "\<^bold>v x \<notin> set (map fst ?Ts)"
-        using Var
-        apply (induct ts arbitrary: x)
-        by (auto simp: Formula.eval_trms_set_def image_iff)
-          (metis eq_fst_iff eval_trm_set.simps(1) eval_trm_set.simps(2) trm.exhaust)
+      proof (induct ts arbitrary: x)
+        case (Cons a ts)
+        then show ?case
+          by (cases a) (auto simp: Formula.eval_trms_set_def)
+      qed (simp add: Formula.eval_trms_set_def)
       then show ?thesis 
         using Cons(2) Var False
         apply (clarsimp simp: Formula.eval_trms_set_def set_Cons_def 
@@ -1037,10 +1023,11 @@ proof (induct ts arbitrary: cs vs)
         subgoal for a as
           using Cons(1)[of as vs] 
           apply (clarsimp simp: Formula.eval_trms_set_def Formula.eval_trms_def compatible_vals_def)
-          apply (rule_tac x="v(x := a)" in exI, clarsimp)
-          apply (rule eval_trm_fv_cong, clarsimp)
-          subgoal for v t'
-            by (auto intro: trm.exhaust[where y=t'])
+          subgoal for v apply (rule exI[of _ "v(x := a)"], clarsimp)
+            apply (rule eval_trm_fv_cong, clarsimp)
+            subgoal for t'
+              by (auto intro: trm.exhaust[where y=t'])
+            done
           done
         done
     qed
@@ -1136,64 +1123,65 @@ lemma check_values_neq_NoneI:
   assumes "v \<in> compatible_vals (\<Union> (Formula.fv_trm ` set ts) - dom f) vs" "\<And>x y. f x = Some y \<Longrightarrow> y \<in> vs x"
   shows "check_values vs ts (Formula.eval_trms (\<lambda>x. case f x of None \<Rightarrow> v x | Some y \<Rightarrow> y) ts) (Some f) \<noteq> None"
   using assms
-  apply (induct ts arbitrary: f)
-   apply (auto simp: Formula.eval_trms_def)
-  apply (case_tac a)
-   apply (auto)
-  subgoal for ts f x
-    apply (drule meta_spec[where x="f"])
-    apply (auto simp: domI split: option.splits)
-    done
-  subgoal for ts f x
-    apply (drule meta_spec[where x="f(x \<mapsto> v x)"])
-    apply (drule meta_mp)
-     apply (auto elim!: compatible_vals_antimono[THEN set_mp, rotated])
-    apply (smt (verit, best) eval_trm_fv_cong map_eq_conv option.simps(4) option.simps(5))
-    done
-  subgoal for ts f x
-    apply (auto simp: compatible_vals_def split: option.splits)
-    done
-  done
+proof (induct ts arbitrary: f)
+  case (Cons t ts)
+  then show ?case
+  proof (cases t)
+    case (Var x)
+    show ?thesis
+    proof (cases "f x")
+      case None
+      with Cons(2) Var have v_in[simp]: "v x \<in> vs x"
+        by (auto simp: compatible_vals_def)
+      from Cons(2) have "v \<in> compatible_vals (\<Union> (Formula.fv_trm ` set ts) - dom (f(x \<mapsto> v x))) vs"
+        by (auto simp: compatible_vals_def)
+      then have "check_values vs ts
+        (Formula.eval_trms (\<lambda>z. case (f(x \<mapsto> v x)) z of None \<Rightarrow> v z | Some y \<Rightarrow> y) ts)
+        (Some (f(x \<mapsto> v x))) \<noteq> None"
+        using Cons(3) None Var
+        by (intro Cons(1)) (auto simp: compatible_vals_def split: if_splits)
+      then show ?thesis
+        by (elim eq_neq_eq_imp_neq[OF _ _ refl, rotated])
+          (auto simp add: Formula.eval_trms_def compatible_vals_def Var None split: if_splits option.splits
+          intro!: arg_cong2[of _ _ _ _ "check_values vs ts"] eval_trm_fv_cong)
+    next
+      case (Some y)
+      with Cons(1)[of f] Cons(2-) Var fun_upd_triv[of f x] show ?thesis
+        by (auto simp: domI Formula.eval_trms_def compatible_vals_def split: option.splits)
+    qed
+  next
+    case (Const c)
+    with Cons show ?thesis
+      by (auto simp: Formula.eval_trms_def compatible_vals_def split: option.splits)
+  qed
+qed (simp add: Formula.eval_trms_def)
 
 lemma check_values_eq_NoneI:
   "\<forall>v\<in>compatible_vals (\<Union> (Formula.fv_trm ` set ts) - dom f) vs. us \<noteq> Formula.eval_trms (\<lambda>x. case f x of None \<Rightarrow> v x | Some y \<Rightarrow> y) ts \<Longrightarrow>
   check_values vs ts us (Some f) = None"
-  apply (induct vs ts us "Some f" arbitrary: f rule: check_values.induct)
-       apply (auto simp: compatible_vals_def Formula.eval_trms_def)
-   apply (erule meta_mp)
-  apply safe
-  subgoal for vs x ts u us v v'
-    apply (drule spec[of _ "v'"])
-    apply (auto split: if_splits)
-    apply (erule notE)
-    apply (rule eval_trm_fv_cong)
-    apply (auto split: if_splits option.splits)
-    done
-    apply (erule meta_mp)
-  apply safe
-  subgoal for vs x ts u us v v'
-    apply (drule spec[of _ "v'(x := u)"])
-    apply (auto split: if_splits)
-    apply (erule notE)
-    apply (rule eval_trm_fv_cong)
-    apply (auto split: if_splits option.splits)
-    done
-  done
+proof (induct vs ts us "Some f" arbitrary: f rule: check_values.induct)
+  case (3 vs x ts u us v)
+  show ?case
+    unfolding check_values.simps if_split_eq1 simp_thms
+  proof (intro impI 3(1), safe, goal_cases)
+    case (1 v')
+    with 3(2) show ?case
+      by (auto simp: insert_dom domI Formula.eval_trms_def intro!: eval_trm_fv_cong split: if_splits dest!: bspec[of _ _ "v'"])
+  next
+    case (2 v')
+    with 3(2) show ?case
+      by (auto simp: insert_dom domI compatible_vals_def Formula.eval_trms_def intro!: eval_trm_fv_cong split: if_splits option.splits dest!: spec[of _ "v'(x := u)"])
+  qed
+qed (auto simp: compatible_vals_def Formula.eval_trms_def)
 
 lemma mk_values_subset_Compl_code[code]:
   "mk_values_subset_Compl r vs ts i = (\<forall>(q, us) \<in> \<Gamma> \<sigma> i. q \<noteq> r \<or> check_values vs ts us (Some Map.empty) = None)"
   unfolding mk_values_subset_Compl_def Formula.eval_trms_set_def[symmetric] mk_values_alt
-  apply (auto simp: subset_eq)
-  subgoal for us
-    apply (drule spec[of _ us])
-    apply (auto simp: check_values_eq_NoneI[where f=Map.empty, simplified])
-    done
-  subgoal for v
-    apply (drule bspec)
-     apply assumption
-    apply (auto dest: check_values_neq_NoneI[where f=Map.empty, simplified])
-    done
-  done
+proof (safe, goal_cases)
+  case (1 _ us y)
+  then show ?case
+    by (auto simp: subset_eq check_values_eq_NoneI[where f=Map.empty, simplified] dest!: spec[of _ us])
+qed (auto simp: subset_eq  dest!: check_values_neq_NoneI[where f=Map.empty, simplified])
 
 fun s_check_exec :: "'d Formula.envset \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
   and v_check_exec :: "'d Formula.envset \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
@@ -1338,24 +1326,23 @@ lemma val_in_AD_iff:
    apply (erule disj_mono[rule_format, rotated -1])
     apply assumption
    apply clarsimp
-   apply (rename_tac k' r' ds')
-   apply (rule_tac x=r' in exI)
-   apply (rule_tac x="map (\<lambda>d. if v x = d then (Formula.Var x::'d Formula.trm) else Formula.Const d) ds'" in exI)
-   apply (rule_tac x=k' in exI)
-  unfolding Formula.eval_trms_def apply clarsimp
-  subgoal for k' p' ds'
+  subgoal for k' r' ds'
+    apply (rule exI[of _ r'])
+    apply (rule exI[of _ "map (\<lambda>d. if v x = d then (Formula.Var x::'d Formula.trm) else Formula.Const d) ds'"])
+    apply (rule exI[of _ k'])
+    unfolding Formula.eval_trms_def apply clarsimp
     apply (subgoal_tac "map (Formula.eval_trm v \<circ> (\<lambda>d. if v x = d then Formula.Var x else Formula.Const d)) ds' = ds'")
      apply clarsimp
     apply (simp add: map_idI)
     done
-   apply (erule disj_mono[rule_format, rotated -1])
-    apply assumption
-   apply clarsimp
+  apply (erule disj_mono[rule_format, rotated -1])
+   apply assumption
+  apply clarsimp
   subgoal for p' ts' k' t'
     apply (cases t'; clarsimp)
-    apply (rule_tac x=k' in bexI)
-    apply (rule bexI[of _ "(p', Formula.eval_trms v ts')"])
-    apply (simp_all add: Formula.eval_trms_def)
+    apply (rule bexI[of _ k'])
+     apply (rule bexI[of _ "(p', Formula.eval_trms v ts')"])
+      apply (simp_all add: Formula.eval_trms_def)
     using image_iff apply fastforce
     done
   done
@@ -1675,8 +1662,11 @@ next
     case 1
     have obs: "\<forall>tX\<in>set (Formula.eval_trms_set vs ts). snd tX \<noteq> {}"
       using \<open>\<forall>x. vs x \<noteq> {}\<close>
-      by (induct ts; clarsimp simp: Formula.eval_trms_set_def)
-        (rule_tac y=a in Formula.trm.exhaust; clarsimp)
+    proof (induct ts)
+      case (Cons a ts)
+      then show ?case
+        by (cases a) (auto simp: Formula.eval_trms_set_def)
+    qed (auto simp: Formula.eval_trms_set_def)
     show ?case
       using 1 compatible_vals_nonemptyI[OF 1]
       apply (cases sp; clarsimp simp: mk_values_subset_iff[OF obs] subset_eq  simp del: fv.simps)
@@ -2157,34 +2147,47 @@ lemma AD_simps[simp]:
 
 lemma LTP_p_mono: "i \<le> j \<Longrightarrow> LTP_p_safe \<sigma> i I \<le> LTP_p_safe \<sigma> j I"
   unfolding LTP_p_safe_def
-  apply (auto simp: i_LTP_tau min_def le_diff_conv split: if_splits)
-      apply (metis \<tau>_mono diff_diff_cancel diff_is_0_eq' nat_le_linear)
-     apply (metis \<tau>_mono diff_diff_cancel diff_is_0_eq' nat_le_linear)
-    apply (metis \<tau>_mono diff_diff_cancel diff_is_0_eq' nat_le_linear)
-   apply (meson \<tau>_mono diff_le_mono order.trans i_LTP_tau order_refl)
-  apply (meson \<tau>_mono diff_le_mono order.trans i_LTP_tau order_refl)
-  done
+  by (smt (verit, ccfv_threshold) \<tau>_mono bot_nat_0.extremum diff_le_mono order.trans i_LTP_tau le_cases3 min.bounded_iff)
 
-lemma LTP_f_mono: "i \<le> j \<Longrightarrow> LTP_f \<sigma> i b \<le> LTP_f \<sigma> j b"
-  apply (auto simp: LTP_def finite_nat_set_iff_bounded_le intro!: Max_mono elim: order_trans dest!: spec[of _ i])
-  by (metis i_le_LTPi_add le_iff_add)
+lemma LTP_f_mono:
+  assumes "i \<le> j"
+  shows"LTP_f \<sigma> i b \<le> LTP_f \<sigma> j b"
+  unfolding LTP_def
+proof (rule Max_mono)
+  show "finite {i. \<tau> \<sigma> i \<le> \<tau> \<sigma> j + b}"
+    unfolding finite_nat_set_iff_bounded_le
+    by (metis i_le_LTPi_add le_Suc_ex mem_Collect_eq)
+qed (auto simp: assms intro!: exI[of _ i] elim: order_trans)
 
 lemma LRTP_mono: "Formula.future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> the (LRTP \<sigma> \<phi> i) \<le> the (LRTP \<sigma> \<phi> j)"
-  apply (induct \<phi> arbitrary: i j)
-                   apply (auto simp: max_opt_def not_none_fb_LRTP le_max_iff_disj LTP_f_mono diff_le_mono dest: LTP_p_mono LTP_f_mono split: option.splits)
-             apply force
-            apply force
-           apply force
-          apply force
-         apply force
-        apply force
-       apply force
-      apply force
-     apply force
-    apply (metis LTP_p_mono option.sel)
-   apply (metis Checker.LTP_f_mono diff_le_mono option.sel)
-  apply (metis Checker.LTP_f_mono option.sel)
-  done
+proof (induct \<phi> arbitrary: i j)
+  case (Or \<phi>1 \<phi>2)
+  from Or(1,2)[of i j] Or(3-) show ?case
+    by (auto simp: max_opt_def not_none_fb_LRTP split: option.splits)
+next
+  case (And \<phi>1 \<phi>2)
+  from And(1,2)[of i j] And(3-) show ?case
+    by (auto simp: max_opt_def not_none_fb_LRTP split: option.splits)
+next
+  case (Imp \<phi>1 \<phi>2)
+  from Imp(1,2)[of i j] Imp(3-) show ?case
+    by (auto simp: max_opt_def not_none_fb_LRTP split: option.splits)
+next
+  case (Iff \<phi>1 \<phi>2)
+  from Iff(1,2)[of i j] Iff(3-) show ?case
+    by (auto simp: max_opt_def not_none_fb_LRTP split: option.splits)
+next
+  case (Since \<phi>1 I \<phi>2)
+  from Since(1)[OF _ Since(4)] Since(2)[of "LTP_p_safe \<sigma> i I" "LTP_p_safe \<sigma> j I"] Since(3-)
+  show ?case
+    by (auto simp: max_opt_def not_none_fb_LRTP LTP_p_mono split: option.splits)
+next
+  case (Until \<phi>1 I \<phi>2)
+  from Until(1)[of "LTP_f \<sigma> i (the_enat (right I)) - 1" "LTP_f \<sigma> j (the_enat (right I)) - 1"]
+       Until(2)[of "LTP_f \<sigma> i (the_enat (right I))" "LTP_f \<sigma> j (the_enat (right I))"] Until(3-)
+  show ?case
+    by (auto simp: max_opt_def not_none_fb_LRTP LTP_f_mono diff_le_mono split: option.splits)
+qed (auto simp: LTP_p_mono LTP_f_mono)
 
 lemma AD_mono: "Formula.future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> AD \<phi> i \<subseteq> AD \<phi> j"
   by (auto 0 3 simp: AD_def Bex_def intro: LRTP_mono elim!: order_trans)
@@ -2208,10 +2211,8 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
     proof (cases f)
       case (Pred q us)
       with SPred hyps show ?thesis
-        apply (auto simp: val_notin_AD_iff)
-         apply (subst Formula.eval_trms_fv_cong; force)
-        apply (subst Formula.eval_trms_fv_cong; force)
-        done
+        using eval_trms_fv_cong[of ts v v']
+        by (force simp: val_notin_AD_iff dest!: spec[of _ i] spec[of _ r] spec[of _ ts])
     qed auto
   next
     case (SEq_Const j r ts)
@@ -2450,10 +2451,8 @@ next
     proof (cases f)
       case (Pred q us)
       with VPred hyps show ?thesis
-        apply (auto simp: val_notin_AD_iff)
-         apply (subst (asm) (3) Formula.eval_trms_fv_cong; force)
-        apply (subst (asm) (3) Formula.eval_trms_fv_cong; force)
-        done
+        using eval_trms_fv_cong[of ts v v']
+        by (force simp: val_notin_AD_iff dest!: spec[of _ i] spec[of _ r] spec[of _ ts])
     qed auto
   next
     case (VEq_Const j r ts)
@@ -3164,15 +3163,9 @@ next
     then have fb: "Formula.future_bounded \<phi>"
       by simp
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. v_at (mypick k) = k \<and> v_check v \<phi> (mypick k)"
-      using VOnce fb
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply simp
-      done
+      using VOnce fb by metis
     then obtain vps where vps_def: "map (v_at) vps = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>vp \<in> set vps. v_check v \<phi> vp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
     then have "v_at (VOnce i j vps) = i \<and> v_check v (Formula.Once I \<phi>) (VOnce i j vps)"
       using VOnce by auto
     then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Once I \<phi>) vp"
@@ -3198,15 +3191,10 @@ next
       using fb_eventually by (atomize_elim, cases "right I") auto
     define j where j_def: "j = LTP \<sigma> (\<tau> \<sigma> i + b)"
     obtain mypick where mypick_def: "\<forall>k \<in> {ETP_f \<sigma> i I .. j}. v_at (mypick k) = k \<and> v_check v \<phi> (mypick k)"
-      using VEventually fb_eventually
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply (simp add: b_def j_def)
-      done
+      using VEventually fb_eventually unfolding b_def j_def enat.simps
+      by atomize_elim (rule bchoice, simp)
     then obtain vps where vps_def: "map (v_at) vps = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>vp \<in> set vps. v_check v \<phi> vp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
     then have "v_at (VEventually i j vps) = i \<and> v_check v (Formula.Eventually I \<phi>) (VEventually i j vps)"
       using VEventually b_def j_def by simp
     then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Eventually I \<phi>) vp"
@@ -3220,15 +3208,9 @@ next
     then have fb: "Formula.future_bounded \<phi>"
       by simp
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. s_at (mypick k) = k \<and> s_check v \<phi> (mypick k)"
-      using SHistorically fb
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply simp
-      done
+      using SHistorically fb by metis
     then obtain sps where sps_def: "map (s_at) sps = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>sp \<in> set sps. s_check v \<phi> sp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
     then have "s_at (SHistorically i j sps) = i \<and> s_check v (Formula.Historically I \<phi>) (SHistorically i j sps)"
       using SHistorically by auto
     then show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Historically I \<phi>) sp"
@@ -3261,15 +3243,10 @@ next
       using fb_always by (atomize_elim, cases "right I") auto
     define j where j_def: "j = LTP \<sigma> (\<tau> \<sigma> i + b)"
     obtain mypick where mypick_def: "\<forall>k \<in> {ETP_f \<sigma> i I .. j}. s_at (mypick k) = k \<and> s_check v \<phi> (mypick k)"
-      using SAlways fb_always
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply (simp add: b_def j_def)
-      done
+      using SAlways fb_always unfolding b_def j_def enat.simps
+      by atomize_elim (rule bchoice, simp)
     then obtain sps where sps_def: "map (s_at) sps = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>sp \<in> set sps. s_check v \<phi> sp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
     then have "s_at (SAlways i j sps) = i \<and> s_check v (Formula.Always I \<phi>) (SAlways i j sps)"
       using SAlways b_def j_def by simp
     then show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Always I \<phi>) sp"
@@ -3292,10 +3269,7 @@ next
     then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
       by simp_all
     obtain sp2 where sp2_def: "s_at sp2 = j \<and> s_check v \<psi> sp2" 
-      using SSince fb_since 
-      apply atomize_elim
-      apply auto
-      done
+      using SSince fb_since by auto
     { 
       assume "Suc j > i"
       then have "s_at (SSince sp2 []) = i \<and> s_check v (Formula.Since \<phi> I \<psi>) (SSince sp2 [])"
@@ -3307,15 +3281,9 @@ next
     {
       assume sucj_leq_i: "Suc j \<le> i"
       obtain mypick where mypick_def: "\<forall>k \<in> {Suc j ..< Suc i}. s_at (mypick k) = k \<and> s_check v \<phi> (mypick k)"
-        using SSince fb_since
-        apply (atomize_elim)
-        apply (rule bchoice)
-        apply simp
-        done
+        using SSince fb_since by atomize_elim (rule bchoice, simp)
       then obtain sp1s where sp1s_def: "map (s_at) sp1s = [Suc j ..< Suc i] \<and> (\<forall>sp \<in> set sp1s. s_check v \<phi> sp)"
-        apply atomize_elim 
-        apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([Suc j ..< Suc i])"])
-        done
+        by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([Suc j ..< Suc i])"])
       then have "sp1s \<noteq> []" 
         using sucj_leq_i by auto
       then have "s_at (SSince sp2 sp1s) = i \<and> s_check v (Formula.Since \<phi> I \<psi>) (SSince sp2 sp1s)"
@@ -3347,15 +3315,9 @@ next
     obtain vp1 where vp1_def: "v_at vp1 = j \<and> v_check v \<phi> vp1" 
       using fb_since VSince by auto
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. v_at (mypick k) = k \<and> v_check v \<psi> (mypick k)"
-      using VSince fb_since
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply simp
-      done
+      using VSince fb_since by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
     then have "v_at (VSince i vp1 vp2s) = i \<and> v_check v (Formula.Since \<phi> I \<psi>) (VSince i vp1 vp2s)"
       using vp1_def VSince by auto
     then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Since \<phi> I \<psi>) vp"
@@ -3369,15 +3331,9 @@ next
     then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
       by simp_all
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. v_at (mypick k) = k \<and> v_check v \<psi> (mypick k)"
-      using VSinceInf fb_since
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply simp
-      done
+      using VSinceInf fb_since by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
     then have "v_at (VSinceInf i j vp2s) = i \<and> v_check v (Formula.Since \<phi> I \<psi>) (VSinceInf i j vp2s)"
       using VSinceInf by auto
     then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Since \<phi> I \<psi>) vp"
@@ -3403,15 +3359,9 @@ next
     {
       assume i_l_j: "i < j"
       obtain mypick where mypick_def: "\<forall>k \<in> {i ..< j}. s_at (mypick k) = k \<and> s_check v \<phi> (mypick k)"
-        using SUntil fb_until
-        apply (atomize_elim)
-        apply (rule bchoice)
-        apply simp
-        done
+        using SUntil fb_until by atomize_elim (rule bchoice, simp)
       then obtain sp1s where sp1s_def: "map (s_at) sp1s = [i ..< j] \<and> (\<forall>sp \<in> set sp1s. s_check v \<phi> sp)"
-        apply atomize_elim 
-        apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([i ..< j])"])
-        done
+        by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([i ..< j])"])
       then have "s_at (SUntil sp1s sp2) = i \<and> s_check v (Formula.Until \<phi> I \<psi>) (SUntil sp1s sp2)"
         using SUntil fb_until
         unfolding sp2_def sp1s_def
@@ -3434,15 +3384,9 @@ next
     obtain vp1 where vp1_def: "v_at vp1 = j \<and> v_check v \<phi> vp1" 
       using VUntil fb_until by auto
     obtain mypick where mypick_def: "\<forall>k \<in> {ETP_f \<sigma> i I .. j}. v_at (mypick k) = k \<and> v_check v \<psi> (mypick k)"
-      using VUntil fb_until
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply simp
-      done
+      using VUntil fb_until by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
     then have "v_at (VUntil i vp2s vp1) = i \<and> v_check v (Formula.Until \<phi> I \<psi>) (VUntil i vp2s vp1)"
       using VUntil fb_until vp1_def by simp
     then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Until \<phi> I \<psi>) vp"
@@ -3459,15 +3403,9 @@ next
       using fb_until by (atomize_elim, cases "right I") auto
     define j where j_def: "j = LTP \<sigma> (\<tau> \<sigma> i + b)"
     obtain mypick where mypick_def: "\<forall>k \<in> {ETP_f \<sigma> i I .. j}. v_at (mypick k) = k \<and> v_check v \<psi> (mypick k)"
-      using VUntilInf fb_until
-      apply (atomize_elim)
-      apply (rule bchoice)
-      apply (simp add: b_def j_def)
-      done
+      using VUntilInf fb_until unfolding b_def j_def by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
-      apply atomize_elim 
-      apply (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-      done
+      by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
     then have "v_at (VUntilInf i j vp2s) = i \<and> v_check v (Formula.Until \<phi> I \<psi>) (VUntilInf i j vp2s)"
       using VUntilInf b_def j_def by simp
     then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Until \<phi> I \<psi>) vp"

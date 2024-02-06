@@ -159,17 +159,23 @@ end
 
 instantiation event_data :: linorder begin
 instance
-  apply standard
-      apply (auto simp add: less_event_data_def)
-  subgoal for x
+proof (standard, unfold less_event_data_def, goal_cases less refl trans antisym total)
+  case (refl x)
+  then show ?case
     by (cases x) auto
-  subgoal for x y z
+next
+  case (trans x y z)
+  then show ?case
     by (cases x; cases y; cases z) auto
-  subgoal for x y
+next
+  case (antisym x y)
+  then show ?case
     by (cases x; cases y) auto
-  subgoal for x y
+next
+  case (total x y)
+  then show ?case
     by (cases x; cases y) auto
-  done
+qed simp
 
 end
 

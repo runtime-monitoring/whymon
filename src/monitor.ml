@@ -1601,12 +1601,12 @@ let exec mode measure f inc =
   let ms = MState.init mf in
   step None ms
 
-let exec_vis (obj_opt: MState.t option) f log =
+let exec_vis (ms_opt: MState.t option) f log =
   let vars = Set.elements (Formula.fv f) in
   let step (ms: MState.t) db =
     (match Other_parser.Trace.parse_from_string db with
      | Finished -> None
-     | Skipped (_, msg) -> Some (Some(msg), ([], []), ms)
+     | Skipped (_, msg) -> Stdio.printf "ms.tp_cur = %d\n" ms.tp_cur; Some (Some(msg), ([], []), ms)
      | Processed pb ->
         let last_ts = Hashtbl.fold ms.tpts ~init:0
                         ~f:(fun ~key:_ ~data:ts l_ts -> if ts > l_ts then ts else l_ts) in
@@ -1617,21 +1617,22 @@ let exec_vis (obj_opt: MState.t option) f log =
            let json_expls = Out.Json.expls ms.tpts f (List.map tstps_expls ~f:snd) in
            let json_db = Out.Json.db pb.ts ms.tp_cur pb.db f in
            Some (None, (json_expls, [json_db]), { ms' with tp_out = tp_out' }))
-        else (Some (Some ("trace is not monotonic"), ([], []), ms))) in
-     let ms = match obj_opt with
+        else (Some (Some("trace is not monotonic"), ([], []), ms))) in
+  let ms = match ms_opt with
     | None -> let mf = init f in
               MState.init mf
     | Some (ms') -> { ms' with tp_cur = ms'.tp_out + (Queue.length ms'.ts_waiting) + 1 } in
   let str_dbs = List.map (List.filter (String.split log ~on:'@') ~f:(fun s -> not (String.is_empty s)))
                   ~f:(fun s -> "@" ^ s) in
-  let (fail_msg_opt, (json_expls, json_dbs), ms') =
-    List.fold str_dbs ~init:(None, ([], []), ms)
-      ~f:(fun (fail_msg_opt, (json_es, json_dbs), m) str_db ->
+  let (err_msgs, (json_expls, json_dbs), ms) =
+    List.fold str_dbs ~init:([], ([], []), ms)
+      ~f:(fun (err_msgs, (json_es, json_dbs), m) str_db ->
         match step m str_db with
-        | None -> (fail_msg_opt, (json_es, json_dbs), m)
-        | Some (fail_msg_opt', (json_es', json_dbs'), m') ->
-           (fail_msg_opt', (json_es @ json_es', json_dbs @ json_dbs'), m')) in
+        | None -> (err_msgs, (json_es, json_dbs), m)
+        | Some (None, (json_es', json_dbs'), m') ->
+           (err_msgs, (json_es @ json_es', json_dbs @ json_dbs'), m')
+        | Some (Some(err_msg), (json_es', json_dbs'), m') ->
+           (err_msgs @ [err_msg], (json_es @ json_es', json_dbs @ json_dbs'), m')) in
   let json = Out.Json.aggregate json_dbs json_expls in
-  match fail_msg_opt with
-  | None -> (ms', json)
-  | Some (fail_msg) -> Stdio.print_endline fail_msg; (ms, json)
+  List.iter err_msgs ~f:(fun err_msg -> Stdio.print_endline err_msg);
+  (ms, json)

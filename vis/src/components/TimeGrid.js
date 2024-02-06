@@ -144,7 +144,7 @@ function TimeGrid ({ columns,
       align: 'center',
       disableClickEventBubbling: true,
       renderCell: (params) => {
-        if (objs.expls[params.id] !== undefined) {
+        if (objs.expls !== undefined && objs.expls[params.id] !== undefined) {
           return <MenuCell explObj={objs.expls[params.id].expl}
                            colorsTable={tables.colors}
                            cellsTable={tables.cells}

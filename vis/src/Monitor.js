@@ -70,10 +70,12 @@ function execMonitor(monitorState, action) {
     const monitorOutput = window.monitorAppend(action.appendTrace.replace(/\n/g, " "), action.formula);
     const columns = JSON.parse(window.getColumns(action.formula));
     const dbsObjs = monitorState.objs.dbs.concat((JSON.parse(monitorOutput)).dbs_objs);
-    const explsObjs = (JSON.parse(monitorOutput, (k, v) => v === "true" ? true : v === "false" ? false : v)).expls_objs;
+    const newExplsObjs = (JSON.parse(monitorOutput, (k, v) =>
+      v === "true" ? true : v === "false" ? false : v)).expls_objs;
+    const explsObjs = monitorState.objs.expls.concat(newExplsObjs);
 
     return { ...monitorState,
-             objs: { dbs: dbsObjs, expls: monitorState.objs.expls.concat(explsObjs) },
+             objs: { dbs: dbsObjs, expls: explsObjs },
              tables: { dbs: computeDbsTable(dbsObjs, columns.predsColumns.length),
                        colors: initRhsTable(dbsObjs, columns.subfsColumns),
                        cells: initRhsTable(dbsObjs, columns.subfsColumns),

@@ -927,7 +927,6 @@ proof (induct e arbitrary: vs)
         done
       done
     done
-  done
   qed
 qed (auto simp: check_exec_p_def check_p_def check_exec_check split: sum.splits)
 

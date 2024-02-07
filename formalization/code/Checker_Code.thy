@@ -137,9 +137,12 @@ proof -
     by (fastforce simp: P_def intro: arg_cong[where ?f=Min])
 qed
 
-lemmas progress_code[code] = progress.simps(1-14) progress_Eventually_code progress_Always_code progress.simps(17) progress_Until_code
+lemmas progress_code[code] = progress.simps(1-14) progress_Eventually_code progress_Always_code progress.simps(18) progress_Until_code
 
 subsection \<open>Trace\<close>
+
+lemma snth_Stream_eq: "(x ## s) !! n = (case n of 0 \<Rightarrow> x | Suc m \<Rightarrow> s !! m)"
+  by (cases n) auto
 
 lemma extend_is_stream: 
   assumes "sorted (map snd list)"
@@ -152,18 +155,15 @@ proof -
   have A: "\<forall>x\<in>set list. n \<le> snd x \<Longrightarrow> n \<le> m \<Longrightarrow>
     n \<le> (map snd list @- smap (\<lambda>x. x + m) nats) !! i" for n i 
     and list :: "('a set \<times> nat) list"
-    apply (induction i arbitrary: n list)
-     apply (auto simp add: list.map_sel(1))
-    apply (metis (no_types, lifting) list.set_sel(2) map_tl)
-    done
-  have "ssorted (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats))"
+  proof (induction i arbitrary: n)
+    case (Suc i)
+    then show ?case
+      by (auto simp: shift_snth nth_tl)
+  qed (auto simp add: list.map_sel(1))
+  then have "ssorted (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats))"
     using assms
-    apply (induction list)
-     apply (auto simp: ssorted_iff_mono stream.map_comp o_def)
-    subgoal for a b list i j
-      using A
-      by (cases i; cases j) fastforce+
-    done
+      by (induction list) (auto simp: stream.map_comp o_def ssorted_iff_mono snth_Stream_eq
+        split: nat.splits)
   moreover have "sincreasing (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats))"
     using assms
   proof (induction list)
@@ -191,9 +191,7 @@ proof -
       by simp
     show ?case
       using Cons 
-      apply (simp add: sfstfinite_def)
-      apply (metis fin not0_implies_Suc smap_simps(1) snth_Stream stream.sel(1) stream_smap_nats)
-      done
+      by (auto simp add: sfstfinite_def snth_Stream_eq split: nat.splits)
   qed
   ultimately show ?thesis
     by simp
@@ -218,8 +216,8 @@ lift_definition trace_rbt_of_list :: "('a set \<times> nat) list \<Rightarrow> '
   "\<lambda>xs. if sorted (map snd xs) \<and> fstfinite (map fst xs) then (if xs = [] then (0, 0, Mapping.empty)
   else (length xs, snd (last xs), Mapping.bulkload xs))
   else (0, 0, Mapping.empty)"
-  apply (auto simp: lookup_bulkload_Some sorted_iff_nth_Suc last_conv_nth fstfinite_def split: option.splits nat.splits)
-  by (metis (no_types, lifting) Ball_set nth_mem set_zip_leftD zip_map_fst_snd)
+  by (auto simp: lookup_bulkload_Some sorted_iff_nth_Suc last_conv_nth
+    fstfinite_def list_all_iff in_set_conv_nth Ball_def Bex_def image_iff split: nat.splits)
 
 lift_definition trace_rbt_nth :: "'a trace_rbt \<Rightarrow> nat \<Rightarrow> ('a set \<times> nat)" is
   "\<lambda>(n, m, t) i. if i < n then the (Mapping.lookup t i) else ({}, (i - n) + m)" .
@@ -243,11 +241,8 @@ lift_definition Trace_RBT :: "'a trace_rbt \<Rightarrow> 'a trace" is
       using props(1,4)
       by (auto split: nat.splits option.splits)
     show ?thesis
-      apply (simp add: prod_def del: smap_shift)
-      apply (rule extend_is_stream[where ?m=m])
-      using props aux aux2
-        apply (auto simp: prod_def)
-      done
+      unfolding prod_def prod.case
+      by (rule extend_is_stream[where ?m=m]) (use props aux aux2 in \<open>auto simp: prod_def\<close>)
   qed
   done
 
@@ -274,34 +269,7 @@ definition default_literal :: String.literal where "default_literal = 0"
 instance proof qed
 end
 
-(* definition str_s_check :: "String.literal Formula.trace \<Rightarrow> (char list \<Rightarrow> String.literal set) \<Rightarrow> _ Formula.formula \<Rightarrow> _ sproof \<Rightarrow> bool"
-  where "str_s_check = s_check_exec"
-
-definition str_s_at :: "String.literal sproof \<Rightarrow> nat"
-  where "str_s_at = s_at"
-
-definition str_v_check :: "String.literal Formula.trace \<Rightarrow> (char list \<Rightarrow> String.literal set) \<Rightarrow> _ Formula.formula \<Rightarrow> _ vproof \<Rightarrow> bool"
-  where "str_v_check = v_check_exec"
-
-definition str_v_at :: "String.literal vproof \<Rightarrow> nat"
-  where "str_v_at = v_at"
-
-definition is_valid :: "String.literal Formula.trace \<Rightarrow> (char list \<Rightarrow> String.literal set) \<Rightarrow> _ Formula.formula \<Rightarrow> (_ proof) \<Rightarrow> bool"
-  where "is_valid = p_check_exec" *)
-
 declare Formula.future_bounded.simps[code]
-
-(* context 
-  fixes \<sigma> :: "'d :: linorder Formula.trace" and
-  cmp :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> bool"
-begin
-
-lemma opt_code[code]: "optimal vs i \<phi> p = (if Formula.future_bounded \<phi> then
-  valid \<sigma> i \<phi> p \<and> cmp p (eval vars i \<phi>) else Code.abort (STR ''opt: formula is not future bounded'') (\<lambda>_. optimal i \<phi> p))"
-  using alg_optimal[of \<phi> i] trans_cmp
-  by (auto simp: optimal_def transp_def)
-
-end *)
 
 subsection \<open>Auxiliary results\<close>
 
@@ -447,10 +415,8 @@ proof (cases "j \<le> i")
   case True
   then show ?thesis
     using assms i_le_LTPi_minus[of \<sigma> n i] LTP_minus_lt_if[of j i \<sigma> n]
-    apply (cases n)
-    apply (simp add: i_LTP_tau linorder_not_less)
-    apply (smt (verit) diff_cancel_middle \<tau>_mono diff_is_0_eq diff_le_self i_LTP_tau le_add_diff_inverse2 le_trans not_le_imp_less zero_less_diff)
-    done
+    by (cases n)
+      (auto simp add: i_LTP_tau linorder_not_less Suc_le_eq dest!: tau_LTP_k[rotated])
 next
   case False
   have delta: "\<delta> \<sigma> i j = 0"
@@ -467,7 +433,8 @@ next
     case (Suc n')
     then show ?thesis
       using False assms
-      by simp (metis (no_types, lifting) Zero_not_Suc add_Suc_right add_diff_cancel_left' diff_is_0_eq' i_le_LTPi_minus le_less_trans less_or_eq_imp_le neq0_conv not_le_imp_less)
+      by (cases i)
+        (auto simp: Suc_le_eq not_le elim!: order.strict_trans[rotated] intro!: i_le_LTPi_minus)
   qed
 qed
 
@@ -479,12 +446,12 @@ lemma LTP_minus_eq_iff:
 proof (cases n)
   case 0
   show ?thesis
-    using assms
-    apply (auto simp: 0 i_le_LTPi)
-      apply (metis "0" add_0_right assms i_LTP_tau order_refl)
-     apply (metis add.right_neutral Suc_n_not_le_n \<tau>_mono eq_imp_le i_LTP_tau le_add2 le_neq_implies_less plus_1_eq_Suc)
-    apply (metis "0" add.right_neutral assms i_LTP_tau leD le_\<tau>_less le_less_Suc_eq le_less_linear le_neq_implies_less)
-    done
+    using assms 0 i_LTP_tau[of \<sigma> "\<tau> \<sigma> i" "LTP \<sigma> (\<tau> \<sigma> i)"]
+      i_LTP_tau[of \<sigma> "\<tau> \<sigma> i" "Suc (LTP \<sigma> (\<tau> \<sigma> i))"] i_LTP_tau[of \<sigma> "\<tau> \<sigma> i" "j"]
+      less_\<tau>D[of \<sigma> "(LTP \<sigma> (\<tau> \<sigma> i))" "Suc j"]
+    by (auto simp: i_le_LTPi not_le elim!: antisym dest!:
+      order_antisym_conv[of "\<tau> \<sigma> i" "\<tau> \<sigma> j", THEN iffD1, rotated]
+      order_antisym_conv[of "\<tau> \<sigma> i" "\<tau> \<sigma> (LTP \<sigma> (\<tau> \<sigma> i))", THEN iffD1, rotated])
 next
   case (Suc n')
   show ?thesis
@@ -627,10 +594,7 @@ lemma check_upt_lu_cong:
   shows "check_upt_ETP_f \<sigma> I i xs hi = check_upt_ETP_f \<sigma>' I i xs hi"
   using assms
   unfolding check_upt_ETP_f_def
-  apply (auto simp add: Let_def del: upt.simps split: list.splits nat.splits)
-   apply (metis Suc_leD diff_is_0_eq' diff_le_self le_Suc_eq not_less_zero order_less_le_trans)
-  apply (metis add_leD2 cancel_comm_monoid_add_class.diff_cancel diff_le_self leD le_Suc_eq plus_1_eq_Suc zero_less_Suc)
-  done
+  by (auto simp add: Let_def le_Suc_eq split: list.splits nat.splits)
 
 lemma check_upt_ETP_f_eq: "xs = [ETP_f \<sigma> i I..<Suc hi] \<longleftrightarrow> check_upt_ETP_f \<sigma> I i xs hi"
 proof -
@@ -819,64 +783,51 @@ lift_definition lookup :: "('d, 'a) part \<Rightarrow> 'd \<Rightarrow> ('d set 
 lemma snd_lookup[simp]: "snd (lookup part d) = lookup_part part d"
   by transfer auto
 
+lemma distinct_disjoint_uniq: "distinct xs \<Longrightarrow> disjoint (set xs) \<Longrightarrow>
+  i < j \<Longrightarrow> j < length xs \<Longrightarrow> d \<in> xs ! i \<Longrightarrow> d \<in> xs ! j \<Longrightarrow> False"
+  unfolding disjoint_def disjoint_iff
+  by (metis (no_types, lifting) order.strict_trans min.strict_order_iff nth_eq_iff_index_eq nth_mem)
+
+lemma partition_on_UNIV_find_Some:
+  "partition_on UNIV (set (map fst part)) \<Longrightarrow> distinct (map fst part) \<Longrightarrow>
+  \<exists>y. find (\<lambda>(D, _). d \<in> D) part = Some y"
+  unfolding partition_on_def set_eq_iff
+  by (auto simp: find_Some_iff in_set_conv_nth
+      Ball_def image_iff Bex_def split_beta dest: distinct_disjoint_uniq dest!: spec[of _ d]
+      intro!: exI[where P="\<lambda>x. \<exists>y z. P x y z \<and> Q x y z" for P Q, OF exI, OF exI, OF conjI])
+
 lemma fst_lookup: "d \<in> fst (lookup part d)"
-  apply transfer
-  apply (auto simp: partition_on_def)
-  subgoal for d part
-    apply (subgoal_tac "\<exists>y. find (\<lambda>(D, _). d \<in> D) part = Some y")
-     apply (auto simp: find_Some_iff in_set_conv_nth split_beta)
-     apply (metis (mono_tags, lifting) find_Some_iff2 option.sel split_def)
-    apply (subst (asm) set_eq_iff)
-    apply (drule spec[of _ d])
-    apply (auto simp: in_set_conv_nth)
-    apply (intro exI conjI)
-       apply assumption
-      apply simp
-     apply (erule sym)
-    apply (auto simp: disjoint_def in_set_conv_nth Ball_def image_iff Bex_def)
-    apply (drule spec, drule mp, intro exI conjI, assumption, assumption)
-    apply (drule spec, drule mp, intro exI conjI, erule (1) order.strict_trans,
-        rule surjective_pairing)
-    apply auto
-    apply (metis (mono_tags, lifting) fst_eqD length_map nless_le nth_eq_iff_index_eq nth_map order.strict_trans1)
-    done
-  done
+proof (transfer fixing: d, goal_cases)
+  case (1 part)
+  then obtain y where "find (\<lambda>(D, _). d \<in> D) part = Some y" using partition_on_UNIV_find_Some
+    by fastforce
+  then show ?case
+    by (auto dest: find_Some_iff[THEN iffD1])
+qed
 
 lemma lookup_subsvals: "lookup part d \<in> set (subsvals part)"
-  apply transfer
-  apply (auto simp: partition_on_def)
-  subgoal for part d
-    apply (subgoal_tac "\<exists>y. find (\<lambda>(D, _). d \<in> D) part = Some y")
-    apply (auto simp: find_Some_iff in_set_conv_nth split_beta)
-  apply (metis (mono_tags, lifting) find_Some_iff2 option.sel split_def)
-    apply (subst (asm) set_eq_iff)
-    apply (drule spec[of _ d])
-    apply (auto simp: in_set_conv_nth)
-    apply (intro exI conjI)
-       apply assumption
-      apply simp
-     apply (erule sym)
-    apply (auto simp: disjoint_def in_set_conv_nth Ball_def image_iff Bex_def)
-    apply (drule spec, drule mp, intro exI conjI, assumption, assumption)
-    apply (drule spec, drule mp, intro exI conjI, erule (1) order.strict_trans,
-      rule surjective_pairing)
-    apply auto
-    apply (metis (mono_tags, lifting) fst_eqD length_map nless_le nth_eq_iff_index_eq nth_map order.strict_trans1)
-    done
-  done
+proof (transfer fixing: d, goal_cases)
+  case (1 part)
+  then obtain y where "find (\<lambda>(D, _). d \<in> D) part = Some y" using partition_on_UNIV_find_Some
+    by fastforce
+  then show ?case
+    by (auto simp: in_set_conv_nth dest: find_Some_iff[THEN iffD1])
+qed
 
 lemma sat_vorder_Node:
- "distinct xs \<Longrightarrow> sat_vorder xs (Node x part) = (\<exists>ys zs. xs = ys @ x # zs \<and> (\<forall>e \<in> Vals part. sat_vorder zs e))"
-  apply safe
-  apply (rotate_tac -1)
-   apply (induct xs "Node x part" rule: sat_vorder.induct)
-    apply auto
-   apply (metis append_Cons)
-  subgoal for ys zs
-    apply (induct ys arbitrary: xs)
-     apply (auto intro: sat_vorder.intros)
-    done
-  done
+  assumes "distinct xs"
+  shows "sat_vorder xs (Node x part) = (\<exists>ys zs. xs = ys @ x # zs \<and> (\<forall>e \<in> Vals part. sat_vorder zs e))"
+proof (safe, goal_cases LR RL)
+  case LR
+  then show ?case 
+    by (induct xs "Node x part" rule: sat_vorder.induct)
+      (auto 4 3 intro: exI[of _ "_ # _"])
+next
+  case (RL ys zs)
+  with assms show ?case 
+    by (induct ys arbitrary: xs)
+      (auto intro: sat_vorder.intros)
+qed
 
 fun vars where
   "vars (Leaf _) = {}"
@@ -887,51 +838,49 @@ fun distinct_paths where
 | "distinct_paths (Node x part) = (\<forall>e \<in> Vals part. x \<notin> vars e \<and> distinct_paths e)"
 
 lemma check_one_cong: "\<forall>x\<in>Formula.fv \<phi> \<union> vars e. v x = v' x \<Longrightarrow> check_one \<sigma> v \<phi> e = check_one \<sigma> v' \<phi> e"
-  apply (induct e arbitrary: v v')
-   apply (auto simp: check_p_def check_fv_cong split: sum.splits)
-  apply (metis (full_types) Set.set_insert UN_insert UnE UnI1 UnI2 lookup_part_Vals)
-  apply (metis (full_types) Set.set_insert UN_insert UnE UnI1 UnI2 lookup_part_Vals)
-  done
+proof (induct e arbitrary: v v')
+  case (Leaf x)
+  then show ?case
+    by (auto simp: check_p_def check_fv_cong split: sum.splits)
+next
+  case (Node x part)
+  from Node(2) have *: "v x = v' x"
+    by simp
+  from Node(2) show ?case
+    unfolding check_one.simps *
+    by (intro Node(1)) auto
+qed
 
 lemma lookup_part_from_subvals: "(D, e) \<in> set (subsvals part) \<Longrightarrow> d \<in> D \<Longrightarrow> lookup_part part d = e"
-  apply transfer
-  subgoal for D e part d
-    apply (cases "find (\<lambda>(D, _). d \<in> D) part")
-     apply (auto simp: partition_on_def image_iff find_None_iff) []
-    apply simp
-    apply (auto simp: partition_on_def disjoint_def Ball_def Bex_def image_iff find_Some_iff in_set_conv_nth)
-    apply (metis IntI empty_iff eq_key_imp_eq_value nth_mem)
-    done
-  done
+proof (transfer fixing: D e d, goal_cases)
+  case (1 part)
+  then show ?case 
+  proof (cases "find (\<lambda>(D, _). d \<in> D) part")
+    case (Some De)
+    from 1 show ?thesis 
+      unfolding partition_on_def set_eq_iff Some using Some unfolding find_Some_iff
+      by (fastforce dest!: spec[of _ d] simp: in_set_conv_nth split_beta dest: part_list_set_eq_aux2)
+  qed (auto simp: partition_on_def image_iff find_None_iff)
+qed
 
 lemma check_all_aux_check_one: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> distinct_paths e \<Longrightarrow> (\<forall>x \<in> vars e. vs x = UNIV) \<Longrightarrow>
   check_all_aux \<sigma> vs \<phi> e \<longleftrightarrow> (\<forall>v \<in> compatible_vals (Formula.fv \<phi>) vs. check_one \<sigma> v \<phi> e)"
-  apply (induct e arbitrary: vs)
-   apply (auto simp: check_exec_p_def check_p_def check_exec_check split_beta sat_vorder_Node
-      split: sum.splits if_splits)
-  subgoal for x part vs v
-    apply (drule bspec, rule lookup_subsvals)
-    apply simp
-    apply (drule meta_spec)+
-    apply (drule meta_mp)
-     defer
-    apply (drule meta_mp)
-      defer
-    apply (drule meta_mp)
-       defer
-      apply (drule iffD1)
-    apply assumption
-      apply (erule bspec)
-     apply (auto simp: compatible_vals_fun_upd) []
-      apply (erule compatible_vals_antimono[THEN set_mp, rotated])
-       apply blast
-    apply (auto simp: compatible_vals_def) []
-     apply (rule fst_lookup)
-    using fst_lookup[of "v x" part]
-    apply auto
-    apply force
-    done
-  subgoal for x part vs D e
+proof (induct e arbitrary: vs)
+  case (Node x part)
+  show ?case
+    unfolding check_all_aux.simps check_one.simps split_beta
+  proof (safe, goal_cases LR RL)
+    case (LR v)
+    from Node(2-) fst_lookup[of "v x" part] LR(1)[rule_format, OF lookup_subsvals[of _ "v x"]] LR(2) show ?case
+      by (subst (asm) Node(1))
+         (auto 0 3 simp: compatible_vals_fun_upd dest!: bspec[of _ _ v]
+            elim!: compatible_vals_antimono[THEN set_mp, rotated])
+  next
+    case (RL D e)
+    then show ?case
+      using Node
+      apply auto
+
     apply (subgoal_tac "\<exists>d. d \<in> D")
      prefer 2
     subgoal
@@ -979,6 +928,8 @@ lemma check_all_aux_check_one: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> d
       done
     done
   done
+  qed
+qed (auto simp: check_exec_p_def check_p_def check_exec_check split: sum.splits)
 
 instance event_data :: infinite by standard (simp add: infinite_UNIV_event_data)
 

@@ -168,6 +168,8 @@ module Buf2 = struct
     | x::xs, y::ys -> let (zs, buf2') = take f (xs, ys) in
                       ((f x y)::zs, buf2')
 
+  let length (l1, l2) = (List.length l1, List.length l2)
+
 end
 
 module Buft = struct
@@ -1130,7 +1132,7 @@ module Until = struct
       | None -> raise (Invalid_argument "Until interval is unbounded")
       | Some(b') -> b' in
     let muaux_shifted = shift (a, b) (nts, ntp) muaux in
-    match Fdeque.peek_back muaux.optimal_proofs with
+    match Fdeque.peek_back muaux_shifted.optimal_proofs with
     | None -> (muaux, ops)
     | Some(ts, _) -> if ts + b < nts then
                        let ((_, op), optimal_proofs) = Fdeque.dequeue_back_exn muaux_shifted.optimal_proofs in
@@ -1517,7 +1519,8 @@ let rec meval vars ts tp (db: Db.t) = function
        | [] -> (ts, tp)
        | (nts', ntp') :: _ -> (nts', ntp') in
      let (muaux_pdt', es') =
-       Pdt.split_prod (Pdt.apply1 vars (fun aux -> Until.eval i nts ntp (aux, [])) muaux_pdt') in
+       Pdt.split_prod (Pdt.apply1 vars (fun (aux: Until.t) ->
+                           Until.eval i nts ntp (aux, [])) muaux_pdt') in
      let expls' = Pdt.split_list es' in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
      (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'))
@@ -1606,7 +1609,7 @@ let exec_vis (ms_opt: MState.t option) f log =
   let step (ms: MState.t) db =
     (match Other_parser.Trace.parse_from_string db with
      | Finished -> None
-     | Skipped (_, msg) -> Stdio.printf "ms.tp_cur = %d\n" ms.tp_cur; Some (Some(msg), ([], []), ms)
+     | Skipped (_, msg) -> Some (Some(msg), ([], []), ms)
      | Processed pb ->
         let last_ts = Hashtbl.fold ms.tpts ~init:0
                         ~f:(fun ~key:_ ~data:ts l_ts -> if ts > l_ts then ts else l_ts) in

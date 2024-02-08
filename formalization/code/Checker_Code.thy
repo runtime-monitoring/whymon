@@ -869,7 +869,7 @@ proof (induct e arbitrary: vs)
   case (Node x part)
   show ?case
     unfolding check_all_aux.simps check_one.simps split_beta
-  proof (safe, goal_cases LR RL)
+  proof (safe, unfold fst_conv snd_conv, goal_cases LR RL)
     case (LR v)
     from Node(2-) fst_lookup[of "v x" part] LR(1)[rule_format, OF lookup_subsvals[of _ "v x"]] LR(2) show ?case
       by (subst (asm) Node(1))
@@ -877,56 +877,22 @@ proof (induct e arbitrary: vs)
             elim!: compatible_vals_antimono[THEN set_mp, rotated])
   next
     case (RL D e)
-    then show ?case
-      using Node
-      apply auto
-
-    apply (subgoal_tac "\<exists>d. d \<in> D")
-     prefer 2
-    subgoal
-      apply transfer
-      apply (auto simp: partition_on_def image_iff)
-      done
-    apply (erule exE)
-    subgoal for d
-      apply (drule meta_spec[of _ e])
-      apply (drule meta_spec[of _ "vs(x := D)"])
-      apply (drule meta_mp)
-      subgoal
-        apply transfer
-        apply (auto simp: image_iff)
-        apply force
-        done
-      apply (drule meta_mp)
-      apply auto []
-      apply (drule meta_mp)
-       apply auto []
-      using lookup_part_from_subvals apply fastforce
-      apply (metis UNIV_I lookup_part_Vals lookup_part_from_subvals)
-      apply (erule iffD2)
-      apply (rule ballI)
-      apply (auto simp add: compatible_vals_fun_upd split: if_splits)
-      subgoal for v
-        apply (drule bspec[of _ _ "v"])
-         apply (auto simp: compatible_vals_def) []
-        apply (subst (asm) lookup_part_from_subvals)
-        apply assumption
-        apply assumption
-        apply assumption
-        done
-      subgoal for v
-        apply (drule bspec[of _ _ "v(x := d)"])
-        apply (auto simp: compatible_vals_def) []
-        apply (subst (asm) lookup_part_from_subvals)
-          apply assumption
-         apply simp
-        apply (erule iffD1[OF check_one_cong, rotated -1])
-        apply (drule bspec[of _ _ e])
-         apply (metis lookup_part_Vals lookup_part_from_subvals)
-        apply auto
-        done
-      done
-    done
+    from RL(2) obtain d where "d \<in> D"
+      by transfer (force simp: partition_on_def image_iff)
+    with RL show ?case
+      using Node(2-) lookup_subsvals[of part d] lookup_part_Vals[of part d]
+        lookup_part_from_subvals[of D e part d]
+    proof (intro Node(1)[THEN iffD2, OF _ _ _ _ ballI], goal_cases _ _ _ _ compatible)
+      case (compatible v)
+      from compatible(2-) compatible(1)[THEN bspec, of "v(x := d)"] compatible(1)[THEN bspec, of v]
+      show ?case
+        using lookup_part_from_subvals[of D e part "v x"]
+          fun_upd_in_compatible_vals_in[of v "Formula.fv \<phi>" x vs "v x"]
+          check_one_cong[THEN iffD1, rotated -1, of \<sigma> "v(x := d)" \<phi> e v, simplified]
+        by (auto simp: compatible_vals_fun_upd fun_upd_apply[of _ _ _ x]
+          fun_upd_in_compatible_vals_notin split: if_splits
+          simp del: fun_upd_apply)
+    qed auto
   qed
 qed (auto simp: check_exec_p_def check_p_def check_exec_check split: sum.splits)
 

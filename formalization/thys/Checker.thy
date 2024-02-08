@@ -1371,6 +1371,10 @@ lemma fun_upd_in_compatible_vals: "v \<in> compatible_vals (A - {x}) vs \<Longri
   unfolding compatible_vals_def
   by auto
 
+lemma fun_upd_in_compatible_vals_in: "v \<in> compatible_vals (A - {x}) vs \<Longrightarrow> t \<in> vs x \<Longrightarrow> v(x := t) \<in> compatible_vals A vs"
+  unfolding compatible_vals_def
+  by auto
+
 lemma fun_upd_in_compatible_vals_notin: "x \<notin> A \<Longrightarrow> v \<in> compatible_vals A vs \<Longrightarrow> v(x := t) \<in> compatible_vals A vs"
   unfolding compatible_vals_def
   by auto

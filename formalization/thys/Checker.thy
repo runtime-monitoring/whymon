@@ -919,7 +919,7 @@ qed simp
 lemma mk_values_subset_iff: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Longrightarrow>
    mk_values_subset p tXs X \<longleftrightarrow> {p} \<times> mk_values tXs \<subseteq> X"
   unfolding mk_values_subset_def image_iff Let_def comp_def split_beta if_split_eq1
-    partition_filter1 partition_filter2 o_apply set_map set_filter filter_filter bex_simps
+    partition_filter1 partition_filter2 o_def set_map set_filter filter_filter bex_simps
 proof safe
   assume "\<forall>tX\<in>set tXs. snd tX \<noteq> {}" and "finite X"
     and filter1: "filter (\<lambda>xy. infinite (snd xy) \<and> (\<exists>ab. (ab \<in> set tXs \<and> finite (snd ab)) \<and> fst xy = fst ab)) tXs = []"
@@ -1022,15 +1022,11 @@ proof (induct ts arbitrary: cs vs)
           mk_values.simps Formula.eval_trm_set.simps prod.case trm.case mem_Collect_eq
       proof (elim exE conjE, goal_cases)
         case (1 a as)
-        then show ?case
-          using Cons(1)[of as vs]
-          apply (clarsimp simp: Formula.eval_trms_set_def Formula.eval_trms_def compatible_vals_def)
-          subgoal for v apply (rule exI[of _ "v(x := a)"], clarsimp)
-            apply (rule eval_trm_fv_cong, clarsimp)
-            subgoal for t'
-              by (auto intro: trm.exhaust[where y=t'])
-            done
-          done
+        with Cons(1)[of as vs] obtain v where "v \<in> compatible_vals (fv (p \<dagger> ts)) vs" "as = Formula.eval_trms v ts"
+          by (auto simp: Formula.eval_trms_set_def)
+        with 1 show ?case
+          by (auto simp: Formula.eval_trms_set_def Formula.eval_trms_def compatible_vals_def in_fv_trm_conv
+            intro!: exI[of _ "v(x := a)"] eval_trm_fv_cong)
       qed
     qed
   next
@@ -1334,8 +1330,8 @@ proof (safe intro!: arg_cong[of _ _ "\<lambda>x. _ \<or> x"] ex_cong, unfold snd
 next
   case (RL i r ts t)
   then show ?case
-    by (cases t; intro exI[of _ "Formula.eval_trms v ts"] conjI)
-      (auto simp: Formula.eval_trms_def image_iff intro!: bexI[of _ t])
+    by (intro exI[of _ "Formula.eval_trms v ts"] conjI)
+      (auto simp: Formula.eval_trms_def image_iff in_fv_trm_conv intro!: bexI[of _ t])
 qed
 
 lemma val_notin_AD_iff:
@@ -2929,12 +2925,9 @@ next
       using v_at_part_hd_tabulate[OF fb, of mypick i]
       by (simp add: mypart_def mypick_def)
     have v_check_myp: "v_check v (Formula.Exists x \<phi>) (VExists x mypart)"
-      apply (simp add: mypart_def v_at_part_hd_tabulate[OF fb mypick_at])
-      apply clarify
-      apply (rule conjI)
-      using v_at_tabulate[of mypick i _ \<phi>, OF mypick_at] apply fastforce
-      using v_check_tabulate[OF fb mypick_at mypick_v_check] apply fastforce
-      done
+      using v_at_tabulate[of mypick i _ \<phi>, OF mypick_at]
+        v_check_tabulate[OF fb mypick_at mypick_v_check]
+      by (auto simp add: mypart_def v_at_part_hd_tabulate[OF fb mypick_at])
     show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Exists x \<phi>) vp"
       using v_at_myp v_check_myp by blast
   qed
@@ -2958,12 +2951,9 @@ next
       using s_at_part_hd_tabulate[OF fb, of mypick i]
       by (simp add: mypart_def mypick_def)
     have s_check_myp: "s_check v (Formula.Forall x \<phi>) (SForall x mypart)"
-      apply (simp add: mypart_def s_at_part_hd_tabulate[OF fb mypick_at])
-      apply clarify
-      apply (rule conjI)
-      using s_at_tabulate[of mypick i _ \<phi>, OF mypick_at] apply fastforce
-      using s_check_tabulate[OF fb mypick_at mypick_s_check] apply fastforce
-      done
+      using s_at_tabulate[of mypick i _ \<phi>, OF mypick_at]
+        s_check_tabulate[OF fb mypick_at mypick_s_check]
+      by (auto simp add: mypart_def s_at_part_hd_tabulate[OF fb mypick_at])
     show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Forall x \<phi>) sp"
       using s_at_myp s_check_myp by blast
   qed
@@ -3129,11 +3119,10 @@ next
       then have "sp1s \<noteq> []"
         using sucj_leq_i by auto
       then have "s_at (SSince sp2 sp1s) = i \<and> s_check v (Formula.Since \<phi> I \<psi>) (SSince sp2 sp1s)"
-        using SSince sucj_leq_i fb
-        unfolding sp2_def sp1s_def
-        apply (clarsimp simp add: Let_def split: list.splits)
-        apply (smt (verit, best) Cons_eq_upt_conv last.simps last_map last_snoc list.set_intros(1) list.set_intros(2) list.simps(9) sp1s_def sp2_def upt_Suc)
-        done
+        using SSince sucj_leq_i fb sp2_def sp1s_def
+        by (clarsimp simp add:
+          Cons_eq_upt_conv append_eq_Cons_conv map_eq_append_conv
+          split: list.splits) auto
       then have "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Since \<phi> I \<psi>) sp"
         by blast
     }
@@ -3202,11 +3191,9 @@ next
       then obtain sp1s where sp1s_def: "map (s_at) sp1s = [i ..< j] \<and> (\<forall>sp \<in> set sp1s. s_check v \<phi> sp)"
         by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([i ..< j])"])
       then have "s_at (SUntil sp1s sp2) = i \<and> s_check v (Formula.Until \<phi> I \<psi>) (SUntil sp1s sp2)"
-        using SUntil fb_until
-        unfolding sp2_def sp1s_def
-        apply (clarsimp simp add: Let_def split: list.splits)
-        apply (metis (no_types, lifting) Cons_eq_upt_conv i_l_j less_nat_zero_code list.map_disc_iff list.simps(9) sp2_def upt_eq_Nil_conv)
-        done
+        using SUntil fb_until sp2_def sp1s_def i_l_j
+        by (clarsimp simp add: append_eq_Cons_conv map_eq_append_conv split: list.splits)
+          (auto simp: Cons_eq_upt_conv dest!: upt_eq_Nil_conv[THEN iffD1, OF sym])
       then have "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Until \<phi> I \<psi>) sp"
         by blast
     }

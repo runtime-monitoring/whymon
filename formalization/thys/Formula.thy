@@ -24,6 +24,9 @@ qualified primrec fv_trm :: "'a trm \<Rightarrow> name set" where
   "fv_trm (Var x) = {x}"
 | "fv_trm (Const _) = {}"
 
+lemma in_fv_trm_conv: "x \<in> fv_trm t \<longleftrightarrow> t = Var x"
+  by (cases t) auto
+
 qualified primrec eval_trm :: "'a env \<Rightarrow> 'a trm \<Rightarrow> 'a" where
   "eval_trm v (Var x) = v x"
 | "eval_trm v (Const x) = x"

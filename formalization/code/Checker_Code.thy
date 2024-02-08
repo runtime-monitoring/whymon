@@ -1,8 +1,6 @@
 theory Checker_Code
   imports Whymon.Checker "HOL-Library.Code_Target_Nat" "HOL.String"
-    "HOL-Library.List_Lexorder" "HOL-Library.AList_Mapping" 
-    Deriving.Derive
-    (*Containers.Containers*)
+    "HOL-Library.List_Lexorder" "HOL-Library.AList_Mapping"
 begin
 
 class nonunit = assumes two: "\<exists>x y. x \<noteq> (y :: 'a)"
@@ -35,8 +33,7 @@ instance option :: (type) nonunit by standard auto
 instance prod :: (type, infinite) infinite by standard (auto simp: finite_prod infinite)
 instance char :: nonunit by (standard, rule exI[of _ "CHR ''a''"], rule exI[of _ "CHR ''b''"]) auto
 instance String.literal :: infinite by standard (simp add: infinite_literal)
-instance "fun" :: (infinite, nonunit) infinite apply standard
-  by (auto simp: finite_UNIV_fun infinite)
+instance "fun" :: (infinite, nonunit) infinite by standard (auto simp: finite_UNIV_fun infinite)
 
 section \<open>Code\<close>
 
@@ -224,27 +221,25 @@ lift_definition trace_rbt_nth :: "'a trace_rbt \<Rightarrow> nat \<Rightarrow> (
 
 lift_definition Trace_RBT :: "'a trace_rbt \<Rightarrow> 'a trace" is
   "\<lambda>(n, m, t). map (the \<circ> Mapping.lookup t) [0..<n] @- smap (\<lambda>n. ({} :: 'a set, n + m)) nats"
-  subgoal premises prems for prod
-  proof -
-    obtain n m t where prod_def: "prod = (n, m, t)"
-      by (cases prod) auto
-    have props: "Mapping.keys t = {..<n}"
-      "sorted (map (snd \<circ> (the \<circ> Mapping.lookup t)) [0..<n])"
-      "(case n of 0 \<Rightarrow> True | Suc n' \<Rightarrow> (case Mapping.lookup t n' of Some (X', t') \<Rightarrow> t' \<le> m | None \<Rightarrow> False))"
-      "(\<forall>n' < n. case Mapping.lookup t n' of Some (X', t') \<Rightarrow> finite X' | None \<Rightarrow> False)"
-      using prems
-      by (auto simp add: prod_def)
-    have aux: "x \<in> set (map (the \<circ> Mapping.lookup t) [0..<n]) \<Longrightarrow> snd x \<le> m" for x
-      using props(2,3) less_Suc_eq_le
-      by (fastforce simp: sorted_iff_nth_mono split: nat.splits option.splits)
-    have aux2: "x \<in> set (map (the \<circ> Mapping.lookup t) [0..<n]) \<Longrightarrow> finite (fst x)" for x
-      using props(1,4)
-      by (auto split: nat.splits option.splits)
-    show ?thesis
-      unfolding prod_def prod.case
-      by (rule extend_is_stream[where ?m=m]) (use props aux aux2 in \<open>auto simp: prod_def\<close>)
-  qed
-  done
+proof (goal_cases)
+  case (1 prod)
+  obtain n m t where prod_def: "prod = (n, m, t)"
+    by (cases prod) auto
+  have props: "Mapping.keys t = {..<n}"
+    "sorted (map (snd \<circ> (the \<circ> Mapping.lookup t)) [0..<n])"
+    "(case n of 0 \<Rightarrow> True | Suc n' \<Rightarrow> (case Mapping.lookup t n' of Some (X', t') \<Rightarrow> t' \<le> m | None \<Rightarrow> False))"
+    "(\<forall>n' < n. case Mapping.lookup t n' of Some (X', t') \<Rightarrow> finite X' | None \<Rightarrow> False)"
+    using 1 by (auto simp add: prod_def)
+  have aux: "x \<in> set (map (the \<circ> Mapping.lookup t) [0..<n]) \<Longrightarrow> snd x \<le> m" for x
+    using props(2,3) less_Suc_eq_le
+    by (fastforce simp: sorted_iff_nth_mono split: nat.splits option.splits)
+  have aux2: "x \<in> set (map (the \<circ> Mapping.lookup t) [0..<n]) \<Longrightarrow> finite (fst x)" for x
+    using props(1,4)
+    by (auto split: nat.splits option.splits)
+  show ?case
+    unfolding prod_def prod.case
+    by (rule extend_is_stream[where ?m=m]) (use props aux aux2 in \<open>auto simp: prod_def\<close>)
+qed
 
 code_datatype Trace_RBT
 

@@ -1,6 +1,6 @@
 chapter AFP
 
-session Whymon (AFP) = "Containers" +
+session MFOTL_Checker (AFP) = "Containers" +
   sessions
     MFOTL_Monitor
   theories

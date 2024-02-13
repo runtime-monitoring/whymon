@@ -1,6 +1,7 @@
 theory Checker_Code
-  imports Whymon.Checker "HOL-Library.Code_Target_Nat" "HOL.String"
+  imports Checker "HOL-Library.Code_Target_Nat" "HOL.String"
     "HOL-Library.List_Lexorder" "HOL-Library.AList_Mapping"
+    "HOL-Library.Cardinality"
 begin
 
 class nonunit = assumes two: "\<exists>x y. x \<noteq> (y :: 'a)"
@@ -940,6 +941,6 @@ export_code interval enat nat_of_integer integer_of_nat
   STT Formula.TT Inl EInt Formula.Var Leaf set part_hd sum_nat sub_nat subsvals
   check trace_of_list_specialized specialized_set ed_set abs_part 
   collect_paths_specialized
-  in OCaml module_name Whymon file_prefix "checker"
+  in OCaml module_name Checker file_prefix "checker"
 
 end

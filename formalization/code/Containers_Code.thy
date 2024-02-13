@@ -1,6 +1,19 @@
 theory Containers_Code
-imports Monitor_Code Containers.Containers
+imports Monitor_Code Containers.Containers Deriving.Derive
 begin
+
+
+
+derive (eq) ceq event_data
+derive ccompare event_data
+derive (eq) ceq string8
+derive (linorder) compare string8
+derive (compare) ccompare string8
+instantiation event_data :: card_UNIV begin
+definition "finite_UNIV = Phantom(event_data) False"
+definition "card_UNIV = Phantom(event_data) 0"
+instance by intro_classes (simp_all add: finite_UNIV_event_data_def card_UNIV_event_data_def infinite_UNIV_event_data)
+end
 
 subsection \<open>Comparator\<close>
 

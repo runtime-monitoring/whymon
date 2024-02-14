@@ -1,8 +1,7 @@
 (*<*)
 theory Event_Data
   imports
-    "HOL-Library.Char_ord" Containers.Collection_Eq
-    Containers.Collection_Order Deriving.Derive
+    "HOL-Library.Char_ord"
 begin
   (*>*)
 
@@ -66,10 +65,6 @@ code_printing
   | constant "(<) :: string8 \<Rightarrow> string8 \<Rightarrow> bool" \<rightharpoonup> (Eval) infixl 6 "<"
   | constant "Code_Evaluation.term_of :: string8 \<Rightarrow> term" \<rightharpoonup> (Eval) "String8.to'_term"
 
-derive (eq) ceq string8
-derive (linorder) compare string8
-derive (compare) ccompare string8
-
 section \<open>Event parameters\<close>
 
 definition div_to_zero :: "integer \<Rightarrow> integer \<Rightarrow> integer" where
@@ -85,9 +80,6 @@ lemma "b \<noteq> 0 \<Longrightarrow> div_to_zero a b * b + mod_to_zero a b = a"
   by (auto simp: minus_mod_eq_mult_div[symmetric] div_minus_right mod_minus_right ac_simps)
 
 datatype event_data = EInt integer | EString string8
-
-derive (eq) ceq event_data
-derive ccompare event_data
 
 instantiation event_data :: "{ord, plus, minus, uminus, times, divide, modulo}"
 begin
@@ -138,12 +130,6 @@ proof -
   show ?thesis using finite_imageD[OF _ inj]
     by (meson infinite_UNIV_char_0 infinite_iff_countable_subset top_greatest)
 qed
-
-instantiation event_data :: card_UNIV begin
-definition "finite_UNIV = Phantom(event_data) False"
-definition "card_UNIV = Phantom(event_data) 0"
-instance by intro_classes (simp_all add: finite_UNIV_event_data_def card_UNIV_event_data_def infinite_UNIV_event_data)
-end
 
 primrec integer_of_event_data :: "event_data \<Rightarrow> integer" where
   "integer_of_event_data (EInt _) = undefined"

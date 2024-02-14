@@ -1,70 +1,53 @@
 (*<*)
 theory Proof_System
-  imports Formula "HOL-Library.Disjoint_Sets" (*"Deriving.Comparator_Generator"*) (*"Containers.Collection_Order" "Containers.Set_Impl"*)
+  imports Formula Partition
 begin
 (*>*)
+
+unbundle MFOTL_notation
 
 context begin
 
 section \<open>Proof System\<close>
 
-subsection \<open>Time-stamp-time-point Conversion\<close>
+text \<open>latest relevant time-point\<close>
 
-definition ETP:: "'a trace \<Rightarrow> nat \<Rightarrow> nat"  where
-  "ETP \<sigma> t = (LEAST i. \<tau> \<sigma> i \<ge> t)"
-
-definition LTP:: "'a trace \<Rightarrow> nat \<Rightarrow> nat" where
-  "LTP \<sigma> t = Max {i. (\<tau> \<sigma> i) \<le> t}"
-
-abbreviation "\<delta> \<sigma> i j \<equiv> (\<tau> \<sigma> i - \<tau> \<sigma> j)"
-
-abbreviation "ETP_p \<sigma> i b \<equiv> ETP \<sigma> ((\<tau> \<sigma> i) - b)"
-abbreviation "LTP_p \<sigma> i I \<equiv> min i (LTP \<sigma> ((\<tau> \<sigma> i) - left I))"
-abbreviation "ETP_f \<sigma> i I \<equiv> max i (ETP \<sigma> ((\<tau> \<sigma> i) + left I))"
-abbreviation "LTP_f \<sigma> i b \<equiv> LTP \<sigma> ((\<tau> \<sigma> i) + b)"
-
-definition max_opt where
-  "max_opt a b = (case (a,b) of (Some x, Some y) \<Rightarrow> Some (max x y) | _ \<Rightarrow> None)"
-
-definition "LTP_p_safe \<sigma> i I = (if \<tau> \<sigma> i - left I \<ge> \<tau> \<sigma> 0 then LTP_p \<sigma> i I else 0)"
-
-(* Latest Relevant Time-Point *)
-fun LRTP :: "'a Formula.trace \<Rightarrow> 'a Formula.formula \<Rightarrow> nat \<Rightarrow> nat option" where
-  "LRTP \<sigma> (Formula.TT) i = Some i"
-| "LRTP \<sigma> (Formula.FF) i = Some i"
-| "LRTP \<sigma> (Formula.Pred _ _) i = Some i"
-| "LRTP \<sigma> (Formula.Eq_Const _ _) i = Some i"
-| "LRTP \<sigma> (Formula.Neg \<phi>) i = LRTP \<sigma> \<phi> i"
-| "LRTP \<sigma> (Formula.Or \<phi> \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (Formula.And \<phi> \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (Formula.Imp \<phi> \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (Formula.Iff \<phi> \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (Formula.Exists _ \<phi>) i = LRTP \<sigma> \<phi> i"
-| "LRTP \<sigma> (Formula.Forall _ \<phi>) i = LRTP \<sigma> \<phi> i"
-| "LRTP \<sigma> (Formula.Prev I \<phi>) i = LRTP \<sigma> \<phi> (i-1)"
-| "LRTP \<sigma> (Formula.Next I \<phi>) i = LRTP \<sigma> \<phi> (i+1)"
-| "LRTP \<sigma> (Formula.Once I \<phi>) i = LRTP \<sigma> \<phi> (LTP_p_safe \<sigma> i I)"
-| "LRTP \<sigma> (Formula.Historically I \<phi>) i = LRTP \<sigma> \<phi> (LTP_p_safe \<sigma> i I)"
-| "LRTP \<sigma> (Formula.Eventually I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<sigma> \<phi> (LTP_f \<sigma> i b))"
-| "LRTP \<sigma> (Formula.Always I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<sigma> \<phi> (LTP_f \<sigma> i b))" 
-| "LRTP \<sigma> (Formula.Since \<phi> I \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> (LTP_p_safe \<sigma> i I))"
-| "LRTP \<sigma> (Formula.Until \<phi> I \<psi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> max_opt (LRTP \<sigma> \<phi> ((LTP_f \<sigma> i b)-1)) (LRTP \<sigma> \<psi> (LTP_f \<sigma> i b)))"
+fun LRTP :: "'a trace \<Rightarrow> 'a formula \<Rightarrow> nat \<Rightarrow> nat option" where
+  "LRTP \<sigma> \<top> i = Some i"
+| "LRTP \<sigma> \<bottom> i = Some i"
+| "LRTP \<sigma> (_ \<dagger> _) i = Some i"
+| "LRTP \<sigma> (_ \<^bold>\<approx> _) i = Some i"
+| "LRTP \<sigma> (\<not>\<^sub>F \<phi>) i = LRTP \<sigma> \<phi> i"
+| "LRTP \<sigma> (\<phi> \<or>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
+| "LRTP \<sigma> (\<phi> \<and>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
+| "LRTP \<sigma> (\<phi> \<longrightarrow>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
+| "LRTP \<sigma> (\<phi> \<longleftrightarrow>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
+| "LRTP \<sigma> (\<exists>\<^sub>F_. \<phi>) i = LRTP \<sigma> \<phi> i"
+| "LRTP \<sigma> (\<forall>\<^sub>F_. \<phi>) i = LRTP \<sigma> \<phi> i"
+| "LRTP \<sigma> (\<^bold>Y I \<phi>) i = LRTP \<sigma> \<phi> (i-1)"
+| "LRTP \<sigma> (\<^bold>X I \<phi>) i = LRTP \<sigma> \<phi> (i+1)"
+| "LRTP \<sigma> (\<^bold>P I \<phi>) i = LRTP \<sigma> \<phi> (LTP_p_safe \<sigma> i I)"
+| "LRTP \<sigma> (\<^bold>H I \<phi>) i = LRTP \<sigma> \<phi> (LTP_p_safe \<sigma> i I)"
+| "LRTP \<sigma> (\<^bold>F I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<sigma> \<phi> (LTP_f \<sigma> i b))"
+| "LRTP \<sigma> (\<^bold>G I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<sigma> \<phi> (LTP_f \<sigma> i b))" 
+| "LRTP \<sigma> (\<phi> \<^bold>S I \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> (LTP_p_safe \<sigma> i I))"
+| "LRTP \<sigma> (\<phi> \<^bold>U I \<psi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> max_opt (LRTP \<sigma> \<phi> ((LTP_f \<sigma> i b)-1)) (LRTP \<sigma> \<psi> (LTP_f \<sigma> i b)))"
 
 lemma fb_LRTP: 
-  assumes "Formula.future_bounded \<phi>"
+  assumes "future_bounded \<phi>"
   shows "\<not> Option.is_none (LRTP \<sigma> \<phi> i)"
   using assms
   by (induction \<sigma> \<phi> i rule: LRTP.induct) 
     (auto simp add: max_opt_def Option.is_none_def)
 
 lemma not_none_fb_LRTP:
-  assumes "Formula.future_bounded \<phi>"
-  shows "(LRTP \<sigma> \<phi> i) \<noteq> None"
+  assumes "future_bounded \<phi>"
+  shows "LRTP \<sigma> \<phi> i \<noteq> None"
   using assms fb_LRTP by (auto simp add: Option.is_none_def)
 
 lemma is_some_fb_LRTP:
-  assumes "Formula.future_bounded \<phi>"
-  shows "\<exists>j. (LRTP \<sigma> \<phi> i) = Some j"
+  assumes "future_bounded \<phi>"
+  shows "\<exists>j. LRTP \<sigma> \<phi> i = Some j"
   using assms fb_LRTP by (auto simp add: Option.is_none_def)
 
 lemma i_ETP_tau: "i \<ge> ETP \<sigma> n \<longleftrightarrow> \<tau> \<sigma> i \<ge> n"
@@ -86,7 +69,9 @@ lemma tau_LTP_k:
   shows "\<tau> \<sigma> k > n"
 proof -
   have "finite {i. \<tau> \<sigma> i \<le> n}"
-    by (metis Suc_le_eq i_ETP_tau infinite_nat_iff_unbounded_le leD mem_Collect_eq)
+    by (rule ccontr, unfold infinite_nat_iff_unbounded_le mem_Collect_eq)
+      (metis Suc_le_eq i_ETP_tau  leD)
+  thm Suc_le_eq i_ETP_tau infinite_nat_iff_unbounded_le leD mem_Collect_eq
   then show ?thesis
     using assms(2) Max.coboundedI linorder_not_less
     unfolding LTP_def by auto
@@ -189,14 +174,14 @@ lemma enat_trans[simp]: "enat i \<le> enat j \<and> enat j \<le> enat k \<Longri
   by auto
 
 lemma not_sat_SinceD:
-  assumes unsat: "\<not> Formula.sat \<sigma> v i (Formula.Since \<phi> I \<psi>)" and
-    witness: "\<exists>j \<le> i. mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> Formula.sat \<sigma> v j \<psi>"
-  shows "\<exists>j \<le> i. ETP \<sigma> (case right I of \<infinity> \<Rightarrow> 0 | enat n \<Rightarrow> \<tau> \<sigma> i - n) \<le> j \<and> \<not> Formula.sat \<sigma> v j \<phi>
-  \<and> (\<forall>k \<in> {j .. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}. \<not> Formula.sat \<sigma> v k \<psi>)"
+  assumes unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>S I \<psi>" and
+    witness: "\<exists>j \<le> i. mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
+  shows "\<exists>j \<le> i. ETP \<sigma> (case right I of \<infinity> \<Rightarrow> 0 | enat n \<Rightarrow> \<tau> \<sigma> i - n) \<le> j \<and> \<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>
+  \<and> (\<forall>k \<in> {j .. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}. \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
 proof -
-  define A and j where A_def: "A \<equiv> {j. j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> Formula.sat \<sigma> v j \<psi>}"
+  define A and j where A_def: "A \<equiv> {j. j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>}"
     and j_def: "j \<equiv> Max A"
-  from witness have j: "j \<le> i" "Formula.sat \<sigma> v j \<psi>" "mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I"
+  from witness have j: "j \<le> i" "\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>" "mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I"
     using Max_in[of A] unfolding j_def[symmetric] unfolding A_def
     by auto
   moreover
@@ -227,7 +212,7 @@ proof -
       using k(1,2) j(3)
       by (cases "right I") (auto simp: le_diff_conv le_diff_conv2 add.commute dest: \<tau>_mono
          elim: order_trans[rotated] order_trans)
-    with Max_ge[of A k] k have "\<not> Formula.sat \<sigma> v k \<psi>"
+    with Max_ge[of A k] k have "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>"
       unfolding j_def[symmetric] unfolding A_def
       by auto
   }
@@ -239,18 +224,18 @@ lemma min_not_in: "finite A \<Longrightarrow> A \<noteq> {} \<Longrightarrow> x 
   by auto
 
 lemma not_sat_UntilD:
-  assumes unsat: "\<not> (Formula.sat \<sigma> v i (Formula.Until \<phi> I \<psi>))"
-    and witness: "\<exists>j \<ge> i. mem (\<delta> \<sigma> j i) I \<and> Formula.sat \<sigma> v j \<psi>"
+  assumes unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>U I \<psi>"
+    and witness: "\<exists>j \<ge> i. mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
   shows "\<exists>j \<ge> i. (case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> j < LTP \<sigma> (\<tau> \<sigma> i + n))
-  \<and> \<not> (Formula.sat \<sigma> v j \<phi>) \<and> (\<forall>k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) .. j}.
-   \<not> Formula.sat \<sigma> v k \<psi>)"
+  \<and> \<not> (\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>) \<and> (\<forall>k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) .. j}.
+   \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
 proof -
   from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
-  from witness obtain jmax where jmax: "jmax \<ge> i" "Formula.sat \<sigma> v jmax \<psi>"
+  from witness obtain jmax where jmax: "jmax \<ge> i" "\<langle>\<sigma>, v, jmax\<rangle> \<Turnstile> \<psi>"
     "mem (\<delta> \<sigma> jmax i) I" by blast
   define A and j where A_def: "A \<equiv> {j. j \<ge> i \<and> j \<le> jmax
-  \<and> mem (\<delta> \<sigma> j i) I \<and> Formula.sat \<sigma> v j \<psi>}" and j_def: "j \<equiv> Min A"
-  have j: "j \<ge> i" "Formula.sat \<sigma> v j \<psi>" "mem (\<delta> \<sigma> j i) I"
+  \<and> mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>}" and j_def: "j \<equiv> Min A"
+  have j: "j \<ge> i" "\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>" "mem (\<delta> \<sigma> j i) I"
     using A_def j_def jmax Min_in[of A]
     unfolding j_def[symmetric] unfolding A_def
     by fastforce+
@@ -278,7 +263,7 @@ proof -
     with this mem_k ki Min_le[of A k] min_not_in[of A k] k_def have "k \<notin> A"
       unfolding j_def[symmetric] unfolding A_def unfolding ETP_def
       using finite_nat_set_iff_bounded_le kj by blast
-    with this mem_k k_def kjm have "\<not> Formula.sat \<sigma> v k \<psi>"
+    with this mem_k k_def kjm have "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>"
       by (simp add: A_def) }
   ultimately show ?thesis using unsat
     by (auto split: enat.splits dest!: spec[of _ j])
@@ -286,83 +271,83 @@ qed
 
 subsection \<open>Soundness and Completeness\<close>
 
-inductive SAT and VIO :: "'a Formula.trace \<Rightarrow> 'a Formula.env \<Rightarrow> nat \<Rightarrow> 'a Formula.formula \<Rightarrow> bool" for \<sigma> where
-  STT: "SAT \<sigma> v i Formula.TT"
-| VFF: "VIO \<sigma> v i Formula.FF"
-| SPred: "(r, Formula.eval_trms v ts) \<in> \<Gamma> \<sigma> i \<Longrightarrow> SAT \<sigma> v i (Formula.Pred r ts)"
-| VPred: "(r, Formula.eval_trms v ts) \<notin> \<Gamma> \<sigma> i \<Longrightarrow> VIO \<sigma> v i (Formula.Pred r ts)"
-| SEq_Const: "v x = c \<Longrightarrow> SAT \<sigma> v i (Formula.Eq_Const x c)"
-| VEq_Const: "v x \<noteq> c \<Longrightarrow> VIO \<sigma> v i (Formula.Eq_Const x c)"
-| SNeg: "VIO \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Neg \<phi>)"
-| VNeg: "SAT \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Neg \<phi>)"
-| SOrL: "SAT \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Or \<phi> \<psi>)"
-| SOrR: "SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Formula.Or \<phi> \<psi>)"
-| VOr: "VIO \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Formula.Or \<phi> \<psi>)"
-| SAnd: "SAT \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Formula.And \<phi> \<psi>)"
-| VAndL: "VIO \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.And \<phi> \<psi>)"
-| VAndR: "VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Formula.And \<phi> \<psi>)"
-| SImpL: "VIO \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Imp \<phi> \<psi>)"
-| SImpR: "SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Formula.Imp \<phi> \<psi>)"
-| VImp: "SAT \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Formula.Imp \<phi> \<psi>)"
-| SIffSS: "SAT \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Formula.Iff \<phi> \<psi>)"
-| SIffVV: "VIO \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Formula.Iff \<phi> \<psi>)"
-| VIffSV: "SAT \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Formula.Iff \<phi> \<psi>)"
-| VIffVS: "VIO \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Formula.Iff \<phi> \<psi>)"
-| SExists: "\<exists>z. SAT \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Exists x \<phi>)"
-| VExists: "\<forall>z. VIO \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Exists x \<phi>)"
-| SForall: "\<forall>z. SAT \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Forall x \<phi>)"
-| VForall: "\<exists>z. VIO \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Forall x \<phi>)"
-| SPrev: "i > 0 \<Longrightarrow> mem (\<Delta> \<sigma> i) I \<Longrightarrow> SAT \<sigma> v (i-1) \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Prev I \<phi>)"
-| VPrev: "i > 0 \<Longrightarrow> VIO \<sigma> v (i-1) \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Prev I \<phi>)"
-| VPrevZ: "i = 0 \<Longrightarrow> VIO \<sigma> v i (Formula.Prev I \<phi>)"
-| VPrevOutL: "i > 0 \<Longrightarrow> (\<Delta> \<sigma> i) < (left I) \<Longrightarrow> VIO \<sigma> v i (Formula.Prev I \<phi>)"
-| VPrevOutR: "i > 0 \<Longrightarrow> enat (\<Delta> \<sigma> i) > (right I) \<Longrightarrow> VIO \<sigma> v i (Formula.Prev I \<phi>)"
-| SNext: "mem (\<Delta> \<sigma> (i+1)) I \<Longrightarrow> SAT \<sigma> v (i+1) \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Next I \<phi>)"
-| VNext: "VIO \<sigma> v (i+1) \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Next I \<phi>)"
-| VNextOutL: "(\<Delta> \<sigma> (i+1)) < (left I) \<Longrightarrow> VIO \<sigma> v i (Formula.Next I \<phi>)"
-| VNextOutR: "enat (\<Delta> \<sigma> (i+1)) > (right I) \<Longrightarrow> VIO \<sigma> v i (Formula.Next I \<phi>)"
-| SOnce: "j \<le> i \<Longrightarrow> mem (\<delta> \<sigma> i j) I \<Longrightarrow> SAT \<sigma> v j \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Once I \<phi>)"
-| VOnceOut: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I \<Longrightarrow> VIO \<sigma> v i (Formula.Once I \<phi>)"
+inductive SAT and VIO :: "'a trace \<Rightarrow> 'a env \<Rightarrow> nat \<Rightarrow> 'a formula \<Rightarrow> bool" for \<sigma> where
+  STT: "SAT \<sigma> v i TT"
+| VFF: "VIO \<sigma> v i FF"
+| SPred: "(r, eval_trms v ts) \<in> \<Gamma> \<sigma> i \<Longrightarrow> SAT \<sigma> v i (Pred r ts)"
+| VPred: "(r, eval_trms v ts) \<notin> \<Gamma> \<sigma> i \<Longrightarrow> VIO \<sigma> v i (Pred r ts)"
+| SEq_Const: "v x = c \<Longrightarrow> SAT \<sigma> v i (Eq_Const x c)"
+| VEq_Const: "v x \<noteq> c \<Longrightarrow> VIO \<sigma> v i (Eq_Const x c)"
+| SNeg: "VIO \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i (Neg \<phi>)"
+| VNeg: "SAT \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i (Neg \<phi>)"
+| SOrL: "SAT \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i (Or \<phi> \<psi>)"
+| SOrR: "SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Or \<phi> \<psi>)"
+| VOr: "VIO \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Or \<phi> \<psi>)"
+| SAnd: "SAT \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (And \<phi> \<psi>)"
+| VAndL: "VIO \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i (And \<phi> \<psi>)"
+| VAndR: "VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (And \<phi> \<psi>)"
+| SImpL: "VIO \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i (Imp \<phi> \<psi>)"
+| SImpR: "SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Imp \<phi> \<psi>)"
+| VImp: "SAT \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Imp \<phi> \<psi>)"
+| SIffSS: "SAT \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Iff \<phi> \<psi>)"
+| SIffVV: "VIO \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> SAT \<sigma> v i (Iff \<phi> \<psi>)"
+| VIffSV: "SAT \<sigma> v i \<phi> \<Longrightarrow> VIO \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Iff \<phi> \<psi>)"
+| VIffVS: "VIO \<sigma> v i \<phi> \<Longrightarrow> SAT \<sigma> v i \<psi> \<Longrightarrow> VIO \<sigma> v i (Iff \<phi> \<psi>)"
+| SExists: "\<exists>z. SAT \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> SAT \<sigma> v i (Exists x \<phi>)"
+| VExists: "\<forall>z. VIO \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> VIO \<sigma> v i (Exists x \<phi>)"
+| SForall: "\<forall>z. SAT \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> SAT \<sigma> v i (Forall x \<phi>)"
+| VForall: "\<exists>z. VIO \<sigma> (v (x := z)) i \<phi> \<Longrightarrow> VIO \<sigma> v i (Forall x \<phi>)"
+| SPrev: "i > 0 \<Longrightarrow> mem (\<Delta> \<sigma> i) I \<Longrightarrow> SAT \<sigma> v (i-1) \<phi> \<Longrightarrow> SAT \<sigma> v i (\<^bold>Y I \<phi>)"
+| VPrev: "i > 0 \<Longrightarrow> VIO \<sigma> v (i-1) \<phi> \<Longrightarrow> VIO \<sigma> v i (\<^bold>Y I \<phi>)"
+| VPrevZ: "i = 0 \<Longrightarrow> VIO \<sigma> v i (\<^bold>Y I \<phi>)"
+| VPrevOutL: "i > 0 \<Longrightarrow> (\<Delta> \<sigma> i) < (left I) \<Longrightarrow> VIO \<sigma> v i (\<^bold>Y I \<phi>)"
+| VPrevOutR: "i > 0 \<Longrightarrow> enat (\<Delta> \<sigma> i) > (right I) \<Longrightarrow> VIO \<sigma> v i (\<^bold>Y I \<phi>)"
+| SNext: "mem (\<Delta> \<sigma> (i+1)) I \<Longrightarrow> SAT \<sigma> v (i+1) \<phi> \<Longrightarrow> SAT \<sigma> v i (\<^bold>X I \<phi>)"
+| VNext: "VIO \<sigma> v (i+1) \<phi> \<Longrightarrow> VIO \<sigma> v i (\<^bold>X I \<phi>)"
+| VNextOutL: "(\<Delta> \<sigma> (i+1)) < (left I) \<Longrightarrow> VIO \<sigma> v i (\<^bold>X I \<phi>)"
+| VNextOutR: "enat (\<Delta> \<sigma> (i+1)) > (right I) \<Longrightarrow> VIO \<sigma> v i (\<^bold>X I \<phi>)"
+| SOnce: "j \<le> i \<Longrightarrow> mem (\<delta> \<sigma> i j) I \<Longrightarrow> SAT \<sigma> v j \<phi> \<Longrightarrow> SAT \<sigma> v i (\<^bold>P I \<phi>)"
+| VOnceOut: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I \<Longrightarrow> VIO \<sigma> v i (\<^bold>P I \<phi>)"
 | VOnce: "j = (case right I of \<infinity> \<Rightarrow> 0 
                | enat b \<Rightarrow> ETP_p \<sigma> i b) \<Longrightarrow>
           (\<tau> \<sigma> i) \<ge> (\<tau> \<sigma> 0) + left I \<Longrightarrow>
-          (\<And>k. k \<in> {j .. LTP_p \<sigma> i I} \<Longrightarrow> VIO \<sigma> v k \<phi>) \<Longrightarrow> VIO \<sigma> v i (Formula.Once I \<phi>)"
-| SEventually: "j \<ge> i \<Longrightarrow> mem (\<delta> \<sigma> j i) I  \<Longrightarrow> SAT \<sigma> v j \<phi> \<Longrightarrow> SAT \<sigma> v i (Formula.Eventually I \<phi>)"
+          (\<And>k. k \<in> {j .. LTP_p \<sigma> i I} \<Longrightarrow> VIO \<sigma> v k \<phi>) \<Longrightarrow> VIO \<sigma> v i (\<^bold>P I \<phi>)"
+| SEventually: "j \<ge> i \<Longrightarrow> mem (\<delta> \<sigma> j i) I  \<Longrightarrow> SAT \<sigma> v j \<phi> \<Longrightarrow> SAT \<sigma> v i (\<^bold>F I \<phi>)"
 | VEventually: "(\<And>k. k \<in> (case right I of \<infinity> \<Rightarrow> {ETP_f \<sigma> i I ..}
                            | enat b \<Rightarrow> {ETP_f \<sigma> i I .. LTP_f \<sigma> i b}) \<Longrightarrow> VIO \<sigma> v k \<phi>) \<Longrightarrow> 
-                VIO \<sigma> v i (Formula.Eventually I \<phi>)"
+                VIO \<sigma> v i (\<^bold>F I \<phi>)"
 | SHistorically: "j = (case right I of \<infinity> \<Rightarrow> 0
                        | enat b \<Rightarrow> ETP_p \<sigma> i b) \<Longrightarrow>
                  (\<tau> \<sigma> i) \<ge> (\<tau> \<sigma> 0) + left I \<Longrightarrow>
-                 (\<And>k. k \<in> {j .. LTP_p \<sigma> i I} \<Longrightarrow> SAT \<sigma> v k \<phi>) \<Longrightarrow> SAT \<sigma> v i (Formula.Historically I \<phi>)"
-| SHistoricallyOut: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I \<Longrightarrow> SAT \<sigma> v i (Formula.Historically I \<phi>)"
-| VHistorically: "j \<le> i \<Longrightarrow> mem (\<delta> \<sigma> i j) I  \<Longrightarrow> VIO \<sigma> v j \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Historically I \<phi>)"
+                 (\<And>k. k \<in> {j .. LTP_p \<sigma> i I} \<Longrightarrow> SAT \<sigma> v k \<phi>) \<Longrightarrow> SAT \<sigma> v i (\<^bold>H I \<phi>)"
+| SHistoricallyOut: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I \<Longrightarrow> SAT \<sigma> v i (\<^bold>H I \<phi>)"
+| VHistorically: "j \<le> i \<Longrightarrow> mem (\<delta> \<sigma> i j) I  \<Longrightarrow> VIO \<sigma> v j \<phi> \<Longrightarrow> VIO \<sigma> v i (\<^bold>H I \<phi>)"
 | SAlways: "(\<And>k. k \<in> (case right I of \<infinity> \<Rightarrow> {ETP_f \<sigma> i I ..} 
                        | enat b \<Rightarrow> {ETP_f \<sigma> i I .. LTP_f \<sigma> i b}) \<Longrightarrow> SAT \<sigma> v k \<phi>) \<Longrightarrow>
-            SAT \<sigma> v i (Formula.Always I \<phi>)"
-| VAlways: "j \<ge> i \<Longrightarrow> mem (\<delta> \<sigma> j i) I  \<Longrightarrow> VIO \<sigma> v j \<phi> \<Longrightarrow> VIO \<sigma> v i (Formula.Always I \<phi>)"
+            SAT \<sigma> v i (\<^bold>G I \<phi>)"
+| VAlways: "j \<ge> i \<Longrightarrow> mem (\<delta> \<sigma> j i) I  \<Longrightarrow> VIO \<sigma> v j \<phi> \<Longrightarrow> VIO \<sigma> v i (\<^bold>G I \<phi>)"
 | SSince: "j \<le> i \<Longrightarrow> mem (\<delta> \<sigma> i j) I  \<Longrightarrow> SAT \<sigma> v j \<psi> \<Longrightarrow> (\<And>k. k \<in> {j <.. i} \<Longrightarrow> 
-           SAT \<sigma> v k \<phi>) \<Longrightarrow> SAT \<sigma> v i (Formula.Since \<phi> I \<psi>)"
-| VSinceOut: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I \<Longrightarrow> VIO \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+           SAT \<sigma> v k \<phi>) \<Longrightarrow> SAT \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
+| VSinceOut: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I \<Longrightarrow> VIO \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
 | VSince: "(case right I of \<infinity> \<Rightarrow> True 
             | enat b \<Rightarrow> ETP \<sigma> ((\<tau> \<sigma> i) - b) \<le> j) \<Longrightarrow> 
            j \<le> i \<Longrightarrow> (\<tau> \<sigma> 0) + left I \<le> (\<tau> \<sigma> i) \<Longrightarrow> VIO \<sigma> v j \<phi> \<Longrightarrow>
-           (\<And>k. k \<in> {j .. (LTP_p \<sigma> i I)} \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow> VIO \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+           (\<And>k. k \<in> {j .. (LTP_p \<sigma> i I)} \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow> VIO \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
 | VSinceInf: "j = (case right I of \<infinity> \<Rightarrow> 0 
                    | enat b \<Rightarrow> ETP_p \<sigma> i b) \<Longrightarrow>
              (\<tau> \<sigma> i) \<ge> (\<tau> \<sigma> 0) + left I \<Longrightarrow> 
-             (\<And>k. k \<in> {j .. LTP_p \<sigma> i I} \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow> VIO \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+             (\<And>k. k \<in> {j .. LTP_p \<sigma> i I} \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow> VIO \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
 | SUntil: "j \<ge> i \<Longrightarrow> mem (\<delta> \<sigma> j i) I  \<Longrightarrow> SAT \<sigma> v j \<psi> \<Longrightarrow> (\<And>k. k \<in> {i ..< j} \<Longrightarrow> SAT \<sigma> v k \<phi>) \<Longrightarrow> 
-           SAT \<sigma> v i (Formula.Until \<phi> I \<psi>)"
+           SAT \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
 | VUntil: "(case right I of \<infinity> \<Rightarrow> True 
             | enat b \<Rightarrow> j < LTP_f \<sigma> i b) \<Longrightarrow> 
            j \<ge> i \<Longrightarrow> VIO \<sigma> v j \<phi> \<Longrightarrow> (\<And>k. k \<in> {ETP_f \<sigma> i I .. j} \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow> 
-           VIO \<sigma> v i (Formula.Until \<phi> I \<psi>)"
+           VIO \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
 | VUntilInf: "(\<And>k. k \<in> (case right I of \<infinity> \<Rightarrow> {ETP_f \<sigma> i I ..} 
                          | enat b \<Rightarrow> {ETP_f \<sigma> i I .. LTP_f \<sigma> i b}) \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow>
-              VIO \<sigma> v i (Formula.Until \<phi> I \<psi>)"
+              VIO \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
 
-lemma soundness_raw: "(SAT \<sigma> v i \<phi> \<longrightarrow> Formula.sat \<sigma> v i \<phi>) \<and> (VIO \<sigma> v i \<phi> \<longrightarrow> \<not> Formula.sat \<sigma> v i \<phi>)"
+lemma soundness_raw: "(SAT \<sigma> v i \<phi> \<longrightarrow> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi>) \<and> (VIO \<sigma> v i \<phi> \<longrightarrow> \<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi>)"
 proof (induct v i \<phi> rule: SAT_VIO.induct)
   case (VOnceOut i I v \<phi>)
   { fix j
@@ -376,7 +361,7 @@ proof (induct v i \<phi> rule: SAT_VIO.induct)
 next
   case (VOnce j I i v \<phi>)
   { fix k
-    assume k_def: "Formula.sat \<sigma> v k \<phi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
+    assume k_def: "\<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<phi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
     then have k_tau: "\<tau> \<sigma> k \<le> \<tau> \<sigma> i - left I"
       using diff_le_mono2 by fastforce
     then have k_ltp: "k \<le> LTP \<sigma> (\<tau> \<sigma> i - left I)"
@@ -399,7 +384,7 @@ next
     define j where "j = LTP \<sigma> ((\<tau> \<sigma> i) + n)"
     then have j_i: "i \<le> j"
       by (auto simp add: i_LTP_tau trans_le_add1 j_def)
-    assume k_def: "Formula.sat \<sigma> v k \<phi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
+    assume k_def: "\<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<phi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
     then have "\<tau> \<sigma> k \<ge> \<tau> \<sigma> i + left I"
       using le_diff_conv2 by auto
     then have k_etp: "k \<ge> ETP \<sigma> (\<tau> \<sigma> i + left I)"
@@ -427,7 +412,7 @@ next
 next
   case (SHistorically j I i v \<phi>)
   { fix k
-    assume k_def: "\<not> Formula.sat \<sigma> v k \<phi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
+    assume k_def: "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<phi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
     then have k_tau: "\<tau> \<sigma> k \<le> \<tau> \<sigma> i - left I"
       using diff_le_mono2 by fastforce
     then have k_ltp: "k \<le> LTP \<sigma> (\<tau> \<sigma> i - left I)"
@@ -459,7 +444,7 @@ next
     define j where "j = LTP \<sigma> ((\<tau> \<sigma> i) + n)"
     from SAlways have j_i: "i \<le> j"
       by (auto simp add: i_LTP_tau trans_le_add1 j_def)
-    assume k_def: "\<not> Formula.sat \<sigma> v k \<phi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
+    assume k_def: "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<phi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
     then have "\<tau> \<sigma> k \<ge> \<tau> \<sigma> i + left I"
       using le_diff_conv2 by auto
     then have k_etp: "k \<ge> ETP \<sigma> (\<tau> \<sigma> i + left I)"
@@ -498,21 +483,21 @@ next
 next
   case (VSince I i j v \<phi> \<psi>)
   { fix k
-    assume k_def: "Formula.sat \<sigma> v k \<psi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
+    assume k_def: "\<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
     then have "\<tau> \<sigma> k \<le> \<tau> \<sigma> i - left I" using diff_le_mono2 by fastforce
     then have k_ltp: "k \<le> LTP \<sigma> (\<tau> \<sigma> i - left I)"
       using VSince i_LTP_tau add_le_imp_le_diff
       by blast
     then have "k < j" using k_def VSince(7)[of k]
       by force
-    then have "j \<in> {k <.. i} \<and> \<not> Formula.sat \<sigma> v j \<phi>" using VSince
+    then have "j \<in> {k <.. i} \<and> \<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>" using VSince
       by auto }
   then show ?case using VSince
     by force
 next
   case (VSinceInf j I i v \<psi> \<phi>)
   { fix k
-    assume k_def: "Formula.sat \<sigma> v k \<psi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
+    assume k_def: "\<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi> \<and> mem (\<delta> \<sigma> i k) I \<and> k \<le> i"
     then have k_tau: "\<tau> \<sigma> k \<le> \<tau> \<sigma> i - left I"
       using diff_le_mono2 by fastforce
     then have k_ltp: "k \<le> LTP \<sigma> (\<tau> \<sigma> i - left I)"
@@ -529,7 +514,7 @@ next
 next
   case (VUntil I j i v \<phi> \<psi>)
   { fix k
-    assume k_def: "Formula.sat \<sigma> v k \<psi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
+    assume k_def: "\<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
     then have "\<tau> \<sigma> k \<ge> \<tau> \<sigma> i + left I"
       using le_diff_conv2 by auto
     then have k_etp: "k \<ge> ETP \<sigma> (\<tau> \<sigma> i + left I)"
@@ -549,7 +534,7 @@ next
     define j where "j = LTP \<sigma> ((\<tau> \<sigma> i) + n)"
     from VUntilInf have j_i: "i \<le> j"
       by (auto simp add: i_LTP_tau trans_le_add1 j_def)
-    assume k_def: "Formula.sat \<sigma> v k \<psi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
+    assume k_def: "\<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi> \<and> mem (\<delta> \<sigma> k i) I \<and> i \<le> k"
     then have "\<tau> \<sigma> k \<ge> \<tau> \<sigma> i + left I"
       using le_diff_conv2 by auto
     then have k_etp: "k \<ge> ETP \<sigma> (\<tau> \<sigma> i + left I)"
@@ -580,24 +565,24 @@ qed (auto simp: fun_upd_def split: nat.splits)
 
 lemmas soundness = soundness_raw[THEN conjunct1, THEN mp] soundness_raw[THEN conjunct2, THEN mp]
 
-lemma completeness_raw: "(Formula.sat \<sigma> v i \<phi> \<longrightarrow> SAT \<sigma> v i \<phi>) \<and> (\<not> Formula.sat \<sigma> v i \<phi> \<longrightarrow> VIO \<sigma> v i \<phi>)"
+lemma completeness_raw: "(\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<longrightarrow> SAT \<sigma> v i \<phi>) \<and> (\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<longrightarrow> VIO \<sigma> v i \<phi>)"
 proof (induct \<phi> arbitrary: v i)
   case (Prev I \<phi>)
   show ?case using Prev
     by (auto intro: SAT_VIO.SPrev SAT_VIO.VPrev SAT_VIO.VPrevOutL SAT_VIO.VPrevOutR SAT_VIO.VPrevZ split: nat.splits)
 next
   case (Once I \<phi>)
-  { assume "Formula.sat \<sigma> v i (Formula.Once I \<phi>)"
-    with Once have "SAT \<sigma> v i (Formula.Once I \<phi>)"
+  { assume "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>P I \<phi>"
+    with Once have "SAT \<sigma> v i (\<^bold>P I \<phi>)"
       by (auto intro: SAT_VIO.SOnce) }
   moreover
   { assume i_l: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I"
-    with Once have "VIO \<sigma> v i (Formula.Once I \<phi>)"
+    with Once have "VIO \<sigma> v i (\<^bold>P I \<phi>)"
       by (auto intro: SAT_VIO.VOnceOut) }
   moreover
-  { assume unsat: "\<not> Formula.sat \<sigma> v i (Formula.Once I \<phi>)"
+  { assume unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>P I \<phi>"
       and i_ge: "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
-    with Once have "VIO \<sigma> v i (Formula.Once I \<phi>)"
+    with Once have "VIO \<sigma> v i (\<^bold>P I \<phi>)"
       by (auto intro!: SAT_VIO.VOnce simp: i_LTP_tau i_ETP_tau
           split: enat.splits) }
   ultimately show ?case
@@ -605,71 +590,71 @@ next
 next
   case (Historically I \<phi>)
   from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
-  { assume sat: "Formula.sat \<sigma> v i (Formula.Historically I \<phi>)"
+  { assume sat: "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>H I \<phi>"
       and i_ge: "\<tau> \<sigma> i \<ge> \<tau> \<sigma> 0 + left I"
-    with Historically have "SAT \<sigma> v i (Formula.Historically I \<phi>)"
+    with Historically have "SAT \<sigma> v i (\<^bold>H I \<phi>)"
       using le_diff_conv
       by (auto intro!: SAT_VIO.SHistorically simp: i_LTP_tau i_ETP_tau
           split: enat.splits) }
   moreover
-  { assume "\<not> Formula.sat \<sigma> v i (Formula.Historically I \<phi>)"
-    with Historically have "VIO \<sigma> v i (Formula.Historically I \<phi>)"
+  { assume "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>H I \<phi>"
+    with Historically have "VIO \<sigma> v i (\<^bold>H I \<phi>)"
       by (auto intro: SAT_VIO.VHistorically) }
   moreover
   { assume i_l: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I"
-    with Historically have "SAT \<sigma> v i (Formula.Historically I \<phi>)"
+    with Historically have "SAT \<sigma> v i (\<^bold>H I \<phi>)"
       by (auto intro: SAT_VIO.SHistoricallyOut) }
   ultimately show ?case
     by force
 next
   case (Eventually I \<phi>)
   from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
-  { assume "Formula.sat \<sigma> v i (Formula.Eventually I \<phi>)"
-    with Eventually have "SAT \<sigma> v i (Formula.Eventually I \<phi>)"
+  { assume "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>F I \<phi>"
+    with Eventually have "SAT \<sigma> v i (\<^bold>F I \<phi>)"
       by (auto intro: SAT_VIO.SEventually) }
   moreover
-  { assume unsat: "\<not> Formula.sat \<sigma> v i (Formula.Eventually I \<phi>)"
-    with Eventually have "VIO \<sigma> v i (Formula.Eventually I \<phi>)"
+  { assume unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>F I \<phi>"
+    with Eventually have "VIO \<sigma> v i (\<^bold>F I \<phi>)"
       by (auto intro!: SAT_VIO.VEventually simp: add_increasing2 i0 i_LTP_tau i_ETP_tau
           split: enat.splits) }
   ultimately show ?case by auto
 next
   case (Always I \<phi>)
     from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
-  { assume "\<not> Formula.sat \<sigma> v i (Formula.Always I \<phi>)"
-    with Always have "VIO \<sigma> v i (Formula.Always I \<phi>)"
+  { assume "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>G I \<phi>"
+    with Always have "VIO \<sigma> v i (\<^bold>G I \<phi>)"
       by (auto intro: SAT_VIO.VAlways) }
   moreover
-  { assume sat: "Formula.sat \<sigma> v i (Formula.Always I \<phi>)"
-    with Always have "SAT \<sigma> v i (Formula.Always I \<phi>)"
+  { assume sat: "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<^bold>G I \<phi>"
+    with Always have "SAT \<sigma> v i (\<^bold>G I \<phi>)"
       by (auto intro!: SAT_VIO.SAlways simp: add_increasing2 i0 i_LTP_tau i_ETP_tau le_diff_conv split: enat.splits)}
   ultimately show ?case by auto
 next
   case (Since \<phi> I \<psi>)
-  { assume "Formula.sat \<sigma> v i (Formula.Since \<phi> I \<psi>)"
-    with Since have "SAT \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+  { assume "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>S I \<psi>"
+    with Since have "SAT \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
       by (auto intro: SAT_VIO.SSince) }
   moreover
   { assume i_l: "\<tau> \<sigma> i < \<tau> \<sigma> 0 + left I"
-    with Since have "VIO \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+    with Since have "VIO \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
       by (auto intro: SAT_VIO.VSinceOut) }
   moreover
-  { assume unsat: "\<not> Formula.sat \<sigma> v i (Formula.Since \<phi> I \<psi>)"
-      and nw: "\<forall>j\<le>i. \<not> mem (\<delta> \<sigma> i j) I \<or> \<not> Formula.sat \<sigma> v j \<psi>"
+  { assume unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>S I \<psi>"
+      and nw: "\<forall>j\<le>i. \<not> mem (\<delta> \<sigma> i j) I \<or> \<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
       and i_ge: "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
-    with Since have "VIO \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+    with Since have "VIO \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
       by (auto intro!: SAT_VIO.VSinceInf simp: i_LTP_tau i_ETP_tau
           split: enat.splits)}
   moreover
-  { assume unsat: "\<not> Formula.sat \<sigma> v i (Formula.Since \<phi> I \<psi>)"
-      and jw: "\<exists>j\<le>i. mem (\<delta> \<sigma> i j) I \<and> Formula.sat \<sigma> v j \<psi>"
+  { assume unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>S I \<psi>"
+      and jw: "\<exists>j\<le>i. mem (\<delta> \<sigma> i j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
       and i_ge: "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
     from unsat jw not_sat_SinceD[of \<sigma> v i \<phi> I \<psi>]
     obtain j where j: "j \<le> i"
       "case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> ETP \<sigma> (\<tau> \<sigma> i - n) \<le> j"
-      "\<not> Formula.sat \<sigma> v j \<phi>" "(\<forall>k \<in> {j .. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}.
-      \<not> Formula.sat \<sigma> v k \<psi>)" by (auto split: enat.splits)
-    with Since have "VIO \<sigma> v i (Formula.Since \<phi> I \<psi>)"
+      "\<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>" "(\<forall>k \<in> {j .. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}.
+      \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)" by (auto split: enat.splits)
+    with Since have "VIO \<sigma> v i (\<phi> \<^bold>S I \<psi>)"
       using i_ge unsat jw
       by (auto intro!: SAT_VIO.VSince) }
   ultimately show ?case
@@ -677,24 +662,24 @@ next
 next
   case (Until \<phi> I \<psi>)
   from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
-  { assume "Formula.sat \<sigma> v i (Formula.Until \<phi> I \<psi>)"
-    with Until have "SAT \<sigma> v i (Formula.Until \<phi> I \<psi>)"
+  { assume "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>U I \<psi>"
+    with Until have "SAT \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
       by (auto intro: SAT_VIO.SUntil) }
   moreover
-  { assume unsat: "\<not> Formula.sat \<sigma> v i (Formula.Until \<phi> I \<psi>)"
-      and witness: "\<exists>j \<ge> i. mem (\<delta> \<sigma> j i) I \<and> Formula.sat \<sigma> v j \<psi>"
+  { assume unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>U I \<psi>"
+      and witness: "\<exists>j \<ge> i. mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
     from this Until not_sat_UntilD[of \<sigma> v i \<phi> I \<psi>] obtain j
       where j: "j \<ge> i" "(case right I of \<infinity> \<Rightarrow> True | enat n
-      \<Rightarrow> j < LTP \<sigma> (\<tau> \<sigma> i + n))" "\<not> (Formula.sat \<sigma> v j \<phi>)"
-        "(\<forall>k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) .. j}. \<not> Formula.sat \<sigma> v k \<psi>)"
+      \<Rightarrow> j < LTP \<sigma> (\<tau> \<sigma> i + n))" "\<not> (\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>)"
+        "(\<forall>k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) .. j}. \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
       by auto
-    with Until have "VIO \<sigma> v i (Formula.Until \<phi> I \<psi>)"
+    with Until have "VIO \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
       using unsat witness 
       by (auto intro!: SAT_VIO.VUntil) }
   moreover
-  { assume unsat: "\<not> Formula.sat \<sigma> v i (Formula.Until \<phi> I \<psi>)"
-      and no_witness: "\<forall>j \<ge> i. \<not> mem (\<delta> \<sigma> j i) I \<or> \<not> Formula.sat \<sigma> v j \<psi>"
-    with Until have "VIO \<sigma> v i (Formula.Until \<phi> I \<psi>)"
+  { assume unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>U I \<psi>"
+      and no_witness: "\<forall>j \<ge> i. \<not> mem (\<delta> \<sigma> j i) I \<or> \<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
+    with Until have "VIO \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
       by (auto intro!: SAT_VIO.VUntilInf simp: add_increasing2 i0 i_LTP_tau i_ETP_tau
           split: enat.splits)
   }
@@ -709,310 +694,6 @@ lemma SAT_or_VIO: "SAT \<sigma> v i \<phi> \<or> VIO \<sigma> v i \<phi>"
 
 end
 
-subsection \<open>Proof Objects\<close>
-
-lemma part_list_set_eq_aux1:
-  assumes
-    "\<forall>i<length xs. \<forall>j<length xs. i \<noteq> j \<longrightarrow>  fst (xs ! i) \<inter> fst (xs ! j) = {}"
-    "{} \<notin> fst ` set xs"
-  shows "disjoint (fst ` set xs) \<and> distinct (map fst xs)"
-proof -
-  from assms(1) have "disjoint (fst ` set xs)"
-    by (metis disjnt_def in_set_conv_nth pairwise_imageI)
-  moreover have "distinct (map fst xs)"
-    using assms
-    by (smt (verit) distinct_conv_nth image_iff inf.idem 
-        length_map nth_map nth_mem) 
-  ultimately show ?thesis
-    by blast
-qed
-
-lemma part_list_set_eq_aux2:
-  assumes
-    "disjoint (fst ` set xs)"
-    "distinct (map fst xs)"
-    "i < length xs"
-    "j < length xs"
-    "i \<noteq> j"
-  shows "fst (xs ! i) \<inter> fst (xs ! j) = {}"
-proof -
-  from assms have "fst (xs ! i) \<in> fst ` set xs"
-    and "fst (xs ! j) \<in> fst ` set xs"
-    by auto
-  moreover have "fst (xs ! i) \<noteq> fst (xs ! j)"
-    using assms(2-) nth_eq_iff_index_eq 
-    by fastforce 
-  ultimately show ?thesis
-    using assms(1) unfolding disjoint_def
-    by blast
-qed
-
-lemma part_list_eq: 
-  "(\<Union>X \<in> fst ` set xs. X) = UNIV
-    \<and> (\<forall>i < length xs. \<forall>j < length xs. i \<noteq> j 
-      \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {}) \<and> {} \<notin> fst ` set xs
-  \<longleftrightarrow> partition_on UNIV (set (map fst xs)) \<and> distinct (map fst xs)"
-  using part_list_set_eq_aux1 part_list_set_eq_aux2
-  unfolding partition_on_def by (auto 5 0)
-
-(* 'd: domain (such that the union of 'd sets form a partition) *)
-typedef ('d, 'a) part = "{xs :: ('d set \<times> 'a) list. partition_on UNIV (set (map fst xs)) \<and> distinct (map fst xs)}"
-  by (rule exI[of _ "[(UNIV, undefined)]"]) 
-    (auto simp: partition_on_def)
-
-setup_lifting type_definition_part
-
-lift_bnf (no_warn_wits, no_warn_transfer) (dead 'd, Vals: 'a) part
-  unfolding part_list_eq[symmetric]
-  by (auto simp: image_iff)
-
-subsection \<open>\<^const>\<open>size\<close> setup\<close>
-
-lift_definition subs :: "('d, 'a) part \<Rightarrow> 'd set list" is "map fst" .
-
-lift_definition Subs :: "('d, 'a) part \<Rightarrow> 'd set set" is "set o map fst" .
-
-lift_definition vals :: "('d, 'a) part \<Rightarrow> 'a list" is "map snd" .
-
-lift_definition SubsVals :: "('d, 'a) part \<Rightarrow> ('d set \<times> 'a) set" is "set" .
-
-lift_definition subsvals :: "('d, 'a) part \<Rightarrow> ('d set \<times> 'a) list" is "id" .
-
-lift_definition size_part :: "('d \<Rightarrow> nat) \<Rightarrow> ('a \<Rightarrow> nat) \<Rightarrow> ('d, 'a) part \<Rightarrow> nat" is "\<lambda>f g. size_list (\<lambda>(x, y). sum f x + g y)" .
-
-instantiation part :: (type, type) size begin
-
-definition size_part where
-size_part_overloaded_def: "size_part = Proof_System.size_part (\<lambda>_. 0) (\<lambda>_. 0)"
-
-instance ..
-
-end
-
-lemma size_part_overloaded_simps[simp]: "size x = size (vals x)"
-  unfolding size_part_overloaded_def
-  by transfer (auto simp: size_list_conv_sum_list)
-
-lemma part_size_o_map: "inj h \<Longrightarrow> size_part f g \<circ> map_part h = size_part f (g \<circ> h)"
-  by (rule ext, transfer)
-    (auto simp: fun_eq_iff map_prod_def o_def split_beta case_prod_beta[abs_def])
-
-setup \<open>
-BNF_LFP_Size.register_size_global \<^type_name>\<open>part\<close> \<^const_name>\<open>size_part\<close>
-  @{thm size_part_overloaded_def} @{thms size_part_def size_part_overloaded_simps}
-  @{thms part_size_o_map}
-\<close>
-
-lemma is_measure_size_part[measure_function]: "is_measure f \<Longrightarrow> is_measure g \<Longrightarrow> is_measure (size_part f g)"
-  by (rule is_measure_trivial)
-
-lemma size_part_estimation[termination_simp]: "x \<in> Vals xs \<Longrightarrow> y < g x \<Longrightarrow> y < size_part f g xs"
-  by transfer (auto simp: termination_simp)
-
-lemma size_part_estimation'[termination_simp]: "x \<in> Vals xs \<Longrightarrow> y \<le> g x \<Longrightarrow> y \<le> size_part f g xs"
-  by transfer (auto simp: termination_simp)
-
-lemma size_part_pointwise[termination_simp]: "(\<And>x. x \<in> Vals xs \<Longrightarrow> f x \<le> g x) \<Longrightarrow> size_part h f xs \<le> size_part h g xs"
-  by transfer (force simp: image_iff intro!: size_list_pointwise)
-
-lemma Vals_code[code]: "Vals x = set (map snd (Rep_part x))"
-  by (force simp: Vals_def)
-
-lemma Vals_transfer[transfer_rule]: "rel_fun (pcr_part (=) (=)) (=) (set \<circ> map snd) Vals"
-  by (force simp: Vals_def rel_fun_def pcr_part_def cr_part_def rel_set_eq prod.rel_eq list.rel_eq)
-
-lemma set_vals[simp]: "set (vals xs) = Vals xs"
-  by transfer simp
-
-subsection \<open>Proof Objects\<close>
-
-datatype (dead 'd) sproof = STT nat 
-  | SPred nat Formula.name "'d Formula.trm list"
-  | SEq_Const nat Formula.name 'd
-  | SNeg "'d vproof" 
-  | SOrL "'d sproof" 
-  | SOrR "'d sproof" 
-  | SAnd "'d sproof" "'d sproof"
-  | SImpL "'d vproof" 
-  | SImpR "'d sproof"
-  | SIffSS "'d sproof" "'d sproof" 
-  | SIffVV "'d vproof" "'d vproof" 
-  | SExists Formula.name 'd "'d sproof"
-  | SForall Formula.name "('d, 'd sproof) part" 
-  | SPrev "'d sproof"
-  | SNext "'d sproof"
-  | SOnce nat "'d sproof"
-  | SEventually nat "'d sproof" 
-  | SHistorically nat nat "'d sproof list" 
-  | SHistoricallyOut nat
-  | SAlways nat nat "'d sproof list"
-  | SSince "'d sproof" "'d sproof list" 
-  | SUntil "'d sproof list" "'d sproof" 
-  and 'd vproof = VFF nat 
-  | VPred nat Formula.name "'d Formula.trm list"
-  | VEq_Const nat Formula.name 'd
-  | VNeg "'d sproof" 
-  | VOr "'d vproof" "'d vproof"
-  | VAndL "'d vproof" 
-  | VAndR "'d vproof" 
-  | VImp "'d sproof" "'d vproof" 
-  | VIffSV "'d sproof" "'d vproof" 
-  | VIffVS "'d vproof" "'d sproof" 
-  | VExists Formula.name "('d, 'd vproof) part" 
-  | VForall Formula.name 'd "'d vproof"
-  | VPrev "'d vproof"
-  | VPrevZ
-  | VPrevOutL nat 
-  | VPrevOutR nat
-  | VNext "'d vproof" 
-  | VNextOutL nat 
-  | VNextOutR nat 
-  | VOnceOut nat 
-  | VOnce nat nat "'d vproof list" 
-  | VEventually nat nat "'d vproof list"
-  | VHistorically nat "'d vproof" 
-  | VAlways nat "'d vproof"
-  | VSinceOut nat
-  | VSince nat "'d vproof" "'d vproof list" 
-  | VSinceInf nat nat "'d vproof list" 
-  | VUntil nat "'d vproof list" "'d vproof"
-  | VUntilInf nat nat "'d vproof list"
-                                                                 
-subsection \<open>Partitioned Decision Trees\<close>
-
-(* 'd: domain; 'pt: proof tree *)
-datatype ('d, 'pt) pdt = Leaf (unleaf: 'pt) | Node Formula.name "('d, ('d, 'pt) pdt) part"
-
-type_synonym 'd "proof" = "'d sproof + 'd vproof"
-
-type_synonym 'd expl = "('d, 'd proof) pdt"
-
-fun vars_expl :: "'d expl \<Rightarrow> Formula.name set" where
-  "vars_expl (Node x part) = {x} \<union> (\<Union>pdt \<in> Vals part. vars_expl pdt)"
-| "vars_expl (Leaf pt) = {}"
-
-lift_definition part_hd :: "('d, 'a) part \<Rightarrow> 'a" is "snd \<circ> hd" .
-
-lift_definition tabulate :: "'d list \<Rightarrow> ('d \<Rightarrow> 'v) \<Rightarrow> 'v \<Rightarrow> ('d, 'v) part" is
-  "\<lambda>ds f z. if distinct ds then if set ds = UNIV then map (\<lambda>d. ({d}, f d)) ds else (- set ds, z) # map (\<lambda>d. ({d}, f d)) ds else [(UNIV, z)]"
-  by (auto simp: o_def distinct_map inj_on_def partition_on_def disjoint_def)
-
-lift_definition lookup_part :: "('d, 'a) part \<Rightarrow> 'd \<Rightarrow> 'a" is "\<lambda>xs d. snd (the (find (\<lambda>(D, _). d \<in> D) xs))" .
-
-lemma part_hd_Vals[simp]: "part_hd part \<in> Vals part"
-  by transfer (auto simp: partition_on_def image_iff intro!: hd_in_set)
-
-lemma lookup_part_Vals[simp]: "lookup_part part d \<in> Vals part"
-proof (transfer, goal_cases part)
-  case (part xs d)
-  then have unique: "(\<forall>i<length xs. \<forall>j<length xs. i \<noteq> j \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {})"
-    using part_list_eq[of xs]
-    by simp
-  from part obtain D x where D: "(D, x) \<in> set xs" "d \<in> D"
-    unfolding partition_on_def
-    by fastforce
-  with unique have "find (\<lambda>(D, _). d \<in> D) xs = Some (D, x)"
-    unfolding set_eq_iff
-    by (auto simp: find_Some_iff in_set_conv_nth split_beta)
-  with D show ?case
-    by (force simp: image_iff)
-qed
-
-lemma lookup_part_SubsVals: "\<exists>D. d \<in> D \<and> (D, lookup_part part d) \<in> SubsVals part"
-proof (transfer, goal_cases part)
-  case (part d xs)
-  then have unique: "(\<forall>i<length xs. \<forall>j<length xs. i \<noteq> j \<longrightarrow> fst (xs ! i) \<inter> fst (xs ! j) = {})"
-    using part_list_eq[of xs]
-    by simp
-  from part obtain D x where D: "(D, x) \<in> set xs" "d \<in> D"
-    unfolding partition_on_def
-    by fastforce
-  with unique have "find (\<lambda>(D, _). d \<in> D) xs = Some (D, x)"
-    unfolding set_eq_iff
-    by (auto simp: find_Some_iff in_set_conv_nth split_beta)
-  with D show ?case
-    by (force simp: image_iff)
-qed
-
-lemma size_lookup_part_estimation[termination_simp]: "size (lookup_part part d) < Suc (size_part (\<lambda>_. 0) size part)"
-  unfolding less_Suc_eq_le
-  by (rule size_part_estimation'[OF _ order_refl]) simp
-
-lemma subsvals_part_estimation[termination_simp]: "(D, e) \<in> set (subsvals part) \<Longrightarrow> size e < Suc (size_part (\<lambda>_. 0) size part)"
-  unfolding less_Suc_eq_le
-  by (rule size_part_estimation'[OF _ order_refl], transfer)
-    (force simp: image_iff)
-
-lemma size_part_hd_estimation[termination_simp]: "size (part_hd part) < Suc (size_part (\<lambda>_. 0) size part)"
-  unfolding less_Suc_eq_le
-  by (rule size_part_estimation'[OF _ order_refl]) simp
-
-lemma size_last_estimation[termination_simp]: "xs \<noteq> [] \<Longrightarrow> size (last xs) < size_list size xs"
-  by (induct xs) auto
-
-fun s_at :: "'d sproof \<Rightarrow> nat" and 
-  v_at :: "'d vproof \<Rightarrow> nat" where
-  "s_at (STT i) = i"
-| "s_at (SPred i _ _) = i"
-| "s_at (SEq_Const i _ _) = i"
-| "s_at (SNeg vp) = v_at vp"
-| "s_at (SOrL sp1) = s_at sp1"
-| "s_at (SOrR sp2) = s_at sp2"
-| "s_at (SAnd sp1 _) = s_at sp1"
-| "s_at (SImpL vp1) = v_at vp1"
-| "s_at (SImpR sp2) = s_at sp2"
-| "s_at (SIffSS sp1 _) = s_at sp1"
-| "s_at (SIffVV vp1 _) = v_at vp1"
-| "s_at (SExists _ _ sp) = s_at sp"
-| "s_at (SForall _ part) = s_at (part_hd part)"
-| "s_at (SPrev sp) = s_at sp + 1"
-| "s_at (SNext sp) = s_at sp - 1"
-| "s_at (SOnce i _) = i"
-| "s_at (SEventually i _) = i"
-| "s_at (SHistorically i _ _) = i"
-| "s_at (SHistoricallyOut i) = i"
-| "s_at (SAlways i _ _) = i"
-| "s_at (SSince sp2 sp1s) = (case sp1s of [] \<Rightarrow> s_at sp2 | _ \<Rightarrow> s_at (last sp1s))"
-| "s_at (SUntil sp1s sp2) = (case sp1s of [] \<Rightarrow> s_at sp2 | sp1 # _ \<Rightarrow> s_at sp1)"
-| "v_at (VFF i) = i"
-| "v_at (VPred i _ _) = i"
-| "v_at (VEq_Const i _ _) = i"
-| "v_at (VNeg sp) = s_at sp"
-| "v_at (VOr vp1 _) = v_at vp1"
-| "v_at (VAndL vp1) = v_at vp1"
-| "v_at (VAndR vp2) = v_at vp2"
-| "v_at (VImp sp1 _) = s_at sp1"
-| "v_at (VIffSV sp1 _) = s_at sp1"
-| "v_at (VIffVS vp1 _) = v_at vp1"
-| "v_at (VExists _ part) = v_at (part_hd part)"
-| "v_at (VForall _ _ vp1) = v_at vp1"
-| "v_at (VPrev vp) = v_at vp + 1"
-| "v_at (VPrevZ) = 0"
-| "v_at (VPrevOutL i) = i"
-| "v_at (VPrevOutR i) = i"
-| "v_at (VNext vp) = v_at vp - 1"
-| "v_at (VNextOutL i) = i"
-| "v_at (VNextOutR i) = i"
-| "v_at (VOnceOut i) = i"
-| "v_at (VOnce i _ _) = i"
-| "v_at (VEventually i _ _) = i"
-| "v_at (VHistorically i _) = i"
-| "v_at (VAlways i _) = i"
-| "v_at (VSinceOut i) = i"
-| "v_at (VSince i _ _) = i"
-| "v_at (VSinceInf i _ _) = i"
-| "v_at (VUntil i _ _) = i"
-| "v_at (VUntilInf i _ _) = i"
-
-lift_definition trivial_part :: "'pt \<Rightarrow> ('d, 'pt) part" is "\<lambda>pt. [(UNIV, pt)]"
-  by (simp add: partition_on_space)
-
-lemma part_hd_trivial[simp]: "part_hd (trivial_part pt) = pt"
-  unfolding part_hd_def
-  by (transfer) simp
-
-lemma SubsVals_trivial[simp]: "SubsVals (trivial_part pt) = {(UNIV, pt)}"
-  unfolding SubsVals_def
-  by (transfer) simp
+unbundle MFOTL_no_notation
 
 end

@@ -148,7 +148,7 @@ lemma extend_is_stream:
   and "\<And>x. x \<in> set list \<Longrightarrow> finite (fst x)"
   shows "ssorted (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats)) \<and>
     sincreasing (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats)) \<and>
-    sfstfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
+    sfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
 proof -
   have A: "\<forall>x\<in>set list. n \<le> snd x \<Longrightarrow> n \<le> m \<Longrightarrow>
     n \<le> (map snd list @- smap (\<lambda>x. x + m) nats) !! i" for n i 
@@ -178,18 +178,18 @@ proof -
       by (simp add: sincreasing_def) 
         (metis snth_Stream)
   qed
-  moreover have "sfstfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
+  moreover have "sfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
     using assms(3)
   proof (induction list)
     case Nil
-    then show ?case by (simp add: sfstfinite_def)
+    then show ?case by (simp add: sfinite_def)
   next
     case (Cons a as)
     then have fin: "finite (fst a)"
       by simp
     show ?case
       using Cons 
-      by (auto simp add: sfstfinite_def snth_Stream_eq split: nat.splits)
+      by (auto simp add: sfinite_def snth_Stream_eq split: nat.splits)
   qed
   ultimately show ?thesis
     by simp
@@ -208,19 +208,17 @@ lemma lookup_bulkload_Some: "i < length list \<Longrightarrow>
   Mapping.lookup (Mapping.bulkload list) i = Some (list ! i)"
   by transfer auto
 
-definition "fstfinite xs = list_all finite xs"
-
 lift_definition trace_rbt_of_list :: "('a set \<times> nat) list \<Rightarrow> 'a trace_rbt" is
-  "\<lambda>xs. if sorted (map snd xs) \<and> fstfinite (map fst xs) then (if xs = [] then (0, 0, Mapping.empty)
+  "\<lambda>xs. if sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) then (if xs = [] then (0, 0, Mapping.empty)
   else (length xs, snd (last xs), Mapping.bulkload xs))
   else (0, 0, Mapping.empty)"
   by (auto simp: lookup_bulkload_Some sorted_iff_nth_Suc last_conv_nth
-    fstfinite_def list_all_iff in_set_conv_nth Ball_def Bex_def image_iff split: nat.splits)
+    list_all_iff in_set_conv_nth Ball_def Bex_def image_iff split: nat.splits)
 
 lift_definition trace_rbt_nth :: "'a trace_rbt \<Rightarrow> nat \<Rightarrow> ('a set \<times> nat)" is
   "\<lambda>(n, m, t) i. if i < n then the (Mapping.lookup t i) else ({}, (i - n) + m)" .
 
-lift_definition Trace_RBT :: "'a trace_rbt \<Rightarrow> 'a trace" is
+lift_definition Trace_RBT :: "'a trace_rbt \<Rightarrow> 'a Trace.trace" is
   "\<lambda>(n, m, t). map (the \<circ> Mapping.lookup t) [0..<n] @- smap (\<lambda>n. ({} :: 'a set, n + m)) nats"
 proof (goal_cases)
   case (1 prod)
@@ -252,7 +250,7 @@ lemma \<Gamma>_rbt_code[code]: "\<Gamma> (Trace_RBT t) i = fst (trace_rbt_nth t 
 lemma \<tau>_rbt_code[code]: "\<tau> (Trace_RBT t) i = snd (trace_rbt_nth t i)"
   by transfer (auto split: prod.splits)
                                        
-lemma trace_rbt_of_list_sound: "sorted (map snd xs) \<and> fstfinite (map fst xs) \<Longrightarrow> i < length xs \<Longrightarrow>
+lemma trace_rbt_of_list_sound: "sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) \<Longrightarrow> i < length xs \<Longrightarrow>
   xs ! i = (\<Gamma> (trace_of_list xs) i, \<tau> (trace_of_list xs) i)"
   unfolding trace_of_list_def
   by transfer (auto simp: lookup_bulkload_Some)
@@ -265,7 +263,7 @@ definition default_literal :: String.literal where "default_literal = 0"
 instance proof qed
 end
 
-declare Formula.future_bounded.simps[code]
+declare future_bounded.simps[code]
 
 subsection \<open>Auxiliary results\<close>
 
@@ -289,7 +287,7 @@ lemma sum_proofs_app:
   by (auto simp: sum_proofs_def split: list.splits)
 
 context
-  fixes w :: "Formula.name \<Rightarrow> nat"
+  fixes w :: "name \<Rightarrow> nat"
 begin
 
 function (sequential) s_pred :: "'d sproof \<Rightarrow> nat" 
@@ -704,11 +702,6 @@ termination
   using LTP_aux
   by (relation "measure (\<lambda>(\<sigma>, t, i). Suc (LTP \<sigma> t) - i)") (fastforce simp: LTP_def)+
 
-lemma max_aux: "finite X \<Longrightarrow> Suc j \<in> X \<Longrightarrow> Max (insert (Suc j) (X - {j})) = Max (insert j X)"
-  (* sledgehammer *)
-  by (smt (verit) max.orderI Max.insert_remove Max_ge Max_insert empty_iff insert_Diff_single
-      insert_absorb insert_iff max_def not_less_eq_eq)
-
 lemma LTP_rec_sound: "LTP_rec \<sigma> t j = Max ({i. i \<ge> j \<and> (\<tau> \<sigma> i) \<le> t} \<union> {j})"
 proof (induction \<sigma> t j rule: LTP_rec.induct)
   case (1 \<sigma> t j)
@@ -736,8 +729,6 @@ lemma LTP_code[code]: "LTP \<sigma> t = (if t < \<tau> \<sigma> 0
   else LTP_rec \<sigma> t 0)"
   using LTP_rec_sound[of \<sigma> t 0]
   by (auto simp: LTP_def insert_absorb simp del: LTP_rec.simps)
-
-code_deps LTP
 
 lemma map_part_code[code]: "Rep_part (map_part f xs) = map (map_prod id f) (Rep_part xs)"
   using Rep_part[of xs]
@@ -774,66 +765,7 @@ fun collect_paths_aux where
   "collect_paths_aux DS \<sigma> vs \<phi> (Leaf p) = (if check_exec_p \<sigma> vs \<phi> p then {} else rev ` DS)"
 | "collect_paths_aux DS \<sigma> vs \<phi> (Node x part) = (\<Union>(D, e) \<in> set (subsvals part). collect_paths_aux (Cons D ` DS) \<sigma> (vs(x := D)) \<phi> e)"
 
-lift_definition lookup :: "('d, 'a) part \<Rightarrow> 'd \<Rightarrow> ('d set \<times> 'a)" is "\<lambda>xs d. the (find (\<lambda>(D, _). d \<in> D) xs)" .
-
-lemma snd_lookup[simp]: "snd (lookup part d) = lookup_part part d"
-  by transfer auto
-
-lemma distinct_disjoint_uniq: "distinct xs \<Longrightarrow> disjoint (set xs) \<Longrightarrow>
-  i < j \<Longrightarrow> j < length xs \<Longrightarrow> d \<in> xs ! i \<Longrightarrow> d \<in> xs ! j \<Longrightarrow> False"
-  unfolding disjoint_def disjoint_iff
-  by (metis (no_types, lifting) order.strict_trans min.strict_order_iff nth_eq_iff_index_eq nth_mem)
-
-lemma partition_on_UNIV_find_Some:
-  "partition_on UNIV (set (map fst part)) \<Longrightarrow> distinct (map fst part) \<Longrightarrow>
-  \<exists>y. find (\<lambda>(D, _). d \<in> D) part = Some y"
-  unfolding partition_on_def set_eq_iff
-  by (auto simp: find_Some_iff in_set_conv_nth
-      Ball_def image_iff Bex_def split_beta dest: distinct_disjoint_uniq dest!: spec[of _ d]
-      intro!: exI[where P="\<lambda>x. \<exists>y z. P x y z \<and> Q x y z" for P Q, OF exI, OF exI, OF conjI])
-
-lemma fst_lookup: "d \<in> fst (lookup part d)"
-proof (transfer fixing: d, goal_cases)
-  case (1 part)
-  then obtain y where "find (\<lambda>(D, _). d \<in> D) part = Some y" using partition_on_UNIV_find_Some
-    by fastforce
-  then show ?case
-    by (auto dest: find_Some_iff[THEN iffD1])
-qed
-
-lemma lookup_subsvals: "lookup part d \<in> set (subsvals part)"
-proof (transfer fixing: d, goal_cases)
-  case (1 part)
-  then obtain y where "find (\<lambda>(D, _). d \<in> D) part = Some y" using partition_on_UNIV_find_Some
-    by fastforce
-  then show ?case
-    by (auto simp: in_set_conv_nth dest: find_Some_iff[THEN iffD1])
-qed
-
-lemma sat_vorder_Node:
-  assumes "distinct xs"
-  shows "sat_vorder xs (Node x part) = (\<exists>ys zs. xs = ys @ x # zs \<and> (\<forall>e \<in> Vals part. sat_vorder zs e))"
-proof (safe, goal_cases LR RL)
-  case LR
-  then show ?case 
-    by (induct xs "Node x part" rule: sat_vorder.induct)
-      (auto 4 3 intro: exI[of _ "_ # _"])
-next
-  case (RL ys zs)
-  with assms show ?case 
-    by (induct ys arbitrary: xs)
-      (auto intro: sat_vorder.intros)
-qed
-
-fun vars where
-  "vars (Leaf _) = {}"
-| "vars (Node x part) = {x} \<union> (\<Union>e \<in> Vals part. vars e)"
-
-fun distinct_paths where
-  "distinct_paths (Leaf _) = True"
-| "distinct_paths (Node x part) = (\<forall>e \<in> Vals part. x \<notin> vars e \<and> distinct_paths e)"
-
-lemma check_one_cong: "\<forall>x\<in>Formula.fv \<phi> \<union> vars e. v x = v' x \<Longrightarrow> check_one \<sigma> v \<phi> e = check_one \<sigma> v' \<phi> e"
+lemma check_one_cong: "\<forall>x\<in>fv \<phi> \<union> vars e. v x = v' x \<Longrightarrow> check_one \<sigma> v \<phi> e = check_one \<sigma> v' \<phi> e"
 proof (induct e arbitrary: v v')
   case (Leaf x)
   then show ?case
@@ -860,7 +792,7 @@ proof (transfer fixing: D e d, goal_cases)
 qed
 
 lemma check_all_aux_check_one: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> distinct_paths e \<Longrightarrow> (\<forall>x \<in> vars e. vs x = UNIV) \<Longrightarrow>
-  check_all_aux \<sigma> vs \<phi> e \<longleftrightarrow> (\<forall>v \<in> compatible_vals (Formula.fv \<phi>) vs. check_one \<sigma> v \<phi> e)"
+  check_all_aux \<sigma> vs \<phi> e \<longleftrightarrow> (\<forall>v \<in> compatible_vals (fv \<phi>) vs. check_one \<sigma> v \<phi> e)"
 proof (induct e arbitrary: vs)
   case (Node x part)
   show ?case
@@ -883,7 +815,7 @@ proof (induct e arbitrary: vs)
       from compatible(2-) compatible(1)[THEN bspec, of "v(x := d)"] compatible(1)[THEN bspec, of v]
       show ?case
         using lookup_part_from_subvals[of D e part "v x"]
-          fun_upd_in_compatible_vals_in[of v "Formula.fv \<phi>" x vs "v x"]
+          fun_upd_in_compatible_vals_in[of v "fv \<phi>" x vs "v x"]
           check_one_cong[THEN iffD1, rotated -1, of \<sigma> "v(x := d)" \<phi> e v, simplified]
         by (auto simp: compatible_vals_fun_upd fun_upd_apply[of _ _ _ x]
           fun_upd_in_compatible_vals_notin split: if_splits
@@ -896,22 +828,28 @@ instance event_data :: infinite by standard (simp add: infinite_UNIV_event_data)
 
 instance event_data :: equal by standard
 
-definition check_all_generic :: "(Formula.name \<times> 'd ::  {default,linorder} list) trace \<Rightarrow> 'd Formula.formula \<Rightarrow> ('d, 'd proof) pdt \<Rightarrow> bool" where
+instantiation event_data :: card_UNIV begin
+definition "finite_UNIV = Phantom(event_data) False"
+definition "card_UNIV = Phantom(event_data) 0"
+instance by intro_classes (simp_all add: finite_UNIV_event_data_def card_UNIV_event_data_def infinite_UNIV_event_data)
+end
+
+definition check_all_generic :: "'d :: {default, linorder} trace \<Rightarrow> 'd formula \<Rightarrow> 'd expl \<Rightarrow> bool" where
   "check_all_generic \<sigma> \<phi> e = (distinct_paths e \<and> check_all_aux \<sigma> (\<lambda>_. UNIV) \<phi> e)"
 
-definition collect_paths :: "(Formula.name \<times> 'd ::  {default,linorder} list) trace \<Rightarrow> 'd Formula.formula \<Rightarrow> ('d, 'd proof) pdt \<Rightarrow> 'd set list set option" where
+definition collect_paths :: "'d :: {default, linorder} trace \<Rightarrow> 'd formula \<Rightarrow> 'd expl \<Rightarrow> 'd set list set option" where
   "collect_paths \<sigma> \<phi> e = (if (distinct_paths e \<and> check_all_aux \<sigma> (\<lambda>_. UNIV) \<phi> e) then None else Some (collect_paths_aux {[]} \<sigma> (\<lambda>_. UNIV) \<phi> e))"
 
-definition check :: "(Formula.name \<times> event_data list) trace \<Rightarrow> event_data Formula.formula \<Rightarrow> (event_data, event_data proof) pdt \<Rightarrow> bool" where
+definition check :: "event_data trace \<Rightarrow> event_data formula \<Rightarrow> event_data expl \<Rightarrow> bool" where
   "check = check_all_generic"
 
-definition collect_paths_specialized :: "(Formula.name \<times> event_data list) trace \<Rightarrow> event_data Formula.formula \<Rightarrow> (event_data, event_data proof) pdt \<Rightarrow> event_data set list set option" where
+definition collect_paths_specialized :: "event_data trace \<Rightarrow> event_data formula \<Rightarrow> event_data expl \<Rightarrow> event_data set list set option" where
   "collect_paths_specialized = collect_paths"
 
-definition trace_of_list_specialized :: "((Formula.name \<times> event_data list) set \<times> nat) list \<Rightarrow> (Formula.name \<times> event_data list) trace" where
+definition trace_of_list_specialized :: "((name \<times> event_data list) set \<times> nat) list \<Rightarrow> event_data trace" where
   "trace_of_list_specialized xs = trace_of_list xs"
 
-definition specialized_set :: "(Formula.name \<times> event_data list) list \<Rightarrow> (Formula.name \<times> event_data list) set" where
+definition specialized_set :: "(name \<times> event_data list) list \<Rightarrow> (name \<times> event_data list) set" where
   "specialized_set = set"
 
 definition ed_set :: "event_data list \<Rightarrow> event_data set" where
@@ -938,7 +876,7 @@ lemma check_all_check_one: "check_all_generic \<sigma> \<phi> e = (distinct_path
     (auto simp: compatible_vals_def)
 
 export_code interval enat nat_of_integer integer_of_nat
-  STT Formula.TT Inl EInt Formula.Var Leaf set part_hd sum_nat sub_nat subsvals
+  STT TT Inl EInt Var Leaf set part_hd sum_nat sub_nat subsvals
   check trace_of_list_specialized specialized_set ed_set abs_part 
   collect_paths_specialized
   in OCaml module_name Checker file_prefix "checker"

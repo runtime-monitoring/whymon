@@ -1,151 +1,146 @@
 (*<*)
 theory Checker
-  imports Proof_System "HOL-Library.Simps_Case_Conv"
+  imports Prelim Proof_System Proof_Object "HOL-Library.Simps_Case_Conv"
 begin
-  (*>*)
+(*>*)
 
-lemma Cons_eq_upt_conv: "x # xs = [m ..< n] \<longleftrightarrow> m < n \<and> x = m \<and> xs = [Suc m ..< n]"
-  by (induct n arbitrary: xs) (force simp: Cons_eq_append_conv)+
+unbundle MFOTL_notation
 
-lemma map_setE[elim_format]: "map f xs = ys \<Longrightarrow> y \<in> set ys \<Longrightarrow> \<exists>x\<in>set xs. f x = y"
-  by (induct xs arbitrary: ys) auto
-
-context fixes \<sigma> :: "'d :: {default, linorder} Formula.trace"
+context fixes \<sigma> :: "'d :: {default, linorder} trace"
 
 begin
 
-fun s_check :: "'d Formula.env \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
-  and v_check :: "'d Formula.env \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
+fun s_check :: "'d env \<Rightarrow> 'd formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
+  and v_check :: "'d env \<Rightarrow> 'd formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
   "s_check v f p = (case (f, p) of
-    (Formula.TT, STT i) \<Rightarrow> True
-  | (Formula.Pred r ts, SPred i s ts') \<Rightarrow>
-    (r = s \<and> ts = ts' \<and> (r, Formula.eval_trms v ts) \<in> \<Gamma> \<sigma> i)
-  | (Formula.Eq_Const x c, SEq_Const i x' c') \<Rightarrow>
+    (\<top>, STT i) \<Rightarrow> True
+  | (r \<dagger> ts, SPred i s ts') \<Rightarrow>
+    (r = s \<and> ts = ts' \<and> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<in> \<Gamma> \<sigma> i)
+  | (x \<^bold>\<approx> c, SEq_Const i x' c') \<Rightarrow>
     (c = c' \<and> x = x' \<and> v x = c)
-  | (Formula.Neg \<phi>, SNeg vp) \<Rightarrow> v_check v \<phi> vp
-  | (Formula.Or \<phi> \<psi>, SOrL sp1) \<Rightarrow> s_check v \<phi> sp1
-  | (Formula.Or \<phi> \<psi>, SOrR sp2) \<Rightarrow> s_check v \<psi> sp2
-  | (Formula.And \<phi> \<psi>, SAnd sp1 sp2) \<Rightarrow> s_check v \<phi> sp1 \<and> s_check v \<psi> sp2 \<and> s_at sp1 = s_at sp2
-  | (Formula.Imp \<phi> \<psi>, SImpL vp1) \<Rightarrow> v_check v \<phi> vp1
-  | (Formula.Imp \<phi> \<psi>, SImpR sp2) \<Rightarrow> s_check v \<psi> sp2
-  | (Formula.Iff \<phi> \<psi>, SIffSS sp1 sp2) \<Rightarrow> s_check v \<phi> sp1 \<and> s_check v \<psi> sp2 \<and> s_at sp1 = s_at sp2
-  | (Formula.Iff \<phi> \<psi>, SIffVV vp1 vp2) \<Rightarrow> v_check v \<phi> vp1 \<and> v_check v \<psi> vp2 \<and> v_at vp1 = v_at vp2
-  | (Formula.Exists x \<phi>, SExists y val sp) \<Rightarrow> (x = y \<and> s_check (v (x := val)) \<phi> sp)
-  | (Formula.Forall x \<phi>, SForall y sp_part) \<Rightarrow> (let i = s_at (part_hd sp_part)
+  | (\<not>\<^sub>F \<phi>, SNeg vp) \<Rightarrow> v_check v \<phi> vp
+  | (\<phi> \<or>\<^sub>F \<psi>, SOrL sp1) \<Rightarrow> s_check v \<phi> sp1
+  | (\<phi> \<or>\<^sub>F \<psi>, SOrR sp2) \<Rightarrow> s_check v \<psi> sp2
+  | (\<phi> \<and>\<^sub>F \<psi>, SAnd sp1 sp2) \<Rightarrow> s_check v \<phi> sp1 \<and> s_check v \<psi> sp2 \<and> s_at sp1 = s_at sp2
+  | (\<phi> \<longrightarrow>\<^sub>F \<psi>, SImpL vp1) \<Rightarrow> v_check v \<phi> vp1
+  | (\<phi> \<longrightarrow>\<^sub>F \<psi>, SImpR sp2) \<Rightarrow> s_check v \<psi> sp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, SIffSS sp1 sp2) \<Rightarrow> s_check v \<phi> sp1 \<and> s_check v \<psi> sp2 \<and> s_at sp1 = s_at sp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, SIffVV vp1 vp2) \<Rightarrow> v_check v \<phi> vp1 \<and> v_check v \<psi> vp2 \<and> v_at vp1 = v_at vp2
+  | (\<exists>\<^sub>Fx.  \<phi>, SExists y val sp) \<Rightarrow> (x = y \<and> s_check (v (x := val)) \<phi> sp)
+  | (\<forall>\<^sub>Fx.  \<phi>, SForall y sp_part) \<Rightarrow> (let i = s_at (part_hd sp_part)
       in x = y \<and> (\<forall>(sub, sp) \<in> SubsVals sp_part. s_at sp = i \<and> (\<forall>z \<in> sub. s_check (v (x := z)) \<phi> sp)))
-  | (Formula.Prev I \<phi>, SPrev sp) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, SPrev sp) \<Rightarrow>
     (let j = s_at sp; i = s_at (SPrev sp) in
     i = j+1 \<and> mem (\<Delta> \<sigma> i) I \<and> s_check v \<phi> sp)
-  | (Formula.Next I \<phi>, SNext sp) \<Rightarrow>
+  | (\<^bold>X I \<phi>, SNext sp) \<Rightarrow>
     (let j = s_at sp; i = s_at (SNext sp) in
     j = i+1 \<and> mem (\<Delta> \<sigma> j) I \<and> s_check v \<phi> sp)
-  | (Formula.Once I \<phi>, SOnce i sp) \<Rightarrow>
+  | (\<^bold>P I \<phi>, SOnce i sp) \<Rightarrow>
     (let j = s_at sp in
     j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> s_check v \<phi> sp)
-  | (Formula.Eventually I \<phi>, SEventually i sp) \<Rightarrow>
+  | (\<^bold>F I \<phi>, SEventually i sp) \<Rightarrow>
     (let j = s_at sp in
     j \<ge> i \<and> mem (\<tau> \<sigma> j - \<tau> \<sigma> i) I \<and> s_check v \<phi> sp)
-  | (Formula.Historically I \<phi>, SHistoricallyOut i) \<Rightarrow>
+  | (\<^bold>H I \<phi>, SHistoricallyOut i) \<Rightarrow>
     \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I
-  | (Formula.Historically I \<phi>, SHistorically i li sps) \<Rightarrow>
+  | (\<^bold>H I \<phi>, SHistorically i li sps) \<Rightarrow>
     (li = (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> ETP \<sigma> (\<tau> \<sigma> i - b))
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map s_at sps = [li ..< (LTP_p \<sigma> i I) + 1]
     \<and> (\<forall>sp \<in> set sps. s_check v \<phi> sp))
-  | (Formula.Always I \<phi>, SAlways i hi sps) \<Rightarrow>
+  | (\<^bold>G I \<phi>, SAlways i hi sps) \<Rightarrow>
     (hi = (case right I of enat b \<Rightarrow> LTP_f \<sigma> i b)
     \<and> right I \<noteq> \<infinity>
     \<and> map s_at sps = [(ETP_f \<sigma> i I) ..< hi + 1]
     \<and> (\<forall>sp \<in> set sps. s_check v \<phi> sp))
-  | (Formula.Since \<phi> I \<psi>, SSince sp2 sp1s) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, SSince sp2 sp1s) \<Rightarrow>
     (let i = s_at (SSince sp2 sp1s); j = s_at sp2 in
     j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I
     \<and> map s_at sp1s = [j+1 ..< i+1]
     \<and> s_check v \<psi> sp2
     \<and> (\<forall>sp1 \<in> set sp1s. s_check v \<phi> sp1))
-  | (Formula.Until \<phi> I \<psi>, SUntil sp1s sp2) \<Rightarrow>
+  | (\<phi> \<^bold>U I \<psi>, SUntil sp1s sp2) \<Rightarrow>
     (let i = s_at (SUntil sp1s sp2); j = s_at sp2 in
     j \<ge> i \<and> mem (\<tau> \<sigma> j - \<tau> \<sigma> i) I
     \<and> map s_at sp1s = [i ..< j] \<and> s_check v \<psi> sp2
     \<and> (\<forall>sp1 \<in> set sp1s. s_check v \<phi> sp1))
   | ( _ , _) \<Rightarrow> False)"
 | "v_check v f p = (case (f, p) of
-    (Formula.FF, VFF i) \<Rightarrow> True
-  | (Formula.Pred r ts, VPred i pred ts') \<Rightarrow>
-    (r = pred \<and> ts = ts' \<and> (r, Formula.eval_trms v ts) \<notin> \<Gamma> \<sigma> i)
-  | (Formula.Eq_Const x c, VEq_Const i x' c') \<Rightarrow>
+    (\<bottom>, VFF i) \<Rightarrow> True
+  | (r \<dagger> ts, VPred i pred ts') \<Rightarrow>
+    (r = pred \<and> ts = ts' \<and> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<notin> \<Gamma> \<sigma> i)
+  | (x \<^bold>\<approx> c, VEq_Const i x' c') \<Rightarrow>
     (c = c' \<and> x = x' \<and> v x \<noteq> c)
-  | (Formula.Neg \<phi>, VNeg sp) \<Rightarrow> s_check v \<phi> sp
-  | (Formula.Or \<phi> \<psi>, VOr vp1 vp2) \<Rightarrow> v_check v \<phi> vp1 \<and> v_check v \<psi> vp2 \<and> v_at vp1 = v_at vp2
-  | (Formula.And \<phi> \<psi>, VAndL vp1) \<Rightarrow> v_check v \<phi> vp1
-  | (Formula.And \<phi> \<psi>, VAndR vp2) \<Rightarrow> v_check v \<psi> vp2
-  | (Formula.Imp \<phi> \<psi>, VImp sp1 vp2) \<Rightarrow> s_check v \<phi> sp1 \<and> v_check v \<psi> vp2 \<and> s_at sp1 = v_at vp2
-  | (Formula.Iff \<phi> \<psi>, VIffSV sp1 vp2) \<Rightarrow> s_check v \<phi> sp1 \<and> v_check v \<psi> vp2 \<and> s_at sp1 = v_at vp2
-  | (Formula.Iff \<phi> \<psi>, VIffVS vp1 sp2) \<Rightarrow> v_check v \<phi> vp1 \<and> s_check v \<psi> sp2 \<and> v_at vp1 = s_at sp2
-  | (Formula.Exists x \<phi>, VExists y vp_part) \<Rightarrow> (let i = v_at (part_hd vp_part)
+  | (\<not>\<^sub>F \<phi>, VNeg sp) \<Rightarrow> s_check v \<phi> sp
+  | (\<phi> \<or>\<^sub>F \<psi>, VOr vp1 vp2) \<Rightarrow> v_check v \<phi> vp1 \<and> v_check v \<psi> vp2 \<and> v_at vp1 = v_at vp2
+  | (\<phi> \<and>\<^sub>F \<psi>, VAndL vp1) \<Rightarrow> v_check v \<phi> vp1
+  | (\<phi> \<and>\<^sub>F \<psi>, VAndR vp2) \<Rightarrow> v_check v \<psi> vp2
+  | (\<phi> \<longrightarrow>\<^sub>F \<psi>, VImp sp1 vp2) \<Rightarrow> s_check v \<phi> sp1 \<and> v_check v \<psi> vp2 \<and> s_at sp1 = v_at vp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, VIffSV sp1 vp2) \<Rightarrow> s_check v \<phi> sp1 \<and> v_check v \<psi> vp2 \<and> s_at sp1 = v_at vp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, VIffVS vp1 sp2) \<Rightarrow> v_check v \<phi> vp1 \<and> s_check v \<psi> sp2 \<and> v_at vp1 = s_at sp2
+  | (\<exists>\<^sub>Fx.  \<phi>, VExists y vp_part) \<Rightarrow> (let i = v_at (part_hd vp_part)
       in x = y \<and> (\<forall>(sub, vp) \<in> SubsVals vp_part. v_at vp = i \<and> (\<forall>z \<in> sub. v_check (v (x := z)) \<phi> vp)))
-  | (Formula.Forall x \<phi>, VForall y val vp) \<Rightarrow> (x = y \<and> v_check (v (x := val)) \<phi> vp)
-  | (Formula.Prev I \<phi>, VPrev vp) \<Rightarrow>
+  | (\<forall>\<^sub>Fx.  \<phi>, VForall y val vp) \<Rightarrow> (x = y \<and> v_check (v (x := val)) \<phi> vp)
+  | (\<^bold>Y I \<phi>, VPrev vp) \<Rightarrow>
     (let j = v_at vp; i = v_at (VPrev vp) in
     i = j+1 \<and> v_check v \<phi> vp)
-  | (Formula.Prev I \<phi>, VPrevZ) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, VPrevZ) \<Rightarrow>
     v_at (VPrevZ::'d vproof) = 0
-  | (Formula.Prev I \<phi>, VPrevOutL i) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, VPrevOutL i) \<Rightarrow>
     i > 0 \<and> \<Delta> \<sigma> i < left I
-  | (Formula.Prev I \<phi>, VPrevOutR i) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, VPrevOutR i) \<Rightarrow>
     i > 0 \<and> enat (\<Delta> \<sigma> i) > right I
-  | (Formula.Next I \<phi>, VNext vp) \<Rightarrow>
+  | (\<^bold>X I \<phi>, VNext vp) \<Rightarrow>
     (let j = v_at vp; i = v_at (VNext vp) in
     j = i+1 \<and> v_check v \<phi> vp)
-  | (Formula.Next I \<phi>, VNextOutL i) \<Rightarrow>
+  | (\<^bold>X I \<phi>, VNextOutL i) \<Rightarrow>
     \<Delta> \<sigma> (i+1) < left I
-  | (Formula.Next I \<phi>, VNextOutR i) \<Rightarrow>
+  | (\<^bold>X I \<phi>, VNextOutR i) \<Rightarrow>
     enat (\<Delta> \<sigma> (i+1)) > right I
-  | (Formula.Once I \<phi>, VOnceOut i) \<Rightarrow>
+  | (\<^bold>P I \<phi>, VOnceOut i) \<Rightarrow>
     \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I
-  | (Formula.Once I \<phi>, VOnce i li vps) \<Rightarrow>
+  | (\<^bold>P I \<phi>, VOnce i li vps) \<Rightarrow>
     (li = (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> ETP_p \<sigma> i b)
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map v_at vps = [li ..< (LTP_p \<sigma> i I) + 1]
     \<and> (\<forall>vp \<in> set vps. v_check v \<phi> vp))
-  | (Formula.Eventually I \<phi>, VEventually i hi vps) \<Rightarrow>
+  | (\<^bold>F I \<phi>, VEventually i hi vps) \<Rightarrow>
     (hi = (case right I of enat b \<Rightarrow> LTP_f \<sigma> i b) \<and> right I \<noteq> \<infinity>
     \<and> map v_at vps = [(ETP_f \<sigma> i I) ..< hi + 1]
     \<and> (\<forall>vp \<in> set vps. v_check v \<phi> vp))
-  | (Formula.Historically I \<phi>, VHistorically i vp) \<Rightarrow>
+  | (\<^bold>H I \<phi>, VHistorically i vp) \<Rightarrow>
     (let j = v_at vp in
     j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> v_check v \<phi> vp)
-  | (Formula.Always I \<phi>, VAlways i vp) \<Rightarrow>
+  | (\<^bold>G I \<phi>, VAlways i vp) \<Rightarrow>
     (let j = v_at vp
     in j \<ge> i \<and> mem (\<tau> \<sigma> j - \<tau> \<sigma> i) I \<and> v_check v \<phi> vp)
-  | (Formula.Since \<phi> I \<psi>, VSinceOut i) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, VSinceOut i) \<Rightarrow>
     \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I
-  | (Formula.Since \<phi> I \<psi>, VSince i vp1 vp2s) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, VSince i vp1 vp2s) \<Rightarrow>
     (let j = v_at vp1 in
     (case right I of \<infinity> \<Rightarrow> True | enat b \<Rightarrow> ETP_p \<sigma> i b \<le> j) \<and> j \<le> i
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map v_at vp2s = [j ..< (LTP_p \<sigma> i I) + 1] \<and> v_check v \<phi> vp1
     \<and> (\<forall>vp2 \<in> set vp2s. v_check v \<psi> vp2))
-  | (Formula.Since \<phi> I \<psi>, VSinceInf i li vp2s) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, VSinceInf i li vp2s) \<Rightarrow>
     (li = (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> ETP_p \<sigma> i b)
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map v_at vp2s = [li ..< (LTP_p \<sigma> i I) + 1]
     \<and> (\<forall>vp2 \<in> set vp2s. v_check v \<psi> vp2))
-  | (Formula.Until \<phi> I \<psi>, VUntil i vp2s vp1) \<Rightarrow>
+  | (\<phi> \<^bold>U I \<psi>, VUntil i vp2s vp1) \<Rightarrow>
     (let j = v_at vp1 in
     (case right I of \<infinity> \<Rightarrow> True | enat b \<Rightarrow> j < LTP_f \<sigma> i b) \<and> i \<le> j
     \<and> map v_at vp2s = [ETP_f \<sigma> i I ..< j + 1] \<and> v_check v \<phi> vp1
     \<and> (\<forall>vp2 \<in> set vp2s. v_check v \<psi> vp2))
-  | (Formula.Until \<phi> I \<psi>, VUntilInf i hi vp2s) \<Rightarrow>
+  | (\<phi> \<^bold>U I \<psi>, VUntilInf i hi vp2s) \<Rightarrow>
     (hi = (case right I of enat b \<Rightarrow> LTP_f \<sigma> i b) \<and> right I \<noteq> \<infinity>
     \<and> map v_at vp2s = [ETP_f \<sigma> i I ..< hi + 1]
     \<and> (\<forall>vp2 \<in> set vp2s. v_check v \<psi> vp2))
   | ( _ , _) \<Rightarrow> False)"
 
-
 declare s_check.simps[simp del] v_check.simps[simp del]
-simps_of_case s_check_simps[simp]: s_check.simps[unfolded prod.case] (splits: Formula.formula.split sproof.split)
-simps_of_case v_check_simps[simp]: v_check.simps[unfolded prod.case] (splits: Formula.formula.split vproof.split)
+simps_of_case s_check_simps[simp]: s_check.simps[unfolded prod.case] (splits: formula.split sproof.split)
+simps_of_case v_check_simps[simp]: v_check.simps[unfolded prod.case] (splits: formula.split vproof.split)
 
 
 lemma check_sound:
@@ -549,63 +544,6 @@ next
   qed(auto intro: SAT_VIO.intros)
 qed
 
-primrec fst_pos :: "'a list \<Rightarrow> 'a \<Rightarrow> nat option"
-  where "fst_pos [] x = None"
-  | "fst_pos (y#ys) x = (if x = y then Some 0 else
-      (case fst_pos ys x of None \<Rightarrow> None | Some n \<Rightarrow> Some (Suc n)))"
-
-lemma fst_pos_None_iff: "fst_pos xs x = None \<longleftrightarrow> x \<notin> set xs"
-  by (induct xs arbitrary: x; force split: option.splits)
-
-lemma nth_fst_pos: "x \<in> set xs \<Longrightarrow> xs ! (the (fst_pos xs x)) = x"
-  by (induct xs arbitrary: x; fastforce simp: fst_pos_None_iff split: option.splits)
-
-primrec positions :: "'a list \<Rightarrow> 'a \<Rightarrow> nat list"
-  where "positions [] x = []"
-  | "positions (y#ys) x = (\<lambda>ns. if x = y then 0 # ns else ns) (map Suc (positions ys x))"
-
-lemma eq_positions_iff: "length xs = length ys
-  \<Longrightarrow> positions xs x = positions ys y \<longleftrightarrow> (\<forall>n< length xs. xs ! n = x \<longleftrightarrow> ys ! n = y)"
-  by (induct xs ys arbitrary: x y rule: list_induct2) (use less_Suc_eq_0_disj in auto)
-
-lemma positions_eq_nil_iff: "positions xs x = [] \<longleftrightarrow> x \<notin> set xs"
-  by (induct xs) simp_all
-
-lemma positions_nth: "n \<in> set (positions xs x) \<Longrightarrow> xs ! n = x"
-  by (induct xs arbitrary: n x)
-    (auto simp: positions_eq_nil_iff[symmetric] split: if_splits)
-
-lemma set_positions_eq: "set (positions xs x) = {n. xs ! n = x \<and> n < length xs}"
-  by (induct xs arbitrary: x)
-    (use less_Suc_eq_0_disj in \<open>auto simp: positions_eq_nil_iff[symmetric] image_iff split: if_splits\<close>)
-
-lemma positions_length: "n \<in> set (positions xs x) \<Longrightarrow> n < length xs"
-  by (induct xs arbitrary: n x)
-    (auto simp: positions_eq_nil_iff[symmetric] split: if_splits)
-
-lemma positions_nth_cong:
-  "m \<in> set (positions xs x) \<Longrightarrow> n \<in> set (positions xs x) \<Longrightarrow> xs ! n = xs ! m"
-  using positions_nth[of _ xs x] by simp
-
-lemma fst_pos_in_positions: "x \<in> set xs \<Longrightarrow> the (fst_pos xs x) \<in> set (positions xs x)"
-  by (induct xs arbitrary: x, simp)
-    (fastforce simp: hd_map fst_pos_None_iff split: option.splits)
-
-lemma hd_positions_eq_fst_pos: "x \<in> set xs \<Longrightarrow> hd (positions xs x) = the (fst_pos xs x)"
-  by (induct xs arbitrary: x)
-    (auto simp: hd_map fst_pos_None_iff positions_eq_nil_iff split: option.splits)
-
-lemma sorted_positions: "sorted (positions xs x)"
-  by (induct xs arbitrary: x) (auto simp add: sorted_iff_nth_Suc nth_Cons' gr0_conv_Suc)
-
-lemma Min_sorted_list: "sorted xs \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> Min (set xs) = hd xs"
-  by (induct xs)
-    (auto simp: Min_insert2)
-
-lemma Min_positions: "x \<in> set xs \<Longrightarrow> Min (set (positions xs x)) = the (fst_pos xs x)"
-  by (auto simp: Min_sorted_list[OF sorted_positions]
-      positions_eq_nil_iff hd_positions_eq_fst_pos)
-
 definition "compatible X vs v \<longleftrightarrow> (\<forall>x\<in>X. v x \<in> vs x)"
 
 definition "compatible_vals X vs = {v. \<forall>x \<in> X. v x \<in> vs x}"
@@ -643,31 +581,31 @@ lemma compatible_extensible:
 
 lemmas compatible_vals_extensible = compatible_extensible[unfolded compatible_alt]
 
-primrec mk_values :: "('b Formula.trm \<times> 'a set) list \<Rightarrow> 'a list set"
+primrec mk_values :: "('b trm \<times> 'a set) list \<Rightarrow> 'a list set"
   where "mk_values [] = {[]}"
   | "mk_values (T # Ts) = (case T of
-      (Formula.Var x, X) \<Rightarrow>
+      (\<^bold>v x, X) \<Rightarrow>
         let terms = map fst Ts in
-        if Formula.Var x \<in> set terms then
-          let fst_pos = hd (positions terms (Formula.Var x)) in (\<lambda>xs. (xs ! fst_pos) # xs) ` (mk_values Ts)
+        if \<^bold>v x \<in> set terms then
+          let fst_pos = hd (positions terms (\<^bold>v x)) in (\<lambda>xs. (xs ! fst_pos) # xs) ` (mk_values Ts)
         else set_Cons X (mk_values Ts)
-    | (Formula.Const a, X) \<Rightarrow> set_Cons X (mk_values Ts))"
+    | (\<^bold>c a, X) \<Rightarrow> set_Cons X (mk_values Ts))"
 
 lemma mk_values_nempty:
   "{} \<notin> set (map snd tXs) \<Longrightarrow> mk_values tXs \<noteq> {}"
   by (induct tXs)
-    (auto simp: set_Cons_def image_iff split: Formula.trm.splits if_splits)
+    (auto simp: set_Cons_def image_iff split: trm.splits if_splits)
 
 lemma mk_values_not_Nil:
   "{} \<notin> set (map snd tXs) \<Longrightarrow> tXs \<noteq> [] \<Longrightarrow> vs \<in> mk_values tXs \<Longrightarrow> vs \<noteq> []"
   by (induct tXs)
-    (auto simp: set_Cons_def image_iff split: Formula.trm.splits if_splits)
+    (auto simp: set_Cons_def image_iff split: trm.splits if_splits)
 
-lemma mk_values_nth_cong: "Formula.Var x \<in> set (map fst tXs)
-  \<Longrightarrow> n \<in> set (positions (map fst tXs) (Formula.Var x))
-  \<Longrightarrow> m \<in> set (positions (map fst tXs) (Formula.Var x))
-  \<Longrightarrow> vs \<in> mk_values tXs
-  \<Longrightarrow> vs ! n = vs ! m"
+lemma mk_values_nth_cong: "\<^bold>v x \<in> set (map fst tXs) \<Longrightarrow>
+  n \<in> set (positions (map fst tXs) (\<^bold>v x)) \<Longrightarrow>
+  m \<in> set (positions (map fst tXs) (\<^bold>v x)) \<Longrightarrow>
+  vs \<in> mk_values tXs \<Longrightarrow>
+  vs ! n = vs ! m"
 proof (induct tXs arbitrary: n m vs x)
   case (Cons tX tXs)
   show ?case
@@ -698,17 +636,6 @@ proof (induct tXs arbitrary: n m vs x)
     qed
   qed
 qed simp
-
-unbundle MFOTL_notation \<comment> \<open> enable notation \<close>
-
-(* text \<open> OBS: Even if there is an infinite set for @{term "\<^bold>v x"}, we can still get a
- finite @{term mk_values} because it only cares about the latest set in the list
- for @{term "\<^bold>v ''x''"}. This is why the definition below has many cases. \<close> *)
-
-(* term "''P'' \<dagger> [\<^bold>c (0::nat), \<^bold>v ''x'', \<^bold>v ''y'']"
-value "mk_values [(\<^bold>c (0::nat), {0}), (\<^bold>v ''x'', Complement {0::nat, 1}), (\<^bold>v ''y'', {0::nat, 1}), (\<^bold>v ''x'', {0::nat, 1})]" *)
-
-unbundle MFOTL_no_notation \<comment> \<open> disable notation \<close>
 
 definition "mk_values_subset p tXs X
   \<longleftrightarrow> (let (fintXs, inftXs) = partition (\<lambda>tX. finite (snd tX)) tXs in
@@ -756,8 +683,8 @@ next
     by auto
 qed
 
-lemma infinite_mk_values1: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Longrightarrow> tY \<in> set tXs
-  \<Longrightarrow> \<forall>Y. (fst tY, Y) \<in> set tXs \<longrightarrow> infinite Y \<Longrightarrow> infinite (mk_values tXs)"
+lemma infinite_mk_values1: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Longrightarrow> tY \<in> set tXs \<Longrightarrow>
+  \<forall>Y. (fst tY, Y) \<in> set tXs \<longrightarrow> infinite Y \<Longrightarrow> infinite (mk_values tXs)"
 proof (induct tXs arbitrary: tY)
   case (Cons tX tXs)
   show ?case
@@ -805,47 +732,17 @@ proof (induct tXs arbitrary: tY)
   qed
 qed simp
 
-lemma subset_positions_map_fst: "set (positions tXs tX) \<subseteq> set (positions (map fst tXs) (fst tX))"
-  by (induct tXs arbitrary: tX)
-    (auto simp: subset_eq)
-
-lemma subset_positions_map_snd: "set (positions tXs tX) \<subseteq> set (positions (map snd tXs) (snd tX))"
-  by (induct tXs arbitrary: tX)
-    (auto simp: subset_eq)
-
-lemma Max_eqI: "finite A \<Longrightarrow> A \<noteq> {} \<Longrightarrow> (\<And>a. a \<in> A \<Longrightarrow> a \<le> b) \<Longrightarrow> \<exists>a\<in>A. b \<le> a \<Longrightarrow> Max A = b"
-  by (rule antisym[OF Max.boundedI Max_ge_iff[THEN iffD2]]; clarsimp)
-
-lemma Max_Suc: "X \<noteq> {} \<Longrightarrow> finite X \<Longrightarrow> Max (Suc ` X) = Suc (Max X)"
-  using Max_ge Max_in
-  by (intro Max_eqI) blast+
-
-lemma Max_insert0: "X \<noteq> {} \<Longrightarrow> finite X \<Longrightarrow> Max (insert (0::nat) X) = Max X"
-  using Max_ge Max_in
-  by (intro Max_eqI) blast+
-
-lemma positions_Cons_notin_tail: "x \<notin> set xs \<Longrightarrow> positions (x # xs) x = [0::nat]"
-  by (cases xs) (auto simp: positions_eq_nil_iff)
-
-lemma Max_set_positions_Cons_hd:
-  "x \<notin> set xs \<Longrightarrow> Max (set (positions (x # xs) x)) = 0"
-  by (subst positions_Cons_notin_tail) simp_all
-
-lemma Max_set_positions_Cons_tl:
-  "y \<in> set xs \<Longrightarrow> Max (set (positions (x # xs) y)) = Suc (Max (set (positions xs y)))"
-  by (auto simp: Max_Suc positions_eq_nil_iff)
-
-lemma infinite_mk_values2: "\<forall>tX\<in>set tXs. snd tX \<noteq> {}
-  \<Longrightarrow> tY \<in> set tXs \<Longrightarrow> infinite (snd tY)
-  \<Longrightarrow> Max (set (positions tXs tY)) \<ge> Max (set (positions (map fst tXs) (fst tY)))
-  \<Longrightarrow> infinite (mk_values tXs)"
+lemma infinite_mk_values2: "\<forall>tX\<in>set tXs. snd tX \<noteq> {} \<Longrightarrow>
+  tY \<in> set tXs \<Longrightarrow> infinite (snd tY) \<Longrightarrow>
+  Max (set (positions tXs tY)) \<ge> Max (set (positions (map fst tXs) (fst tY))) \<Longrightarrow>
+  infinite (mk_values tXs)"
 proof (induct tXs arbitrary: tY)
   case (Cons tX tXs)
   hence obs1: "\<forall>tX\<in>set tXs. snd tX \<noteq> {}"
     by (simp add: Cons.prems(1))
   note IH = Cons.hyps[OF obs1 _ \<open>infinite (snd tY)\<close>]
-  have obs2: "tY \<in> set tXs
-    \<Longrightarrow> Max (set (positions (map fst tXs) (fst tY))) \<le> Max (set (positions tXs tY))"
+  have obs2: "tY \<in> set tXs \<Longrightarrow>
+    Max (set (positions (map fst tXs) (fst tY))) \<le> Max (set (positions tXs tY))"
     using Cons.prems(4) unfolding list.map
     by (metis Max_set_positions_Cons_tl Suc_le_mono positions_eq_nil_iff set_empty2 subset_empty subset_positions_map_fst)
   show ?case
@@ -960,20 +857,16 @@ next
     by (simp add: finite_subset)
 qed auto
 
-unbundle MFOTL_notation \<comment> \<open> enable notation \<close>
-
-lemma mk_values_sound: "cs \<in> mk_values (Formula.eval_trms_set vs ts)
-  \<Longrightarrow> \<exists>v\<in>compatible_vals (fv (p \<dagger> ts)) vs. cs = Formula.eval_trms v ts"
+lemma mk_values_sound: "cs \<in> mk_values (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>) \<Longrightarrow>
+  \<exists>v\<in>compatible_vals (fv (r \<dagger> ts)) vs. cs = v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"
 proof (induct ts arbitrary: cs vs)
-  let ?evals = Formula.eval_trms_set
-    and ?eval = "Formula.eval_trm_set"
   case (Cons t ts)
   show ?case
   proof(cases t)
     case (Var x)
-    let ?Ts = "?evals vs ts"
-    have "?evals vs (t # ts) = (\<^bold>v x, vs x) # ?Ts"
-      using Var by (simp add: Formula.eval_trms_set_def)
+    let ?Ts = "vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>"
+    have "vs\<^bold>\<lbrace>(t # ts)\<^bold>\<rbrace> = (\<^bold>v x, vs x) # ?Ts"
+      using Var by (simp add: eval_trms_set_def)
     show ?thesis
     proof (cases "\<^bold>v x \<in> set ts")
       case True
@@ -982,50 +875,50 @@ proof (induct ts arbitrary: cs vs)
         by (meson fst_pos_in_positions nth_fst_pos)
       hence n_in': "n \<in> set (positions (map fst ?Ts) (\<^bold>v x))"
         by (induct ts arbitrary: n)
-          (auto simp: Formula.eval_trms_set_def split: if_splits)
+          (auto simp: eval_trms_set_def split: if_splits)
       have key: "\<^bold>v x \<in> set (map fst ?Ts)"
         using True by (induct ts)
-          (auto simp: Formula.eval_trms_set_def)
+          (auto simp: eval_trms_set_def)
       then obtain a as
         where as_head: "as ! (hd (positions (map fst ?Ts) (\<^bold>v x))) = a"
-          and as_tail: "as \<in> mk_values (Formula.eval_trms_set vs ts)"
+          and as_tail: "as \<in> mk_values ?Ts"
           and as_shape: "cs = a # as"
         using Cons(2)
-        by (clarsimp simp add: Formula.eval_trms_set_def Var image_iff)
-      obtain v where v_hyps: "v \<in> compatible_vals (fv (p \<dagger> ts)) vs"
-        "as = Formula.eval_trms v ts"
+        by (clarsimp simp add: eval_trms_set_def Var image_iff)
+      obtain v where v_hyps: "v \<in> compatible_vals (fv (r \<dagger> ts)) vs"
+        "as = v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"
         using Cons(1)[OF as_tail] by blast
       hence as'_nth: "as ! n = v x"
         using nth_n positions_length[OF n_in]
-        by (simp add: Formula.eval_trms_def)
-      have evals_neq_Nil: "?evals vs ts \<noteq> []"
+        by (simp add: eval_trms_def)
+      have evals_neq_Nil: "?Ts \<noteq> []"
         using key by auto
-      moreover have "positions (map fst (Formula.eval_trms_set vs ts)) (\<^bold>v x) \<noteq> []"
+      moreover have "positions (map fst ?Ts) (\<^bold>v x) \<noteq> []"
         using positions_eq_nil_iff[of "map fst ?Ts" "\<^bold>v x"] key
         by fastforce
       ultimately have as_hyp: "a = as ! n"
         using mk_values_nth_cong[OF key hd_in_set n_in' as_tail] as_head  by blast
       thus ?thesis
         using Var as_shape True v_hyps as'_nth
-        by (auto simp: compatible_vals_def Formula.eval_trms_def intro!: exI[of _ v])
+        by (auto simp: compatible_vals_def eval_trms_def intro!: exI[of _ v])
     next
       case False
       hence *: "\<^bold>v x \<notin> set (map fst ?Ts)"
       proof (induct ts arbitrary: x)
         case (Cons a ts)
         then show ?case
-          by (cases a) (auto simp: Formula.eval_trms_set_def)
-      qed (simp add: Formula.eval_trms_set_def)
+          by (cases a) (auto simp: eval_trms_set_def)
+      qed (simp add: eval_trms_set_def)
       from Cons(2) False show ?thesis
-        unfolding set_Cons_def Formula.eval_trms_set_def Let_def list.simps Var
-          *[THEN eq_False[THEN iffD2], unfolded Formula.eval_trms_set_def] if_False
-          mk_values.simps Formula.eval_trm_set.simps prod.case trm.case mem_Collect_eq
+        unfolding set_Cons_def eval_trms_set_def Let_def list.simps Var
+          *[THEN eq_False[THEN iffD2], unfolded eval_trms_set_def] if_False
+          mk_values.simps eval_trm_set.simps prod.case trm.case mem_Collect_eq
       proof (elim exE conjE, goal_cases)
         case (1 a as)
-        with Cons(1)[of as vs] obtain v where "v \<in> compatible_vals (fv (p \<dagger> ts)) vs" "as = Formula.eval_trms v ts"
-          by (auto simp: Formula.eval_trms_set_def)
+        with Cons(1)[of as vs] obtain v where "v \<in> compatible_vals (fv (r \<dagger> ts)) vs" "as = v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"
+          by (auto simp: eval_trms_set_def)
         with 1 show ?case
-          by (auto simp: Formula.eval_trms_set_def Formula.eval_trms_def compatible_vals_def in_fv_trm_conv
+          by (auto simp: eval_trms_set_def eval_trms_def compatible_vals_def in_fv_trm_conv
             intro!: exI[of _ "v(x := a)"] eval_trm_fv_cong)
       qed
     qed
@@ -1033,35 +926,31 @@ proof (induct ts arbitrary: cs vs)
     case (Const c)
     then show ?thesis
       using Cons(1)[of _ vs] Cons(2)
-      by (auto simp: Formula.eval_trms_set_def set_Cons_def
-          Formula.eval_trms_def compatible_def)
+      by (auto simp: eval_trms_set_def set_Cons_def
+          eval_trms_def compatible_def)
   qed
-qed (simp add: Formula.eval_trms_set_def Formula.eval_trms_def compatible_vals_def)
+qed (simp add: eval_trms_set_def eval_trms_def compatible_vals_def)
 
 lemma fst_eval_trm_set[simp]:
-  "fst (Formula.eval_trm_set vs t) = t"
+  "fst (vs\<lbrace>t\<rbrace>) = t"
   by (cases t; clarsimp)
 
-lemma map_fst_eval_trm_set [simp]:
-  "map (fst \<circ> Formula.eval_trm_set vs) ts = ts"
-  by (induct ts arbitrary: vs) auto
-
-lemma mk_values_complete: "cs = Formula.eval_trms v ts
-  \<Longrightarrow> v \<in> compatible_vals (fv (p \<dagger> ts)) vs
-  \<Longrightarrow> cs \<in> mk_values (Formula.eval_trms_set vs ts)"
+lemma mk_values_complete: "cs = v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk> \<Longrightarrow>
+  v \<in> compatible_vals (fv (r \<dagger> ts)) vs \<Longrightarrow>
+  cs \<in> mk_values (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>)"
 proof (induct ts arbitrary: v cs vs)
   case (Cons t ts)
   then obtain a as
-    where a_def: "a = Formula.eval_trm v t"
-      and as_def: "as = Formula.eval_trms v ts"
+    where a_def: "a = v\<lbrakk>t\<rbrakk>"
+      and as_def: "as = v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"
       and cs_cons: "cs = a # as"
-    by (auto simp: Formula.eval_trms_def)
-  have compat_v_vs: "v \<in> compatible_vals (fv (p \<dagger> (ts))) vs"
+    by (auto simp: eval_trms_def)
+  have compat_v_vs: "v \<in> compatible_vals (fv (r \<dagger> ts)) vs"
     using Cons.prems
     by (auto simp: compatible_vals_def)
-  hence mk_values_ts: "as \<in> mk_values (map (Formula.eval_trm_set vs) ts)"
+  hence mk_values_ts: "as \<in> mk_values (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>)"
     using Cons.hyps[OF as_def]
-    unfolding Formula.eval_trms_set_def by blast
+    unfolding eval_trms_set_def by blast
   show ?case
   proof (cases "t")
     case (Var x)
@@ -1073,53 +962,51 @@ proof (induct ts arbitrary: v cs vs)
           and n_in: "n \<in> set (positions ts (\<^bold>v x))"
           and nth_n: "ts ! n = \<^bold>v x"
         by (simp_all add: hd_positions_eq_fst_pos nth_fst_pos fst_pos_in_positions)
-      hence n_in': "n = hd (positions (map fst (Formula.eval_trms_set vs ts)) (\<^bold>v x))"
-        by (clarsimp simp: Formula.eval_trms_set_def)
+      hence n_in': "n = hd (positions (map fst (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>)) (\<^bold>v x))"
+        by (clarsimp simp: eval_trms_set_def o_def)
       moreover have "as ! n = a"
         using a_def as_def nth_n Var n_in True positions_length
-        by (fastforce simp: Formula.eval_trms_def)
-      moreover have "\<^bold>v x \<in> set (map fst (Formula.eval_trms_set vs ts))"
+        by (fastforce simp: eval_trms_def)
+      moreover have "\<^bold>v x \<in> set (map fst (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>))"
         using True by (induct ts)
-          (auto simp: Formula.eval_trms_set_def)
+          (auto simp: eval_trms_set_def)
       ultimately show ?thesis
         using mk_values_ts cs_cons
-        by (clarsimp simp: Formula.eval_trms_set_def Var image_iff)
+        by (clarsimp simp: eval_trms_set_def Var image_iff)
     next
       case False
       then show ?thesis
         using Var cs_cons mk_values_ts Cons.prems a_def
-        by (clarsimp simp: Formula.eval_trms_set_def image_iff
-            set_Cons_def compatible_vals_def split: Formula.trm.splits)
+        by (clarsimp simp: eval_trms_set_def image_iff
+            set_Cons_def compatible_vals_def split: trm.splits)
     qed
   next
     case (Const a)
     then show ?thesis
       using cs_cons mk_values_ts Cons.prems a_def
-      by (clarsimp simp: Formula.eval_trms_set_def image_iff
-          set_Cons_def compatible_vals_def split: Formula.trm.splits)
+      by (clarsimp simp: eval_trms_set_def image_iff
+          set_Cons_def compatible_vals_def split: trm.splits)
   qed
 qed (simp add: compatible_vals_def
-    Formula.eval_trms_set_def Formula.eval_trms_def)
+    eval_trms_set_def eval_trms_def)
 
-unbundle MFOTL_no_notation \<comment> \<open> disable notation \<close>
-
-definition "mk_values_subset_Compl r vs ts i = ({r} \<times> mk_values (map (Formula.eval_trm_set vs) ts) \<subseteq> - \<Gamma> \<sigma> i)"
+definition "mk_values_subset_Compl r vs ts i = ({r} \<times> mk_values (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>) \<subseteq> - \<Gamma> \<sigma> i)"
 
 fun check_values where
   "check_values _ _ _ None = None"
-| "check_values vs (Formula.Const c # ts) (u # us) f = (if c = u then check_values vs ts us f else None)"
-| "check_values vs (Formula.Var x # ts) (u # us) (Some v) = (if u \<in> vs x \<and> (v x = Some u \<or> v x = None) then check_values vs ts us (Some (v(x \<mapsto> u))) else None)"
+| "check_values vs (\<^bold>c c # ts) (u # us) f = (if c = u then check_values vs ts us f else None)"
+| "check_values vs (\<^bold>v x # ts) (u # us) (Some v) = (if u \<in> vs x \<and> (v x = Some u \<or> v x = None) then check_values vs ts us (Some (v(x \<mapsto> u))) else None)"
 | "check_values vs [] [] f = f"
 | "check_values _ _ _ _ = None"
 
 lemma mk_values_alt:
-  "mk_values (Formula.eval_trms_set vs ts) =
-   {cs. \<exists>v\<in>compatible_vals (\<Union>(Formula.fv_trm ` set ts)) vs. cs = Formula.eval_trms v ts}"
+  "mk_values (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>) =
+   {cs. \<exists>v\<in>compatible_vals (\<Union>(fv_trm ` set ts)) vs. cs = v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>}"
   by (auto dest!: mk_values_sound intro: mk_values_complete)
 
 lemma check_values_neq_NoneI:
-  assumes "v \<in> compatible_vals (\<Union> (Formula.fv_trm ` set ts) - dom f) vs" "\<And>x y. f x = Some y \<Longrightarrow> y \<in> vs x"
-  shows "check_values vs ts (Formula.eval_trms (\<lambda>x. case f x of None \<Rightarrow> v x | Some y \<Rightarrow> y) ts) (Some f) \<noteq> None"
+  assumes "v \<in> compatible_vals (\<Union> (fv_trm ` set ts) - dom f) vs" "\<And>x y. f x = Some y \<Longrightarrow> y \<in> vs x"
+  shows "check_values vs ts ((\<lambda>x. case f x of None \<Rightarrow> v x | Some y \<Rightarrow> y)\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) (Some f) \<noteq> None"
   using assms
 proof (induct ts arbitrary: f)
   case (Cons t ts)
@@ -1131,31 +1018,31 @@ proof (induct ts arbitrary: f)
       case None
       with Cons(2) Var have v_in[simp]: "v x \<in> vs x"
         by (auto simp: compatible_vals_def)
-      from Cons(2) have "v \<in> compatible_vals (\<Union> (Formula.fv_trm ` set ts) - dom (f(x \<mapsto> v x))) vs"
+      from Cons(2) have "v \<in> compatible_vals (\<Union> (fv_trm ` set ts) - dom (f(x \<mapsto> v x))) vs"
         by (auto simp: compatible_vals_def)
       then have "check_values vs ts
-        (Formula.eval_trms (\<lambda>z. case (f(x \<mapsto> v x)) z of None \<Rightarrow> v z | Some y \<Rightarrow> y) ts)
+        ((\<lambda>z. case (f(x \<mapsto> v x)) z of None \<Rightarrow> v z | Some y \<Rightarrow> y)\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>)
         (Some (f(x \<mapsto> v x))) \<noteq> None"
         using Cons(3) None Var
         by (intro Cons(1)) (auto simp: compatible_vals_def split: if_splits)
       then show ?thesis
         by (elim eq_neq_eq_imp_neq[OF _ _ refl, rotated])
-          (auto simp add: Formula.eval_trms_def compatible_vals_def Var None split: if_splits option.splits
+          (auto simp add: eval_trms_def compatible_vals_def Var None split: if_splits option.splits
             intro!: arg_cong2[of _ _ _ _ "check_values vs ts"] eval_trm_fv_cong)
     next
       case (Some y)
       with Cons(1)[of f] Cons(2-) Var fun_upd_triv[of f x] show ?thesis
-        by (auto simp: domI Formula.eval_trms_def compatible_vals_def split: option.splits)
+        by (auto simp: domI eval_trms_def compatible_vals_def split: option.splits)
     qed
   next
     case (Const c)
     with Cons show ?thesis
-      by (auto simp: Formula.eval_trms_def compatible_vals_def split: option.splits)
+      by (auto simp: eval_trms_def compatible_vals_def split: option.splits)
   qed
-qed (simp add: Formula.eval_trms_def)
+qed (simp add: eval_trms_def)
 
 lemma check_values_eq_NoneI:
-  "\<forall>v\<in>compatible_vals (\<Union> (Formula.fv_trm ` set ts) - dom f) vs. us \<noteq> Formula.eval_trms (\<lambda>x. case f x of None \<Rightarrow> v x | Some y \<Rightarrow> y) ts \<Longrightarrow>
+  "\<forall>v\<in>compatible_vals (\<Union> (fv_trm ` set ts) - dom f) vs. us \<noteq> (\<lambda>x. case f x of None \<Rightarrow> v x | Some y \<Rightarrow> y)\<^bold>\<lbrakk>ts\<^bold>\<rbrakk> \<Longrightarrow>
   check_values vs ts us (Some f) = None"
 proof (induct vs ts us "Some f" arbitrary: f rule: check_values.induct)
   case (3 vs x ts u us v)
@@ -1164,190 +1051,188 @@ proof (induct vs ts us "Some f" arbitrary: f rule: check_values.induct)
   proof (intro impI 3(1), safe, goal_cases)
     case (1 v')
     with 3(2) show ?case
-      by (auto simp: insert_dom domI Formula.eval_trms_def intro!: eval_trm_fv_cong split: if_splits dest!: bspec[of _ _ "v'"])
+      by (auto simp: insert_dom domI eval_trms_def intro!: eval_trm_fv_cong split: if_splits dest!: bspec[of _ _ "v'"])
   next
     case (2 v')
     with 3(2) show ?case
-      by (auto simp: insert_dom domI compatible_vals_def Formula.eval_trms_def intro!: eval_trm_fv_cong split: if_splits option.splits dest!: spec[of _ "v'(x := u)"])
+      by (auto simp: insert_dom domI compatible_vals_def eval_trms_def intro!: eval_trm_fv_cong split: if_splits option.splits dest!: spec[of _ "v'(x := u)"])
   qed
-qed (auto simp: compatible_vals_def Formula.eval_trms_def)
+qed (auto simp: compatible_vals_def eval_trms_def)
 
 lemma mk_values_subset_Compl_code[code]:
   "mk_values_subset_Compl r vs ts i = (\<forall>(q, us) \<in> \<Gamma> \<sigma> i. q \<noteq> r \<or> check_values vs ts us (Some Map.empty) = None)"
-  unfolding mk_values_subset_Compl_def Formula.eval_trms_set_def[symmetric] mk_values_alt
+  unfolding mk_values_subset_Compl_def eval_trms_set_def[symmetric] mk_values_alt
 proof (safe, goal_cases)
   case (1 _ us y)
   then show ?case
     by (auto simp: subset_eq check_values_eq_NoneI[where f=Map.empty, simplified] dest!: spec[of _ us])
 qed (auto simp: subset_eq  dest!: check_values_neq_NoneI[where f=Map.empty, simplified])
 
-fun s_check_exec :: "'d Formula.envset \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
-  and v_check_exec :: "'d Formula.envset \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
+fun s_check_exec :: "'d envset \<Rightarrow> 'd formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
+  and v_check_exec :: "'d envset \<Rightarrow> 'd formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
   "s_check_exec vs f p = (case (f, p) of
-    (Formula.TT, STT i) \<Rightarrow> True
-  | (Formula.Pred r ts, SPred i s ts') \<Rightarrow>
-    (r = s \<and> ts = ts' \<and> mk_values_subset r (Formula.eval_trms_set vs ts) (\<Gamma> \<sigma> i))
-  | (Formula.Eq_Const x c, SEq_Const i x' c') \<Rightarrow>
+    (\<top>, STT i) \<Rightarrow> True
+  | (r \<dagger> ts, SPred i s ts') \<Rightarrow>
+    (r = s \<and> ts = ts' \<and> mk_values_subset r (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>) (\<Gamma> \<sigma> i))
+  | (x \<^bold>\<approx> c, SEq_Const i x' c') \<Rightarrow>
     (c = c' \<and> x = x' \<and> vs x = {c})
-  | (Formula.Neg \<phi>, SNeg vp) \<Rightarrow> v_check_exec vs \<phi> vp
-  | (Formula.Or \<phi> \<psi>, SOrL sp1) \<Rightarrow> s_check_exec vs \<phi> sp1
-  | (Formula.Or \<phi> \<psi>, SOrR sp2) \<Rightarrow> s_check_exec vs \<psi> sp2
-  | (Formula.And \<phi> \<psi>, SAnd sp1 sp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> s_check_exec vs \<psi> sp2 \<and> s_at sp1 = s_at sp2
-  | (Formula.Imp \<phi> \<psi>, SImpL vp1) \<Rightarrow> v_check_exec vs \<phi> vp1
-  | (Formula.Imp \<phi> \<psi>, SImpR sp2) \<Rightarrow> s_check_exec vs \<psi> sp2
-  | (Formula.Iff \<phi> \<psi>, SIffSS sp1 sp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> s_check_exec vs \<psi> sp2 \<and> s_at sp1 = s_at sp2
-  | (Formula.Iff \<phi> \<psi>, SIffVV vp1 vp2) \<Rightarrow> v_check_exec vs \<phi> vp1 \<and> v_check_exec vs \<psi> vp2 \<and> v_at vp1 = v_at vp2
-  | (Formula.Exists x \<phi>, SExists y val sp) \<Rightarrow> (x = y \<and> s_check_exec (vs (x := {val})) \<phi> sp)
-  | (Formula.Forall x \<phi>, SForall y sp_part) \<Rightarrow> (let i = s_at (part_hd sp_part)
+  | (\<not>\<^sub>F \<phi>, SNeg vp) \<Rightarrow> v_check_exec vs \<phi> vp
+  | (\<phi> \<or>\<^sub>F \<psi>, SOrL sp1) \<Rightarrow> s_check_exec vs \<phi> sp1
+  | (\<phi> \<or>\<^sub>F \<psi>, SOrR sp2) \<Rightarrow> s_check_exec vs \<psi> sp2
+  | (\<phi> \<and>\<^sub>F \<psi>, SAnd sp1 sp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> s_check_exec vs \<psi> sp2 \<and> s_at sp1 = s_at sp2
+  | (\<phi> \<longrightarrow>\<^sub>F \<psi>, SImpL vp1) \<Rightarrow> v_check_exec vs \<phi> vp1
+  | (\<phi> \<longrightarrow>\<^sub>F \<psi>, SImpR sp2) \<Rightarrow> s_check_exec vs \<psi> sp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, SIffSS sp1 sp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> s_check_exec vs \<psi> sp2 \<and> s_at sp1 = s_at sp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, SIffVV vp1 vp2) \<Rightarrow> v_check_exec vs \<phi> vp1 \<and> v_check_exec vs \<psi> vp2 \<and> v_at vp1 = v_at vp2
+  | (\<exists>\<^sub>Fx.  \<phi>, SExists y val sp) \<Rightarrow> (x = y \<and> s_check_exec (vs (x := {val})) \<phi> sp)
+  | (\<forall>\<^sub>Fx.  \<phi>, SForall y sp_part) \<Rightarrow> (let i = s_at (part_hd sp_part)
       in x = y \<and> (\<forall>(sub, sp) \<in> SubsVals sp_part. s_at sp = i \<and> s_check_exec (vs (x := sub)) \<phi> sp))
-  | (Formula.Prev I \<phi>, SPrev sp) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, SPrev sp) \<Rightarrow>
     (let j = s_at sp; i = s_at (SPrev sp) in
     i = j+1 \<and> mem (\<Delta> \<sigma> i) I \<and> s_check_exec vs \<phi> sp)
-  | (Formula.Next I \<phi>, SNext sp) \<Rightarrow>
+  | (\<^bold>X I \<phi>, SNext sp) \<Rightarrow>
     (let j = s_at sp; i = s_at (SNext sp) in
     j = i+1 \<and> mem (\<Delta> \<sigma> j) I \<and> s_check_exec vs \<phi> sp)
-  | (Formula.Once I \<phi>, SOnce i sp) \<Rightarrow>
+  | (\<^bold>P I \<phi>, SOnce i sp) \<Rightarrow>
     (let j = s_at sp in
     j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> s_check_exec vs \<phi> sp)
-  | (Formula.Eventually I \<phi>, SEventually i sp) \<Rightarrow>
+  | (\<^bold>F I \<phi>, SEventually i sp) \<Rightarrow>
     (let j = s_at sp in
     j \<ge> i \<and> mem (\<tau> \<sigma> j - \<tau> \<sigma> i) I \<and> s_check_exec vs \<phi> sp)
-  | (Formula.Historically I \<phi>, SHistoricallyOut i) \<Rightarrow>
+  | (\<^bold>H I \<phi>, SHistoricallyOut i) \<Rightarrow>
     \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I
-  | (Formula.Historically I \<phi>, SHistorically i li sps) \<Rightarrow>
+  | (\<^bold>H I \<phi>, SHistorically i li sps) \<Rightarrow>
     (li = (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> ETP \<sigma> (\<tau> \<sigma> i - b))
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map s_at sps = [li ..< (LTP_p \<sigma> i I) + 1]
     \<and> (\<forall>sp \<in> set sps. s_check_exec vs \<phi> sp))
-  | (Formula.Always I \<phi>, SAlways i hi sps) \<Rightarrow>
+  | (\<^bold>G I \<phi>, SAlways i hi sps) \<Rightarrow>
     (hi = (case right I of enat b \<Rightarrow> LTP_f \<sigma> i b)
     \<and> right I \<noteq> \<infinity>
     \<and> map s_at sps = [(ETP_f \<sigma> i I) ..< hi + 1]
     \<and> (\<forall>sp \<in> set sps. s_check_exec vs \<phi> sp))
-  | (Formula.Since \<phi> I \<psi>, SSince sp2 sp1s) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, SSince sp2 sp1s) \<Rightarrow>
     (let i = s_at (SSince sp2 sp1s); j = s_at sp2 in
     j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I
     \<and> map s_at sp1s = [j+1 ..< i+1]
     \<and> s_check_exec vs \<psi> sp2
     \<and> (\<forall>sp1 \<in> set sp1s. s_check_exec vs \<phi> sp1))
-  | (Formula.Until \<phi> I \<psi>, SUntil sp1s sp2) \<Rightarrow>
+  | (\<phi> \<^bold>U I \<psi>, SUntil sp1s sp2) \<Rightarrow>
     (let i = s_at (SUntil sp1s sp2); j = s_at sp2 in
     j \<ge> i \<and> mem (\<tau> \<sigma> j - \<tau> \<sigma> i) I
     \<and> map s_at sp1s = [i ..< j] \<and> s_check_exec vs \<psi> sp2
     \<and> (\<forall>sp1 \<in> set sp1s. s_check_exec vs \<phi> sp1))
   | ( _ , _) \<Rightarrow> False)"
 | "v_check_exec vs f p = (case (f, p) of
-    (Formula.FF, VFF i) \<Rightarrow> True
-  | (Formula.Pred r ts, VPred i pred ts') \<Rightarrow>
+    (\<bottom>, VFF i) \<Rightarrow> True
+  | (r \<dagger> ts, VPred i pred ts') \<Rightarrow>
     (r = pred \<and> ts = ts' \<and> mk_values_subset_Compl r vs ts i)
-  | (Formula.Eq_Const x c, VEq_Const i x' c') \<Rightarrow>
+  | (x \<^bold>\<approx> c, VEq_Const i x' c') \<Rightarrow>
     (c = c' \<and> x = x' \<and> c \<notin> vs x)
-  | (Formula.Neg \<phi>, VNeg sp) \<Rightarrow> s_check_exec vs \<phi> sp
-  | (Formula.Or \<phi> \<psi>, VOr vp1 vp2) \<Rightarrow> v_check_exec vs \<phi> vp1 \<and> v_check_exec vs \<psi> vp2 \<and> v_at vp1 = v_at vp2
-  | (Formula.And \<phi> \<psi>, VAndL vp1) \<Rightarrow> v_check_exec vs \<phi> vp1
-  | (Formula.And \<phi> \<psi>, VAndR vp2) \<Rightarrow> v_check_exec vs \<psi> vp2
-  | (Formula.Imp \<phi> \<psi>, VImp sp1 vp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> v_check_exec vs \<psi> vp2 \<and> s_at sp1 = v_at vp2
-  | (Formula.Iff \<phi> \<psi>, VIffSV sp1 vp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> v_check_exec vs \<psi> vp2 \<and> s_at sp1 = v_at vp2
-  | (Formula.Iff \<phi> \<psi>, VIffVS vp1 sp2) \<Rightarrow> v_check_exec vs \<phi> vp1 \<and> s_check_exec vs \<psi> sp2 \<and> v_at vp1 = s_at sp2
-  | (Formula.Exists x \<phi>, VExists y vp_part) \<Rightarrow> (let i = v_at (part_hd vp_part)
+  | (\<not>\<^sub>F \<phi>, VNeg sp) \<Rightarrow> s_check_exec vs \<phi> sp
+  | (\<phi> \<or>\<^sub>F \<psi>, VOr vp1 vp2) \<Rightarrow> v_check_exec vs \<phi> vp1 \<and> v_check_exec vs \<psi> vp2 \<and> v_at vp1 = v_at vp2
+  | (\<phi> \<and>\<^sub>F \<psi>, VAndL vp1) \<Rightarrow> v_check_exec vs \<phi> vp1
+  | (\<phi> \<and>\<^sub>F \<psi>, VAndR vp2) \<Rightarrow> v_check_exec vs \<psi> vp2
+  | (\<phi> \<longrightarrow>\<^sub>F \<psi>, VImp sp1 vp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> v_check_exec vs \<psi> vp2 \<and> s_at sp1 = v_at vp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, VIffSV sp1 vp2) \<Rightarrow> s_check_exec vs \<phi> sp1 \<and> v_check_exec vs \<psi> vp2 \<and> s_at sp1 = v_at vp2
+  | (\<phi> \<longleftrightarrow>\<^sub>F \<psi>, VIffVS vp1 sp2) \<Rightarrow> v_check_exec vs \<phi> vp1 \<and> s_check_exec vs \<psi> sp2 \<and> v_at vp1 = s_at sp2
+  | (\<exists>\<^sub>Fx.  \<phi>, VExists y vp_part) \<Rightarrow> (let i = v_at (part_hd vp_part)
       in x = y \<and> (\<forall>(sub, vp) \<in> SubsVals vp_part. v_at vp = i \<and> v_check_exec (vs (x := sub)) \<phi> vp))
-  | (Formula.Forall x \<phi>, VForall y val vp) \<Rightarrow> (x = y \<and> v_check_exec (vs (x := {val})) \<phi> vp)
-  | (Formula.Prev I \<phi>, VPrev vp) \<Rightarrow>
+  | (\<forall>\<^sub>Fx.  \<phi>, VForall y val vp) \<Rightarrow> (x = y \<and> v_check_exec (vs (x := {val})) \<phi> vp)
+  | (\<^bold>Y I \<phi>, VPrev vp) \<Rightarrow>
     (let j = v_at vp; i = v_at (VPrev vp) in
     i = j+1 \<and> v_check_exec vs \<phi> vp)
-  | (Formula.Prev I \<phi>, VPrevZ) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, VPrevZ) \<Rightarrow>
     v_at (VPrevZ::'d vproof) = 0
-  | (Formula.Prev I \<phi>, VPrevOutL i) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, VPrevOutL i) \<Rightarrow>
     i > 0 \<and> \<Delta> \<sigma> i < left I
-  | (Formula.Prev I \<phi>, VPrevOutR i) \<Rightarrow>
+  | (\<^bold>Y I \<phi>, VPrevOutR i) \<Rightarrow>
     i > 0 \<and> enat (\<Delta> \<sigma> i) > right I
-  | (Formula.Next I \<phi>, VNext vp) \<Rightarrow>
+  | (\<^bold>X I \<phi>, VNext vp) \<Rightarrow>
     (let j = v_at vp; i = v_at (VNext vp) in
     j = i+1 \<and> v_check_exec vs \<phi> vp)
-  | (Formula.Next I \<phi>, VNextOutL i) \<Rightarrow>
+  | (\<^bold>X I \<phi>, VNextOutL i) \<Rightarrow>
     \<Delta> \<sigma> (i+1) < left I
-  | (Formula.Next I \<phi>, VNextOutR i) \<Rightarrow>
+  | (\<^bold>X I \<phi>, VNextOutR i) \<Rightarrow>
     enat (\<Delta> \<sigma> (i+1)) > right I
-  | (Formula.Once I \<phi>, VOnceOut i) \<Rightarrow>
+  | (\<^bold>P I \<phi>, VOnceOut i) \<Rightarrow>
     \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I
-  | (Formula.Once I \<phi>, VOnce i li vps) \<Rightarrow>
+  | (\<^bold>P I \<phi>, VOnce i li vps) \<Rightarrow>
     (li = (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> ETP_p \<sigma> i b)
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map v_at vps = [li ..< (LTP_p \<sigma> i I) + 1]
     \<and> (\<forall>vp \<in> set vps. v_check_exec vs \<phi> vp))
-  | (Formula.Eventually I \<phi>, VEventually i hi vps) \<Rightarrow>
+  | (\<^bold>F I \<phi>, VEventually i hi vps) \<Rightarrow>
     (hi = (case right I of enat b \<Rightarrow> LTP_f \<sigma> i b) \<and> right I \<noteq> \<infinity>
     \<and> map v_at vps = [(ETP_f \<sigma> i I) ..< hi + 1]
     \<and> (\<forall>vp \<in> set vps. v_check_exec vs \<phi> vp))
-  | (Formula.Historically I \<phi>, VHistorically i vp) \<Rightarrow>
+  | (\<^bold>H I \<phi>, VHistorically i vp) \<Rightarrow>
     (let j = v_at vp in
     j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> v_check_exec vs \<phi> vp)
-  | (Formula.Always I \<phi>, VAlways i vp) \<Rightarrow>
+  | (\<^bold>G I \<phi>, VAlways i vp) \<Rightarrow>
     (let j = v_at vp
     in j \<ge> i \<and> mem (\<tau> \<sigma> j - \<tau> \<sigma> i) I \<and> v_check_exec vs \<phi> vp)
-  | (Formula.Since \<phi> I \<psi>, VSinceOut i) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, VSinceOut i) \<Rightarrow>
     \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I
-  | (Formula.Since \<phi> I \<psi>, VSince i vp1 vp2s) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, VSince i vp1 vp2s) \<Rightarrow>
     (let j = v_at vp1 in
     (case right I of \<infinity> \<Rightarrow> True | enat b \<Rightarrow> ETP_p \<sigma> i b \<le> j) \<and> j \<le> i
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map v_at vp2s = [j ..< (LTP_p \<sigma> i I) + 1] \<and> v_check_exec vs \<phi> vp1
     \<and> (\<forall>vp2 \<in> set vp2s. v_check_exec vs \<psi> vp2))
-  | (Formula.Since \<phi> I \<psi>, VSinceInf i li vp2s) \<Rightarrow>
+  | (\<phi> \<^bold>S I \<psi>, VSinceInf i li vp2s) \<Rightarrow>
     (li = (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> ETP_p \<sigma> i b)
     \<and> \<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i
     \<and> map v_at vp2s = [li ..< (LTP_p \<sigma> i I) + 1]
     \<and> (\<forall>vp2 \<in> set vp2s. v_check_exec vs \<psi> vp2))
-  | (Formula.Until \<phi> I \<psi>, VUntil i vp2s vp1) \<Rightarrow>
+  | (\<phi> \<^bold>U I \<psi>, VUntil i vp2s vp1) \<Rightarrow>
     (let j = v_at vp1 in
     (case right I of \<infinity> \<Rightarrow> True | enat b \<Rightarrow> j < LTP_f \<sigma> i b) \<and> i \<le> j
     \<and> map v_at vp2s = [ETP_f \<sigma> i I ..< j + 1] \<and> v_check_exec vs \<phi> vp1
     \<and> (\<forall>vp2 \<in> set vp2s. v_check_exec vs \<psi> vp2))
-  | (Formula.Until \<phi> I \<psi>, VUntilInf i hi vp2s) \<Rightarrow>
+  | (\<phi> \<^bold>U I \<psi>, VUntilInf i hi vp2s) \<Rightarrow>
     (hi = (case right I of enat b \<Rightarrow> LTP_f \<sigma> i b) \<and> right I \<noteq> \<infinity>
     \<and> map v_at vp2s = [ETP_f \<sigma> i I ..< hi + 1]
     \<and> (\<forall>vp2 \<in> set vp2s. v_check_exec vs \<psi> vp2))
   | ( _ , _) \<Rightarrow> False)"
 
 declare s_check_exec.simps[simp del] v_check_exec.simps[simp del]
-simps_of_case s_check_exec_simps[simp, code]: s_check_exec.simps[unfolded prod.case] (splits: Formula.formula.split sproof.split)
-simps_of_case v_check_exec_simps[simp, code]: v_check_exec.simps[unfolded prod.case] (splits: Formula.formula.split vproof.split)
+simps_of_case s_check_exec_simps[simp, code]: s_check_exec.simps[unfolded prod.case] (splits: formula.split sproof.split)
+simps_of_case v_check_exec_simps[simp, code]: v_check_exec.simps[unfolded prod.case] (splits: formula.split vproof.split)
 
-definition AD :: "'d Formula.formula \<Rightarrow> nat \<Rightarrow> 'd set"
-  where "AD \<phi> i = Formula.consts \<phi> \<union> (\<Union> k \<le> the (LRTP \<sigma> \<phi> i). \<Union> (set ` snd ` \<Gamma> \<sigma> k))"
+definition AD :: "'d formula \<Rightarrow> nat \<Rightarrow> 'd set"
+  where "AD \<phi> i = consts \<phi> \<union> (\<Union> k \<le> the (LRTP \<sigma> \<phi> i). \<Union> (set ` snd ` \<Gamma> \<sigma> k))"
 
 lemma val_in_AD_iff:
-  "x \<in> Formula.fv \<phi> \<Longrightarrow> v x \<in> AD \<phi> i \<longleftrightarrow> v x \<in> Formula.consts \<phi> \<or>
-  (\<exists>r ts k. k \<le> the (LRTP \<sigma> \<phi> i) \<and> (r, Formula.eval_trms v ts) \<in> \<Gamma> \<sigma> k \<and> x \<in> \<Union> (set (map Formula.fv_trm ts)))"
+  "x \<in> fv \<phi> \<Longrightarrow> v x \<in> AD \<phi> i \<longleftrightarrow> v x \<in> consts \<phi> \<or>
+  (\<exists>r ts k. k \<le> the (LRTP \<sigma> \<phi> i) \<and> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<in> \<Gamma> \<sigma> k \<and> x \<in> \<Union> (set (map fv_trm ts)))"
   unfolding AD_def Un_iff UN_iff Bex_def atMost_iff set_map
     ex_comm[of "P :: _ \<Rightarrow> nat \<Rightarrow> _" for P] ex_simps image_iff
 proof (safe intro!: arg_cong[of _ _ "\<lambda>x. _ \<or> x"] ex_cong, unfold snd_conv, goal_cases LR RL)
   case (LR i _ r ds)
   then show ?case
     by (intro exI[of _ r] conjI
-        exI[of _ "map (\<lambda>d. if v x = d then (Formula.Var x) else Formula.Const d) ds"])
-      (auto simp: Formula.eval_trms_def o_def map_idI)
+        exI[of _ "map (\<lambda>d. if v x = d then (\<^bold>v x) else \<^bold>c d) ds"])
+      (auto simp: eval_trms_def o_def map_idI)
 next
   case (RL i r ts t)
   then show ?case
-    by (intro exI[of _ "Formula.eval_trms v ts"] conjI)
-      (auto simp: Formula.eval_trms_def image_iff in_fv_trm_conv intro!: bexI[of _ t])
+    by (intro exI[of _ "v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"] conjI)
+      (auto simp: eval_trms_def image_iff in_fv_trm_conv intro!: bexI[of _ t])
 qed
 
 lemma val_notin_AD_iff:
-  "x \<in> Formula.fv \<phi> \<Longrightarrow> v x \<notin> AD \<phi> i \<longleftrightarrow> v x \<notin> Formula.consts \<phi> \<and>
-    (\<forall>r ts k. k \<le> the (LRTP \<sigma> \<phi> i) \<and> x \<in> \<Union> (set (map Formula.fv_trm ts)) \<longrightarrow> (r, Formula.eval_trms v ts) \<notin> \<Gamma> \<sigma> k)"
+  "x \<in> fv \<phi> \<Longrightarrow> v x \<notin> AD \<phi> i \<longleftrightarrow> v x \<notin> consts \<phi> \<and>
+    (\<forall>r ts k. k \<le> the (LRTP \<sigma> \<phi> i) \<and> x \<in> \<Union> (set (map fv_trm ts)) \<longrightarrow> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<notin> \<Gamma> \<sigma> k)"
   using val_in_AD_iff by blast
 
 lemma fv_formula_fv_trm:
-  assumes "x \<in> Formula.fv (formula.Pred r ts)"
-  shows "\<exists>t \<in> set ts. x \<in> Formula.fv_trm t"
+  assumes "x \<in> fv (r \<dagger> ts)"
+  shows "\<exists>t \<in> set ts. x \<in> fv_trm t"
   using assms by auto
 
-lemma eval_trm_val_eq: "Formula.eval_trm v x = Formula.eval_trm v' x \<Longrightarrow> (case x of Formula.Var x \<Rightarrow> v x = v' x | Formula.Const x \<Rightarrow> True)"
+lemma eval_trm_val_eq: "v\<lbrakk>x\<rbrakk> = v'\<lbrakk>x\<rbrakk> \<Longrightarrow> (case x of \<^bold>v x \<Rightarrow> v x = v' x | \<^bold>c x \<Rightarrow> True)"
   by (simp split: trm.splits) auto
-
-unbundle MFOTL_notation \<comment> \<open> enable notation \<close>
 
 lemma compatible_vals_fun_upd: "compatible_vals A (vs(x := X)) =
   (if x \<in> A then {v \<in> compatible_vals (A - {x}) vs. v x \<in> X} else compatible_vals A vs)"
@@ -1367,18 +1252,18 @@ lemma fun_upd_in_compatible_vals_notin: "x \<notin> A \<Longrightarrow> v \<in> 
   by auto
 
 lemma finite_values: "finite (\<Union> (set ` snd ` \<Gamma> \<sigma> k))"
-  by (transfer, auto simp add: sfstfinite_def)
+  by (transfer, auto simp add: sfinite_def)
 
-lemma finite_tps: "Formula.future_bounded \<phi> \<Longrightarrow> finite (\<Union> k < the (LRTP \<sigma> \<phi> i). {k})"
+lemma finite_tps: "future_bounded \<phi> \<Longrightarrow> finite (\<Union> k < the (LRTP \<sigma> \<phi> i). {k})"
   using fb_LRTP[of \<phi>] finite_enat_bounded
   by simp
 
-lemma finite_AD [simp]: "Formula.future_bounded \<phi> \<Longrightarrow> finite (AD \<phi> i)"
+lemma finite_AD [simp]: "future_bounded \<phi> \<Longrightarrow> finite (AD \<phi> i)"
   using finite_tps finite_values
   by (simp add: AD_def enat_def)
 
 lemma finite_AD_UNIV:
-  assumes "Formula.future_bounded \<phi>" and "AD \<phi> i = (UNIV:: 'd set)"
+  assumes "future_bounded \<phi>" and "AD \<phi> i = (UNIV:: 'd set)"
   shows "finite (UNIV::'d set)"
 proof -
   have "finite (AD \<phi> i)"
@@ -1654,13 +1539,13 @@ next
   case (Pred p ts)
   {
     case 1
-    have obs: "\<forall>tX\<in>set (Formula.eval_trms_set vs ts). snd tX \<noteq> {}"
+    have obs: "\<forall>tX\<in>set (vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>). snd tX \<noteq> {}"
       using \<open>\<forall>x. vs x \<noteq> {}\<close>
     proof (induct ts)
       case (Cons a ts)
       then show ?case
-        by (cases a) (auto simp: Formula.eval_trms_set_def)
-    qed (auto simp: Formula.eval_trms_set_def)
+        by (cases a) (auto simp: eval_trms_set_def)
+    qed (auto simp: eval_trms_set_def)
     show ?case
       using 1 compatible_vals_nonemptyI[OF 1]
         mk_values_complete[OF refl, of _ p ts vs] mk_values_sound[of _ vs ts p]
@@ -1671,7 +1556,7 @@ next
     then show ?case using compatible_vals_nonemptyI[OF 2]
         mk_values_complete[OF refl, of _ p ts vs] mk_values_sound[of _ vs ts p]
       by (cases vp)
-        (auto 6 0 simp: mk_values_subset_Compl_def Formula.eval_trms_set_def simp del: fv.simps)
+        (auto 6 0 simp: mk_values_subset_Compl_def eval_trms_set_def simp del: fv.simps)
   }
 next
   case (Eq_Const x c)
@@ -2134,24 +2019,22 @@ lemma v_check_code[code]: "v_check v \<phi> vp = v_check_exec (\<lambda>x. {v x}
   by (subst check_exec_check)
     (auto simp: compatible_vals_def elim: check_fv_cong[THEN iffD2, rotated])
 
-unbundle MFOTL_no_notation \<comment> \<open> disable notation \<close>
-
 lemma AD_simps[simp]:
-  "AD (Formula.Neg \<phi>) i = AD \<phi> i"
-  "Formula.future_bounded (Formula.Or \<phi> \<psi>) \<Longrightarrow> AD (Formula.Or \<phi> \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
-  "Formula.future_bounded (Formula.And \<phi> \<psi>) \<Longrightarrow> AD (Formula.And \<phi> \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
-  "Formula.future_bounded (Formula.Imp \<phi> \<psi>) \<Longrightarrow> AD (Formula.Imp \<phi> \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
-  "Formula.future_bounded (Formula.Iff \<phi> \<psi>) \<Longrightarrow> AD (Formula.Iff \<phi> \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
-  "AD (Formula.Exists x \<phi>) i = AD \<phi> i"
-  "AD (Formula.Forall x \<phi>) i = AD \<phi> i"
-  "AD (Formula.Prev I \<phi>) i = AD \<phi> (i - 1)"
-  "AD (Formula.Next I \<phi>) i = AD \<phi> (i + 1)"
-  "Formula.future_bounded (Formula.Eventually I \<phi>) \<Longrightarrow> AD (Formula.Eventually I \<phi>) i = AD \<phi> (LTP_f \<sigma> i (the_enat (right I)))"
-  "Formula.future_bounded (Formula.Always I \<phi>) \<Longrightarrow> AD (Formula.Always I \<phi>) i = AD \<phi> (LTP_f \<sigma> i (the_enat (right I)))"
-  "AD (Formula.Once I \<phi>) i = AD \<phi> (LTP_p_safe \<sigma> i I)"
-  "AD (Formula.Historically I \<phi>) i = AD \<phi> (LTP_p_safe \<sigma> i I)"
-  "Formula.future_bounded (Formula.Since \<phi> I \<psi>) \<Longrightarrow> AD (Formula.Since \<phi> I \<psi>) i = AD \<phi> i \<union> AD \<psi> (LTP_p_safe \<sigma> i I)"
-  "Formula.future_bounded (Formula.Until \<phi> I \<psi>) \<Longrightarrow> AD (Formula.Until \<phi> I \<psi>) i = AD \<phi> (LTP_f \<sigma> i (the_enat (right I)) - 1) \<union> AD \<psi> (LTP_f \<sigma> i (the_enat (right I)))"
+  "AD (\<not>\<^sub>F \<phi>) i = AD \<phi> i"
+  "future_bounded (\<phi> \<or>\<^sub>F \<psi>) \<Longrightarrow> AD (\<phi> \<or>\<^sub>F \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
+  "future_bounded (\<phi> \<and>\<^sub>F \<psi>) \<Longrightarrow> AD (\<phi> \<and>\<^sub>F \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
+  "future_bounded (\<phi> \<longrightarrow>\<^sub>F \<psi>) \<Longrightarrow> AD (\<phi> \<longrightarrow>\<^sub>F \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
+  "future_bounded (\<phi> \<longleftrightarrow>\<^sub>F \<psi>) \<Longrightarrow> AD (\<phi> \<longleftrightarrow>\<^sub>F \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
+  "AD (\<exists>\<^sub>Fx.  \<phi>) i = AD \<phi> i"
+  "AD (\<forall>\<^sub>Fx.  \<phi>) i = AD \<phi> i"
+  "AD (\<^bold>Y I \<phi>) i = AD \<phi> (i - 1)"
+  "AD (\<^bold>X I \<phi>) i = AD \<phi> (i + 1)"
+  "future_bounded (\<^bold>F I \<phi>) \<Longrightarrow> AD (\<^bold>F I \<phi>) i = AD \<phi> (LTP_f \<sigma> i (the_enat (right I)))"
+  "future_bounded (\<^bold>G I \<phi>) \<Longrightarrow> AD (\<^bold>G I \<phi>) i = AD \<phi> (LTP_f \<sigma> i (the_enat (right I)))"
+  "AD (\<^bold>P I \<phi>) i = AD \<phi> (LTP_p_safe \<sigma> i I)"
+  "AD (\<^bold>H I \<phi>) i = AD \<phi> (LTP_p_safe \<sigma> i I)"
+  "future_bounded (\<phi> \<^bold>S I \<psi>) \<Longrightarrow> AD (\<phi> \<^bold>S I \<psi>) i = AD \<phi> i \<union> AD \<psi> (LTP_p_safe \<sigma> i I)"
+  "future_bounded (\<phi> \<^bold>U I \<psi>) \<Longrightarrow> AD (\<phi> \<^bold>U I \<psi>) i = AD \<phi> (LTP_f \<sigma> i (the_enat (right I)) - 1) \<union> AD \<psi> (LTP_f \<sigma> i (the_enat (right I)))"
   by (auto 0 3 simp: AD_def max_opt_def not_none_fb_LRTP le_max_iff_disj Bex_def split: option.splits)
 
 
@@ -2169,7 +2052,7 @@ proof (rule Max_mono)
     by (metis i_le_LTPi_add le_Suc_ex mem_Collect_eq)
 qed (auto simp: assms intro!: exI[of _ i] elim: order_trans)
 
-lemma LRTP_mono: "Formula.future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> the (LRTP \<sigma> \<phi> i) \<le> the (LRTP \<sigma> \<phi> j)"
+lemma LRTP_mono: "future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> the (LRTP \<sigma> \<phi> i) \<le> the (LRTP \<sigma> \<phi> j)"
 proof (induct \<phi> arbitrary: i j)
   case (Or \<phi>1 \<phi>2)
   from Or(1,2)[of i j] Or(3-) show ?case
@@ -2199,15 +2082,15 @@ next
     by (auto simp: max_opt_def not_none_fb_LRTP LTP_f_mono diff_le_mono split: option.splits)
 qed (auto simp: LTP_p_mono LTP_f_mono)
 
-lemma AD_mono: "Formula.future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> AD \<phi> i \<subseteq> AD \<phi> j"
+lemma AD_mono: "future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> AD \<phi> i \<subseteq> AD \<phi> j"
   by (auto 0 3 simp: AD_def Bex_def intro: LRTP_mono elim!: order_trans)
 
 lemma LTP_p_safe_le[simp]: "LTP_p_safe \<sigma> i I \<le> i"
   by (auto simp: LTP_p_safe_def)
 
 lemma check_AD_cong:
-  assumes "Formula.future_bounded \<phi>"
-    and "(\<forall>x \<in> Formula.fv \<phi>. v x = v' x \<or> (v x \<notin> AD \<phi> i \<and> v' x \<notin> AD \<phi> i))"
+  assumes "future_bounded \<phi>"
+    and "(\<forall>x \<in> fv \<phi>. v x = v' x \<or> (v x \<notin> AD \<phi> i \<and> v' x \<notin> AD \<phi> i))"
   shows "(s_at sp = i \<Longrightarrow> s_check v \<phi> sp \<longleftrightarrow> s_check v' \<phi> sp)"
     "(v_at vp = i \<Longrightarrow> v_check v \<phi> vp \<longleftrightarrow> v_check v' \<phi> vp)"
   using assms
@@ -2299,7 +2182,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
           by (meson \<tau>_mono le0 order_trans)
         with k have "k \<le> LTP_p_safe \<sigma> i I"
           unfolding LTP_p_safe_def by (auto simp: i_LTP_tau)
-        with Once hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
+        with Once hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Once SOnce show ?thesis
@@ -2328,7 +2211,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
           by (auto simp: nth_append)
         ultimately have "l \<le> u"
           unfolding l_def by auto
-        with Historically hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
+        with Historically hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
           by (auto simp: u_def dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Historically SHistorically show ?thesis
@@ -2344,7 +2227,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
         assume "\<tau> \<sigma> k \<le> the_enat (right I) + \<tau> \<sigma> i"
         then have "k \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (metis add.commute i_le_LTPi_add le_add_diff_inverse)
-        with Eventually hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
+        with Eventually hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Eventually SEventually show ?thesis
@@ -2367,7 +2250,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
         with j eq have "l \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (auto simp: l_def u_def dest!: arg_cong[where f="\<lambda>xs. nth xs j"]
               simp del: upt.simps split: if_splits)
-        with Always hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
+        with Always hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Always SAlways show ?thesis
@@ -2394,7 +2277,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
           by (auto simp: nth_append)
         ultimately have "l \<le> i"
           unfolding l_def by auto
-        with Since hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
+        with Since hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
           by (auto simp: dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       moreover
@@ -2404,7 +2287,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
           by (meson \<tau>_mono le0 order_trans)
         with k have "k \<le> LTP_p_safe \<sigma> i I"
           unfolding LTP_p_safe_def by (auto simp: i_LTP_tau)
-        with Since hyps(2,3) have "\<forall>x\<in>Formula.fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> k \<and> v' x \<notin> AD \<psi> k"
+        with Since hyps(2,3) have "\<forall>x\<in>fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> k \<and> v' x \<notin> AD \<psi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       ultimately show ?thesis
@@ -2435,7 +2318,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
           by (auto simp: nth_append)
         ultimately have "l \<le> LTP_f \<sigma> i (the_enat (right I)) - 1"
           unfolding l_def by auto
-        with Until hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
+        with Until hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
           by (auto simp: dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       moreover
@@ -2443,7 +2326,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
         assume "\<tau> \<sigma> k \<le> the_enat (right I) + \<tau> \<sigma> i"
         then have "k \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (metis add.commute i_le_LTPi_add le_add_diff_inverse)
-        with Until hyps(2,3) have "\<forall>x\<in>Formula.fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> k \<and> v' x \<notin> AD \<psi> k"
+        with Until hyps(2,3) have "\<forall>x\<in>fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> k \<and> v' x \<notin> AD \<psi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       ultimately show ?thesis
@@ -2545,7 +2428,7 @@ next
           by (auto simp: nth_append)
         ultimately have "l \<le> u"
           unfolding l_def by auto
-        with Once hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
+        with Once hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
           by (auto simp: u_def dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Once VOnce show ?thesis
@@ -2563,7 +2446,7 @@ next
           by (meson \<tau>_mono le0 order_trans)
         with k have "k \<le> LTP_p_safe \<sigma> i I"
           unfolding LTP_p_safe_def by (auto simp: i_LTP_tau)
-        with Historically hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
+        with Historically hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Historically VHistorically show ?thesis
@@ -2586,7 +2469,7 @@ next
         with j eq have "l \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (auto simp: l_def u_def dest!: arg_cong[where f="\<lambda>xs. nth xs j"]
               simp del: upt.simps split: if_splits)
-        with Eventually hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
+        with Eventually hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> l \<and> v' x \<notin> AD \<phi> l"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Eventually VEventually show ?thesis
@@ -2602,7 +2485,7 @@ next
         assume "\<tau> \<sigma> k \<le> the_enat (right I) + \<tau> \<sigma> i"
         then have "k \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (metis add.commute i_le_LTPi_add le_add_diff_inverse)
-        with Always hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
+        with Always hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Always VAlways show ?thesis
@@ -2631,13 +2514,13 @@ next
           by (auto simp: nth_append)
         ultimately have "l \<le> u"
           unfolding l_def by auto
-        with Since hyps(2,3) have "\<forall>x\<in>Formula.fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
+        with Since hyps(2,3) have "\<forall>x\<in>fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
           by (auto simp: u_def dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       moreover
       { fix k
         assume k: "k \<le> i"
-        with Since hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
+        with Since hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       ultimately show ?thesis
@@ -2666,7 +2549,7 @@ next
           by (auto simp: nth_append)
         ultimately have "l \<le> u"
           unfolding l_def by auto
-        with Since hyps(2,3) have "\<forall>x\<in>Formula.fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
+        with Since hyps(2,3) have "\<forall>x\<in>fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
           by (auto simp: u_def dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Since VSinceInf show ?thesis
@@ -2690,7 +2573,7 @@ next
         with j eq *(2) have "l \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (auto simp: l_def u_def dest!: arg_cong[where f="\<lambda>xs. nth xs j"]
               simp del: upt.simps split: if_splits)
-        with Until hyps(2,3) have "\<forall>x\<in>Formula.fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
+        with Until hyps(2,3) have "\<forall>x\<in>fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       moreover
@@ -2698,7 +2581,7 @@ next
         assume "k < LTP_f \<sigma> i (the_enat (right I))"
         then have "k \<le> LTP_f \<sigma> i (the_enat (right I)) - 1"
           by linarith
-        with Until hyps(2,3) have "\<forall>x\<in>Formula.fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
+        with Until hyps(2,3) have "\<forall>x\<in>fv \<phi>. v x = v' x \<or> v x \<notin> AD \<phi> k \<and> v' x \<notin> AD \<phi> k"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       ultimately show ?thesis
@@ -2721,7 +2604,7 @@ next
         with j eq have "l \<le> LTP_f \<sigma> i (the_enat (right I))"
           by (auto simp: l_def u_def dest!: arg_cong[where f="\<lambda>xs. nth xs j"]
               simp del: upt.simps split: if_splits)
-        with Until hyps(2,3) have "\<forall>x\<in>Formula.fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
+        with Until hyps(2,3) have "\<forall>x\<in>fv \<psi>. v x = v' x \<or> v x \<notin> AD \<psi> l \<and> v' x \<notin> AD \<psi> l"
           by (auto dest!: bspec dest: AD_mono[THEN set_mp, rotated -1])
       }
       with Until VUntilInf show ?thesis
@@ -2747,7 +2630,7 @@ lemma v_at_tabulate:
   using assms by (transfer, auto)
 
 lemma s_check_tabulate:
-  assumes "Formula.future_bounded \<phi>"
+  assumes "future_bounded \<phi>"
     and "\<forall>z. s_at (mypick z) = i"
     and "\<forall>z. s_check (v(x:=z)) \<phi> (mypick z)"
     and "mypart = tabulate (sorted_list_of_set (AD \<phi> i)) mypick (mypick (SOME z. z \<notin> AD \<phi> i))"
@@ -2758,7 +2641,7 @@ proof (transfer fixing: \<sigma> \<phi> mypick i v x, goal_cases 1)
   { fix z
     assume s_at_assm: "\<forall>z. s_at (mypick z) = i"
       and s_check_assm: "\<forall>z. s_check (v(x := z)) \<phi> (mypick z)"
-      and fb_assm: "Formula.future_bounded \<phi>"
+      and fb_assm: "future_bounded \<phi>"
       and z_notin_AD: "z \<notin> (AD \<phi> i)"
     have s_at_mypick: "s_at (mypick (SOME z. z \<notin> local.AD \<phi> i)) = i"
       using s_at_assm by simp
@@ -2774,7 +2657,7 @@ proof (transfer fixing: \<sigma> \<phi> mypick i v x, goal_cases 1)
 qed
 
 lemma v_check_tabulate:
-  assumes "Formula.future_bounded \<phi>"
+  assumes "future_bounded \<phi>"
     and "\<forall>z. v_at (mypick z) = i"
     and "\<forall>z. v_check (v(x:=z)) \<phi> (mypick z)"
     and "mypart = tabulate (sorted_list_of_set (AD \<phi> i)) mypick (mypick (SOME z. z \<notin> AD \<phi> i))"
@@ -2785,7 +2668,7 @@ proof (transfer fixing: \<sigma> \<phi> mypick i v x, goal_cases 1)
   { fix z
     assume v_at_assm: "\<forall>z. v_at (mypick z) = i"
       and v_check_assm: "\<forall>z. v_check (v(x := z)) \<phi> (mypick z)"
-      and fb_assm: "Formula.future_bounded \<phi>"
+      and fb_assm: "future_bounded \<phi>"
       and z_notin_AD: "z \<notin> (AD \<phi> i)"
     have v_at_mypick: "v_at (mypick (SOME z. z \<notin> local.AD \<phi> i)) = i"
       using v_at_assm by simp
@@ -2801,22 +2684,22 @@ proof (transfer fixing: \<sigma> \<phi> mypick i v x, goal_cases 1)
 qed
 
 lemma s_at_part_hd_tabulate:
-  assumes "Formula.future_bounded \<phi>"
+  assumes "future_bounded \<phi>"
     and "\<forall>z. s_at (f z) = i"
     and "mypart = tabulate (sorted_list_of_set (AD \<phi> i)) f (f (SOME z. z \<notin> AD \<phi> i))"
   shows "s_at (part_hd mypart) = i"
   using assms by (simp add: part_hd_tabulate split: list.splits)
 
 lemma v_at_part_hd_tabulate:
-  assumes "Formula.future_bounded \<phi>"
+  assumes "future_bounded \<phi>"
     and "\<forall>z. v_at (f z) = i"
     and "mypart = tabulate (sorted_list_of_set (AD \<phi> i)) f (f (SOME z. z \<notin> AD \<phi> i))"
   shows "v_at (part_hd mypart) = i"
   using assms by (simp add: part_hd_tabulate split: list.splits)
 
 lemma check_completeness:
-  "(SAT \<sigma> v i \<phi> \<longrightarrow> Formula.future_bounded \<phi> \<longrightarrow> (\<exists>sp. s_at sp = i \<and> s_check v \<phi> sp)) \<and>
-   (VIO \<sigma> v i \<phi> \<longrightarrow> Formula.future_bounded \<phi> \<longrightarrow> (\<exists>vp. v_at vp = i \<and> v_check v \<phi> vp))"
+  "(SAT \<sigma> v i \<phi> \<longrightarrow> future_bounded \<phi> \<longrightarrow> (\<exists>sp. s_at sp = i \<and> s_check v \<phi> sp)) \<and>
+   (VIO \<sigma> v i \<phi> \<longrightarrow> future_bounded \<phi> \<longrightarrow> (\<exists>vp. v_at vp = i \<and> v_check v \<phi> vp))"
 proof (induct v i \<phi> rule: SAT_VIO.induct)
   case (STT v i)
   then show ?case
@@ -2909,8 +2792,8 @@ next
   case (VExists v x i \<phi>)
   show ?case
   proof
-    assume "Formula.future_bounded (Formula.Exists x \<phi>)"
-    then have fb: "Formula.future_bounded \<phi>"
+    assume "future_bounded (\<exists>\<^sub>Fx.  \<phi>)"
+    then have fb: "future_bounded \<phi>"
       by simp
     obtain mypick where mypick_def: "v_at (mypick z) = i \<and> v_check (v(x:=z)) \<phi> (mypick z)" for z
       using VExists fb by metis
@@ -2924,19 +2807,19 @@ next
     have v_at_myp: "v_at (VExists x mypart) = i"
       using v_at_part_hd_tabulate[OF fb, of mypick i]
       by (simp add: mypart_def mypick_def)
-    have v_check_myp: "v_check v (Formula.Exists x \<phi>) (VExists x mypart)"
+    have v_check_myp: "v_check v (\<exists>\<^sub>Fx.  \<phi>) (VExists x mypart)"
       using v_at_tabulate[of mypick i _ \<phi>, OF mypick_at]
         v_check_tabulate[OF fb mypick_at mypick_v_check]
       by (auto simp add: mypart_def v_at_part_hd_tabulate[OF fb mypick_at])
-    show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Exists x \<phi>) vp"
+    show "\<exists>vp. v_at vp = i \<and> v_check v (\<exists>\<^sub>Fx.  \<phi>) vp"
       using v_at_myp v_check_myp by blast
   qed
 next
   case (SForall v x i \<phi>)
   show ?case
   proof
-    assume "Formula.future_bounded (Formula.Forall x \<phi>)"
-    then have fb: "Formula.future_bounded \<phi>"
+    assume "future_bounded (\<forall>\<^sub>Fx.  \<phi>)"
+    then have fb: "future_bounded \<phi>"
       by simp
     obtain mypick where mypick_def: "s_at (mypick z) = i \<and> s_check (v(x:=z)) \<phi> (mypick z)" for z
       using SForall fb by metis
@@ -2950,11 +2833,11 @@ next
     have s_at_myp: "s_at (SForall x mypart) = i"
       using s_at_part_hd_tabulate[OF fb, of mypick i]
       by (simp add: mypart_def mypick_def)
-    have s_check_myp: "s_check v (Formula.Forall x \<phi>) (SForall x mypart)"
+    have s_check_myp: "s_check v (\<forall>\<^sub>Fx.  \<phi>) (SForall x mypart)"
       using s_at_tabulate[of mypick i _ \<phi>, OF mypick_at]
         s_check_tabulate[OF fb mypick_at mypick_s_check]
       by (auto simp add: mypart_def s_at_part_hd_tabulate[OF fb mypick_at])
-    show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Forall x \<phi>) sp"
+    show "\<exists>sp. s_at sp = i \<and> s_check v (\<forall>\<^sub>Fx.  \<phi>) sp"
       using s_at_myp s_check_myp by blast
   qed
 next
@@ -3009,16 +2892,16 @@ next
   case (VOnce j I i v \<phi>)
   show ?case
   proof
-    assume "Formula.future_bounded (Formula.Once I \<phi>)"
-    then have fb: "Formula.future_bounded \<phi>"
+    assume "future_bounded (\<^bold>P I \<phi>)"
+    then have fb: "future_bounded \<phi>"
       by simp
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. v_at (mypick k) = k \<and> v_check v \<phi> (mypick k)"
       using VOnce fb by metis
     then obtain vps where vps_def: "map (v_at) vps = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>vp \<in> set vps. v_check v \<phi> vp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-    then have "v_at (VOnce i j vps) = i \<and> v_check v (Formula.Once I \<phi>) (VOnce i j vps)"
+    then have "v_at (VOnce i j vps) = i \<and> v_check v (\<^bold>P I \<phi>) (VOnce i j vps)"
       using VOnce by auto
-    then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Once I \<phi>) vp"
+    then show "\<exists>vp. v_at vp = i \<and> v_check v (\<^bold>P I \<phi>) vp"
       by blast
   qed
 next
@@ -3029,8 +2912,8 @@ next
   case (VEventually I i v \<phi>)
   show ?case
   proof
-    assume fb_eventually: "Formula.future_bounded (Formula.Eventually I \<phi>)"
-    then have fb: "Formula.future_bounded \<phi>"
+    assume fb_eventually: "future_bounded (\<^bold>F I \<phi>)"
+    then have fb: "future_bounded \<phi>"
       by simp
     obtain b where b_def: "right I = enat b"
       using fb_eventually by (atomize_elim, cases "right I") auto
@@ -3040,25 +2923,25 @@ next
       by atomize_elim (rule bchoice, simp)
     then obtain vps where vps_def: "map (v_at) vps = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>vp \<in> set vps. v_check v \<phi> vp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-    then have "v_at (VEventually i j vps) = i \<and> v_check v (Formula.Eventually I \<phi>) (VEventually i j vps)"
+    then have "v_at (VEventually i j vps) = i \<and> v_check v (\<^bold>F I \<phi>) (VEventually i j vps)"
       using VEventually b_def j_def by simp
-    then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Eventually I \<phi>) vp"
+    then show "\<exists>vp. v_at vp = i \<and> v_check v (\<^bold>F I \<phi>) vp"
       by blast
   qed
 next
   case (SHistorically j I i v \<phi>)
   show ?case
   proof
-    assume fb_historically: "Formula.future_bounded (Formula.Historically I \<phi>)"
-    then have fb: "Formula.future_bounded \<phi>"
+    assume fb_historically: "future_bounded (\<^bold>H I \<phi>)"
+    then have fb: "future_bounded \<phi>"
       by simp
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. s_at (mypick k) = k \<and> s_check v \<phi> (mypick k)"
       using SHistorically fb by metis
     then obtain sps where sps_def: "map (s_at) sps = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>sp \<in> set sps. s_check v \<phi> sp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-    then have "s_at (SHistorically i j sps) = i \<and> s_check v (Formula.Historically I \<phi>) (SHistorically i j sps)"
+    then have "s_at (SHistorically i j sps) = i \<and> s_check v (\<^bold>H I \<phi>) (SHistorically i j sps)"
       using SHistorically by auto
-    then show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Historically I \<phi>) sp"
+    then show "\<exists>sp. s_at sp = i \<and> s_check v (\<^bold>H I \<phi>) sp"
       by blast
   qed
 next
@@ -3073,8 +2956,8 @@ next
   case (SAlways I i v \<phi>)
   show ?case
   proof
-    assume fb_always: "Formula.future_bounded (Formula.Always I \<phi>)"
-    then have fb: "Formula.future_bounded \<phi>"
+    assume fb_always: "future_bounded (\<^bold>G I \<phi>)"
+    then have fb: "future_bounded \<phi>"
       by simp
     obtain b where b_def: "right I = enat b"
       using fb_always by (atomize_elim, cases "right I") auto
@@ -3084,9 +2967,9 @@ next
       by atomize_elim (rule bchoice, simp)
     then obtain sps where sps_def: "map (s_at) sps = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>sp \<in> set sps. s_check v \<phi> sp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-    then have "s_at (SAlways i j sps) = i \<and> s_check v (Formula.Always I \<phi>) (SAlways i j sps)"
+    then have "s_at (SAlways i j sps) = i \<and> s_check v (\<^bold>G I \<phi>) (SAlways i j sps)"
       using SAlways b_def j_def by simp
-    then show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Always I \<phi>) sp"
+    then show "\<exists>sp. s_at sp = i \<and> s_check v (\<^bold>G I \<phi>) sp"
       by blast
   qed
 next
@@ -3097,16 +2980,16 @@ next
   case (SSince j i I v \<psi> \<phi>)
   show ?case
   proof
-    assume fb_since: "Formula.future_bounded (Formula.Since \<phi> I \<psi>)"
-    then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
+    assume fb_since: "future_bounded (\<phi> \<^bold>S I \<psi>)"
+    then have fb: "future_bounded \<phi>" "future_bounded \<psi>"
       by simp_all
     obtain sp2 where sp2_def: "s_at sp2 = j \<and> s_check v \<psi> sp2"
       using SSince fb_since by auto
     {
       assume "Suc j > i"
-      then have "s_at (SSince sp2 []) = i \<and> s_check v (Formula.Since \<phi> I \<psi>) (SSince sp2 [])"
+      then have "s_at (SSince sp2 []) = i \<and> s_check v (\<phi> \<^bold>S I \<psi>) (SSince sp2 [])"
         using sp2_def SSince by auto
-      then have "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Since \<phi> I \<psi>) sp"
+      then have "\<exists>sp. s_at sp = i \<and> s_check v (\<phi> \<^bold>S I \<psi>) sp"
         by blast
     }
     moreover
@@ -3118,15 +3001,15 @@ next
         by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([Suc j ..< Suc i])"])
       then have "sp1s \<noteq> []"
         using sucj_leq_i by auto
-      then have "s_at (SSince sp2 sp1s) = i \<and> s_check v (Formula.Since \<phi> I \<psi>) (SSince sp2 sp1s)"
+      then have "s_at (SSince sp2 sp1s) = i \<and> s_check v (\<phi> \<^bold>S I \<psi>) (SSince sp2 sp1s)"
         using SSince sucj_leq_i fb sp2_def sp1s_def
         by (clarsimp simp add:
           Cons_eq_upt_conv append_eq_Cons_conv map_eq_append_conv
           split: list.splits) auto
-      then have "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Since \<phi> I \<psi>) sp"
+      then have "\<exists>sp. s_at sp = i \<and> s_check v (\<phi> \<^bold>S I \<psi>) sp"
         by blast
     }
-    ultimately show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Since \<phi> I \<psi>) sp"
+    ultimately show "\<exists>sp. s_at sp = i \<and> s_check v (\<phi> \<^bold>S I \<psi>) sp"
       using not_less by blast
   qed
 next
@@ -3137,8 +3020,8 @@ next
   case (VSince I i j v \<phi> \<psi>)
   show ?case
   proof
-    assume fb_since: "Formula.future_bounded (Formula.Since \<phi> I \<psi>)"
-    then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
+    assume fb_since: "future_bounded (\<phi> \<^bold>S I \<psi>)"
+    then have fb: "future_bounded \<phi>" "future_bounded \<psi>"
       by simp_all
     obtain vp1 where vp1_def: "v_at vp1 = j \<and> v_check v \<phi> vp1"
       using fb_since VSince by auto
@@ -3146,41 +3029,41 @@ next
       using VSince fb_since by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-    then have "v_at (VSince i vp1 vp2s) = i \<and> v_check v (Formula.Since \<phi> I \<psi>) (VSince i vp1 vp2s)"
+    then have "v_at (VSince i vp1 vp2s) = i \<and> v_check v (\<phi> \<^bold>S I \<psi>) (VSince i vp1 vp2s)"
       using vp1_def VSince by auto
-    then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Since \<phi> I \<psi>) vp"
+    then show "\<exists>vp. v_at vp = i \<and> v_check v (\<phi> \<^bold>S I \<psi>) vp"
       by blast
   qed
 next
   case (VSinceInf j I i v \<psi> \<phi>)
   show ?case
   proof
-    assume fb_since: "Formula.future_bounded (Formula.Since \<phi> I \<psi>)"
-    then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
+    assume fb_since: "future_bounded (\<phi> \<^bold>S I \<psi>)"
+    then have fb: "future_bounded \<phi>" "future_bounded \<psi>"
       by simp_all
     obtain mypick where mypick_def: "\<forall>k \<in> {j .. LTP_p \<sigma> i I}. v_at (mypick k) = k \<and> v_check v \<psi> (mypick k)"
       using VSinceInf fb_since by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [j ..< Suc (LTP_p \<sigma> i I)] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([j ..< Suc (LTP_p \<sigma> i I)])"])
-    then have "v_at (VSinceInf i j vp2s) = i \<and> v_check v (Formula.Since \<phi> I \<psi>) (VSinceInf i j vp2s)"
+    then have "v_at (VSinceInf i j vp2s) = i \<and> v_check v (\<phi> \<^bold>S I \<psi>) (VSinceInf i j vp2s)"
       using VSinceInf by auto
-    then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Since \<phi> I \<psi>) vp"
+    then show "\<exists>vp. v_at vp = i \<and> v_check v (\<phi> \<^bold>S I \<psi>) vp"
       by blast
   qed
 next
   case (SUntil j i I v \<psi> \<phi>)
   show ?case
   proof
-    assume fb_until: "Formula.future_bounded (Formula.Until \<phi> I \<psi>)"
-    then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
+    assume fb_until: "future_bounded (\<phi> \<^bold>U I \<psi>)"
+    then have fb: "future_bounded \<phi>" "future_bounded \<psi>"
       by simp_all
     obtain sp2 where sp2_def: "s_at sp2 = j \<and> s_check v \<psi> sp2"
       using fb SUntil by blast
     {
       assume "i \<ge> j"
-      then have "s_at (SUntil [] sp2) = i \<and> s_check v (Formula.Until \<phi> I \<psi>) (SUntil [] sp2)"
+      then have "s_at (SUntil [] sp2) = i \<and> s_check v (\<phi> \<^bold>U I \<psi>) (SUntil [] sp2)"
         using sp2_def SUntil by auto
-      then have "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Until \<phi> I \<psi>) sp"
+      then have "\<exists>sp. s_at sp = i \<and> s_check v (\<phi> \<^bold>U I \<psi>) sp"
         by blast
     }
     moreover
@@ -3190,22 +3073,22 @@ next
         using SUntil fb_until by atomize_elim (rule bchoice, simp)
       then obtain sp1s where sp1s_def: "map (s_at) sp1s = [i ..< j] \<and> (\<forall>sp \<in> set sp1s. s_check v \<phi> sp)"
         by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([i ..< j])"])
-      then have "s_at (SUntil sp1s sp2) = i \<and> s_check v (Formula.Until \<phi> I \<psi>) (SUntil sp1s sp2)"
+      then have "s_at (SUntil sp1s sp2) = i \<and> s_check v (\<phi> \<^bold>U I \<psi>) (SUntil sp1s sp2)"
         using SUntil fb_until sp2_def sp1s_def i_l_j
         by (clarsimp simp add: append_eq_Cons_conv map_eq_append_conv split: list.splits)
           (auto simp: Cons_eq_upt_conv dest!: upt_eq_Nil_conv[THEN iffD1, OF sym])
-      then have "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Until \<phi> I \<psi>) sp"
+      then have "\<exists>sp. s_at sp = i \<and> s_check v (\<phi> \<^bold>U I \<psi>) sp"
         by blast
     }
-    ultimately show "\<exists>sp. s_at sp = i \<and> s_check v (Formula.Until \<phi> I \<psi>) sp"
+    ultimately show "\<exists>sp. s_at sp = i \<and> s_check v (\<phi> \<^bold>U I \<psi>) sp"
       using not_less by blast
   qed
 next
   case (VUntil I j i v \<phi> \<psi>)
   show ?case
   proof
-    assume fb_until: "Formula.future_bounded (Formula.Until \<phi> I \<psi>)"
-    then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
+    assume fb_until: "future_bounded (\<phi> \<^bold>U I \<psi>)"
+    then have fb: "future_bounded \<phi>" "future_bounded \<psi>"
       by simp_all
     obtain vp1 where vp1_def: "v_at vp1 = j \<and> v_check v \<phi> vp1"
       using VUntil fb_until by auto
@@ -3213,17 +3096,17 @@ next
       using VUntil fb_until by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-    then have "v_at (VUntil i vp2s vp1) = i \<and> v_check v (Formula.Until \<phi> I \<psi>) (VUntil i vp2s vp1)"
+    then have "v_at (VUntil i vp2s vp1) = i \<and> v_check v (\<phi> \<^bold>U I \<psi>) (VUntil i vp2s vp1)"
       using VUntil fb_until vp1_def by simp
-    then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Until \<phi> I \<psi>) vp"
+    then show "\<exists>vp. v_at vp = i \<and> v_check v (\<phi> \<^bold>U I \<psi>) vp"
       by blast
   qed
 next
   case (VUntilInf I i v \<psi> \<phi>)
   show ?case
   proof
-    assume fb_until: "Formula.future_bounded (Formula.Until \<phi> I \<psi>)"
-    then have fb: "Formula.future_bounded \<phi>" "Formula.future_bounded \<psi>"
+    assume fb_until: "future_bounded (\<phi> \<^bold>U I \<psi>)"
+    then have fb: "future_bounded \<phi>" "future_bounded \<psi>"
       by simp_all
     obtain b where b_def: "right I = enat b"
       using fb_until by (atomize_elim, cases "right I") auto
@@ -3232,28 +3115,23 @@ next
       using VUntilInf fb_until unfolding b_def j_def by atomize_elim (rule bchoice, simp)
     then obtain vp2s where vp2s_def: "map (v_at) vp2s = [ETP_f \<sigma> i I ..< Suc j] \<and> (\<forall>vp \<in> set vp2s. v_check v \<psi> vp)"
       by atomize_elim (auto intro!: trans[OF list.map_cong list.map_id] exI[of _ "map mypick ([ETP_f \<sigma> i I ..< Suc j])"])
-    then have "v_at (VUntilInf i j vp2s) = i \<and> v_check v (Formula.Until \<phi> I \<psi>) (VUntilInf i j vp2s)"
+    then have "v_at (VUntilInf i j vp2s) = i \<and> v_check v (\<phi> \<^bold>U I \<psi>) (VUntilInf i j vp2s)"
       using VUntilInf b_def j_def by simp
-    then show "\<exists>vp. v_at vp = i \<and> v_check v (Formula.Until \<phi> I \<psi>) vp"
+    then show "\<exists>vp. v_at vp = i \<and> v_check v (\<phi> \<^bold>U I \<psi>) vp"
       by blast
   qed
 qed
 
-definition "p_at = (\<lambda>p. case_sum s_at v_at p)"
-
 definition "p_check_exec = (\<lambda>vs \<phi> p. case_sum (s_check_exec vs \<phi>) (v_check_exec vs \<phi>) p)"
 
-definition valid :: "'d Formula.envset \<Rightarrow> nat \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd proof \<Rightarrow> bool" where
+definition valid :: "'d envset \<Rightarrow> nat \<Rightarrow> 'd formula \<Rightarrow> 'd proof \<Rightarrow> bool" where
   "valid vs i \<phi> p =
     (case p of
       Inl p \<Rightarrow> s_check_exec vs \<phi> p \<and> s_at p = i
     | Inr p \<Rightarrow> v_check_exec vs \<phi> p \<and> v_at p = i)"
 
-inductive sat_vorder :: "Formula.name list \<Rightarrow> 'd expl \<Rightarrow> bool" where
-  "sat_vorder vars (Leaf _)"
-| "\<forall>expl \<in> Vals part1. sat_vorder vars expl \<Longrightarrow> sat_vorder (x # vars) (Node x part1)"
-| "sat_vorder vars (Node x part1) \<Longrightarrow> x \<noteq> z \<Longrightarrow> sat_vorder (z # vars) (Node x part1)"
-
 end
+
+unbundle MFOTL_no_notation \<comment> \<open> disable notation \<close>
 
 end

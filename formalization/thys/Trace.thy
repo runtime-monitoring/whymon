@@ -1,6 +1,6 @@
 (*<*)
 theory Trace
-  imports "HOL-Library.Stream"
+  imports "MFOTL_Monitor.Interval" "HOL-Library.Stream"
 begin
 (*>*)
 
@@ -92,14 +92,14 @@ qed
 lemma sincreasing_stl: "sincreasing s \<Longrightarrow> sincreasing (stl s)" for s :: "'a :: semilattice_sup stream"
   by (auto 0 4 simp: gr0_conv_Suc intro!: sincreasingI dest: sincreasing_grD[of s 0])
 
-definition "sfstfinite s = (\<forall>i. finite (s !! i))"
+definition "sfinite s = (\<forall>i. finite (s !! i))"
 
-lemma sfstfiniteI: "(\<And>i. finite (s !! i)) \<Longrightarrow> sfstfinite s"
-  by (simp add: sfstfinite_def)
+lemma sfiniteI: "(\<And>i. finite (s !! i)) \<Longrightarrow> sfinite s"
+  by (simp add: sfinite_def)
 
-typedef 'a trace = "{s :: ('a set \<times> nat) stream. ssorted (smap snd s) \<and> sincreasing (smap snd s) \<and> sfstfinite (smap fst s)}"
+typedef 'a trace = "{s :: ('a set \<times> nat) stream. ssorted (smap snd s) \<and> sincreasing (smap snd s) \<and> sfinite (smap fst s)}"
   by (intro exI[of _ "smap (\<lambda>i. ({}, i)) nats"])
-    (auto simp: stream.map_comp stream.map_ident sfstfinite_def cong: stream.map_cong)
+    (auto simp: stream.map_comp stream.map_ident sfinite_def cong: stream.map_cong)
 
 setup_lifting type_definition_trace
 
@@ -304,6 +304,26 @@ lift_definition pts :: "'a prefix \<Rightarrow> nat list" is "map snd" .
 
 lemma pts_pmap_\<Gamma>[simp]: "pts (pmap_\<Gamma> f \<pi>) = pts \<pi>"
   by (transfer fixing: f) (simp add: split_beta)
+
+subsection \<open>Time-stamp-time-point Conversion\<close>
+
+definition ETP:: "'a trace \<Rightarrow> nat \<Rightarrow> nat"  where
+  "ETP \<sigma> t = (LEAST i. \<tau> \<sigma> i \<ge> t)"
+
+definition LTP:: "'a trace \<Rightarrow> nat \<Rightarrow> nat" where
+  "LTP \<sigma> t = Max {i. (\<tau> \<sigma> i) \<le> t}"
+
+abbreviation "\<delta> \<sigma> i j \<equiv> (\<tau> \<sigma> i - \<tau> \<sigma> j)"
+
+abbreviation "ETP_p \<sigma> i b \<equiv> ETP \<sigma> ((\<tau> \<sigma> i) - b)"
+abbreviation "LTP_p \<sigma> i I \<equiv> min i (LTP \<sigma> ((\<tau> \<sigma> i) - left I))"
+abbreviation "ETP_f \<sigma> i I \<equiv> max i (ETP \<sigma> ((\<tau> \<sigma> i) + left I))"
+abbreviation "LTP_f \<sigma> i b \<equiv> LTP \<sigma> ((\<tau> \<sigma> i) + b)"
+
+definition max_opt where
+  "max_opt a b = (case (a,b) of (Some x, Some y) \<Rightarrow> Some (max x y) | _ \<Rightarrow> None)"
+
+definition "LTP_p_safe \<sigma> i I = (if \<tau> \<sigma> i - left I \<ge> \<tau> \<sigma> 0 then LTP_p \<sigma> i I else 0)"
 
 (*<*)
 end

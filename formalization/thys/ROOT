@@ -1,9 +1,12 @@
 chapter AFP
 
-session MFOTL_Checker (AFP) = "Containers" +
-  sessions
-    MFOTL_Monitor
+session MFOTL_Checker (AFP) = "MFOTL_Monitor" +
   theories
+    Trace
+    Event_Data
     Formula
+	Partition
     Proof_System
+	Prelim
     Checker
+	Checker_Code

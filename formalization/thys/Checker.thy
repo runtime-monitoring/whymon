@@ -143,7 +143,7 @@ simps_of_case s_check_simps[simp]: s_check.simps[unfolded prod.case] (splits: fo
 simps_of_case v_check_simps[simp]: v_check.simps[unfolded prod.case] (splits: formula.split vproof.split)
 
 
-lemma check_sound:
+lemma check_soundness:
   "s_check v \<phi> sp \<Longrightarrow> SAT \<sigma> v (s_at sp) \<phi>"
   "v_check v \<phi> vp \<Longrightarrow> VIO \<sigma> v (v_at vp) \<phi>"
 proof (induction sp and vp arbitrary: v \<phi> and v \<phi>)
@@ -2697,7 +2697,7 @@ lemma v_at_part_hd_tabulate:
   shows "v_at (part_hd mypart) = i"
   using assms by (simp add: part_hd_tabulate split: list.splits)
 
-lemma check_completeness:
+lemma check_completeness_aux:
   "(SAT \<sigma> v i \<phi> \<longrightarrow> future_bounded \<phi> \<longrightarrow> (\<exists>sp. s_at sp = i \<and> s_check v \<phi> sp)) \<and>
    (VIO \<sigma> v i \<phi> \<longrightarrow> future_bounded \<phi> \<longrightarrow> (\<exists>vp. v_at vp = i \<and> v_check v \<phi> vp))"
 proof (induct v i \<phi> rule: SAT_VIO.induct)
@@ -3122,7 +3122,12 @@ next
   qed
 qed
 
-definition "p_check_exec = (\<lambda>vs \<phi> p. case_sum (s_check_exec vs \<phi>) (v_check_exec vs \<phi>) p)"
+lemmas check_completeness =
+  conjunct1[OF check_completeness_aux, rule_format]
+  conjunct2[OF check_completeness_aux, rule_format]
+
+definition "p_check v \<phi> p = (case p of Inl sp \<Rightarrow> s_check v \<phi> sp | Inr vp \<Rightarrow> v_check v \<phi> vp)"
+definition "p_check_exec vs \<phi> p = (case p of Inl sp \<Rightarrow> s_check_exec vs \<phi> sp | Inr vp \<Rightarrow> v_check_exec vs \<phi> vp)"
 
 definition valid :: "'d envset \<Rightarrow> nat \<Rightarrow> 'd formula \<Rightarrow> 'd proof \<Rightarrow> bool" where
   "valid vs i \<phi> p =

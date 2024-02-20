@@ -262,4 +262,9 @@ fun distinct_paths where
   "distinct_paths (Leaf _) = True"
 | "distinct_paths (Node x part) = (\<forall>e \<in> Vals part. x \<notin> vars e \<and> distinct_paths e)"
 
+fun eval_pdt where
+  "eval_pdt v (Leaf l) = l"
+| "eval_pdt v (Node x part) = eval_pdt v (lookup_part part (v x))"
+
+
 end

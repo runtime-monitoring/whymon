@@ -263,7 +263,7 @@ definition default_literal :: String.literal where "default_literal = 0"
 instance proof qed
 end
 
-declare future_bounded.simps[code]
+declare Formula.future_bounded.simps[code]
 
 subsection \<open>Auxiliary results\<close>
 
@@ -702,6 +702,11 @@ termination
   using LTP_aux
   by (relation "measure (\<lambda>(\<sigma>, t, i). Suc (LTP \<sigma> t) - i)") (fastforce simp: LTP_def)+
 
+lemma max_aux: "finite X \<Longrightarrow> Suc j \<in> X \<Longrightarrow> Max (insert (Suc j) (X - {j})) = Max (insert j X)"
+  (* sledgehammer *)
+  by (smt (verit) max.orderI Max.insert_remove Max_ge Max_insert empty_iff insert_Diff_single
+      insert_absorb insert_iff max_def not_less_eq_eq)
+
 lemma LTP_rec_sound: "LTP_rec \<sigma> t j = Max ({i. i \<ge> j \<and> (\<tau> \<sigma> i) \<le> t} \<union> {j})"
 proof (induction \<sigma> t j rule: LTP_rec.induct)
   case (1 \<sigma> t j)
@@ -730,6 +735,8 @@ lemma LTP_code[code]: "LTP \<sigma> t = (if t < \<tau> \<sigma> 0
   using LTP_rec_sound[of \<sigma> t 0]
   by (auto simp: LTP_def insert_absorb simp del: LTP_rec.simps)
 
+code_deps LTP
+
 lemma map_part_code[code]: "Rep_part (map_part f xs) = map (map_prod id f) (Rep_part xs)"
   using Rep_part[of xs]
   by (auto simp: map_part_def intro!: Abs_part_inverse)
@@ -750,26 +757,23 @@ lemma coset_subset_set_code[code]: "(List.coset (xs :: _ :: infinite list) \<sub
 lemma is_empty_coset[code]: "Set.is_empty (List.coset (xs :: _ :: infinite list)) = False"
   using coset_subset_set_code by (fastforce simp: Set.is_empty_def)
 
-definition "check_p \<sigma> v \<phi> p = (case p of Inl sp \<Rightarrow> s_check \<sigma> v \<phi> sp | Inr vp \<Rightarrow> v_check \<sigma> v \<phi> vp)"
-definition "check_exec_p \<sigma> vs \<phi> p = (case p of Inl sp \<Rightarrow> s_check_exec \<sigma> vs \<phi> sp | Inr vp \<Rightarrow> v_check_exec \<sigma> vs \<phi> vp)"
-
 fun check_one where
-  "check_one \<sigma> v \<phi> (Leaf p) = check_p \<sigma> v \<phi> p"
+  "check_one \<sigma> v \<phi> (Leaf p) = p_check \<sigma> v \<phi> p"
 | "check_one \<sigma> v \<phi> (Node x part) = check_one \<sigma> v \<phi> (lookup_part part (v x))"
 
 fun check_all_aux where
-  "check_all_aux \<sigma> vs \<phi> (Leaf p) = check_exec_p \<sigma> vs \<phi> p"
+  "check_all_aux \<sigma> vs \<phi> (Leaf p) = p_check_exec \<sigma> vs \<phi> p"
 | "check_all_aux \<sigma> vs \<phi> (Node x part) = (\<forall>(D, e) \<in> set (subsvals part). check_all_aux \<sigma> (vs(x := D)) \<phi> e)"
 
 fun collect_paths_aux where
-  "collect_paths_aux DS \<sigma> vs \<phi> (Leaf p) = (if check_exec_p \<sigma> vs \<phi> p then {} else rev ` DS)"
+  "collect_paths_aux DS \<sigma> vs \<phi> (Leaf p) = (if p_check_exec \<sigma> vs \<phi> p then {} else rev ` DS)"
 | "collect_paths_aux DS \<sigma> vs \<phi> (Node x part) = (\<Union>(D, e) \<in> set (subsvals part). collect_paths_aux (Cons D ` DS) \<sigma> (vs(x := D)) \<phi> e)"
 
 lemma check_one_cong: "\<forall>x\<in>fv \<phi> \<union> vars e. v x = v' x \<Longrightarrow> check_one \<sigma> v \<phi> e = check_one \<sigma> v' \<phi> e"
 proof (induct e arbitrary: v v')
   case (Leaf x)
   then show ?case
-    by (auto simp: check_p_def check_fv_cong split: sum.splits)
+    by (auto simp: p_check_def check_fv_cong split: sum.splits)
 next
   case (Node x part)
   from Node(2) have *: "v x = v' x"
@@ -777,18 +781,6 @@ next
   from Node(2) show ?case
     unfolding check_one.simps *
     by (intro Node(1)) auto
-qed
-
-lemma lookup_part_from_subvals: "(D, e) \<in> set (subsvals part) \<Longrightarrow> d \<in> D \<Longrightarrow> lookup_part part d = e"
-proof (transfer fixing: D e d, goal_cases)
-  case (1 part)
-  then show ?case 
-  proof (cases "find (\<lambda>(D, _). d \<in> D) part")
-    case (Some De)
-    from 1 show ?thesis 
-      unfolding partition_on_def set_eq_iff Some using Some unfolding find_Some_iff
-      by (fastforce dest!: spec[of _ d] simp: in_set_conv_nth split_beta dest: part_list_set_eq_aux2)
-  qed (auto simp: partition_on_def image_iff find_None_iff)
 qed
 
 lemma check_all_aux_check_one: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> distinct_paths e \<Longrightarrow> (\<forall>x \<in> vars e. vs x = UNIV) \<Longrightarrow>
@@ -822,7 +814,7 @@ proof (induct e arbitrary: vs)
           simp del: fun_upd_apply)
     qed auto
   qed
-qed (auto simp: check_exec_p_def check_p_def check_exec_check split: sum.splits)
+qed (auto simp: p_check_exec_def p_check_def check_exec_check split: sum.splits)
 
 instance event_data :: infinite by standard (simp add: infinite_UNIV_event_data)
 
@@ -870,13 +862,179 @@ lift_definition abs_part :: "(event_data set \<times> 'a) list \<Rightarrow> (ev
    \<or> (\<Union>D \<in> set Ds. D) \<noteq> UNIV then [(UNIV, undefined)] else xs"
   by (auto simp: partition_on_def disjoint_def)
 
-lemma check_all_check_one: "check_all_generic \<sigma> \<phi> e = (distinct_paths e \<and> (\<forall>v. check_one \<sigma> v \<phi> e))"
+lemma check_one_alt: "check_one \<sigma> v \<phi> e = p_check \<sigma> v \<phi> (eval_pdt v e)"
+  by (induct e) auto
+
+lemma check_all_check: "check_all_generic \<sigma> \<phi> e = (distinct_paths e \<and> (\<forall>v. p_check \<sigma> v \<phi> (eval_pdt v e)))"
   unfolding check_all_generic_def
   by (rule conj_cong[OF refl], subst check_all_aux_check_one)
-    (auto simp: compatible_vals_def)
+    (auto simp: compatible_vals_def check_one_alt)
+
+fun pdt_at where
+  "pdt_at i (Leaf l) = (p_at l = i)"
+| "pdt_at i (Node x part) = (\<forall>pdt \<in> Vals part. pdt_at i pdt)"
+
+lemma vars_order_vars: "vars_order vs e \<Longrightarrow> vars e \<subseteq> set vs"
+  by (induct vs e rule: vars_order.induct) auto
+
+lemma vars_order_distinct_paths: "vars_order vs e \<Longrightarrow> distinct vs \<Longrightarrow> distinct_paths e"
+  by (induct vs e rule: vars_order.induct) (auto dest!: vars_order_vars)
+
+lemma eval_pdt_fun_upd: "vars_order vs e \<Longrightarrow> x \<notin> set vs \<Longrightarrow> eval_pdt (v(x := d)) e = eval_pdt v e"
+  by (induct vs e rule: vars_order.induct) auto
+
+lemma pdt_at_p_at_eval_pdt: "pdt_at i e \<Longrightarrow> p_at (eval_pdt v e) = i"
+  by (induct e) auto
+
+lemma final_completeness_aux: "set vs \<subseteq> fv \<phi> \<Longrightarrow> future_bounded \<phi> \<Longrightarrow> distinct vs \<Longrightarrow>
+  \<exists>e. pdt_at i e \<and> vars_order vs e \<and> (\<forall>v. (\<forall>x. x \<notin> set vs \<longrightarrow> v x = w x) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v e))"
+  apply (induct vs arbitrary: w)
+   apply simp
+  subgoal for w
+    apply (cases "sat \<sigma> w i \<phi>")
+     apply (drule completeness)
+     apply (drule check_completeness)
+      apply assumption
+     apply (erule exE)
+    subgoal for sp
+      apply (rule exI[of _ "Leaf (Inl sp)"])
+      apply (auto simp: vars_order.intros p_check_def p_at_def)
+      apply (metis ext)
+      done
+    apply (drule completeness)
+    apply (drule check_completeness)
+     apply assumption
+    apply (erule exE)
+    subgoal for vp
+      apply (rule exI[of _ "Leaf (Inr vp)"])
+      apply (auto simp: vars_order.intros p_check_def p_at_def)
+      apply (metis ext)
+      done
+    done
+  subgoal premises prems for x vs w
+  proof -
+    from prems obtain pick :: "'a \<Rightarrow> 'a expl"
+      where "pdt_at i (pick a)" "vars_order vs (pick a)"
+        "(\<forall>v. (\<forall>z. z \<notin> set vs \<longrightarrow> v z = (w(x := a)) z) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v (pick a)))" for a
+      apply atomize_elim
+      apply simp
+      apply (rule rev_mp)
+       apply (erule allI)
+      apply (intro impI)
+      apply (drule choice)
+      apply (erule exE)
+      subgoal for pick
+        apply (rule exI[of _ "\<lambda>a. pick (w(x := a))"])
+        apply auto
+        done
+      done
+    with prems(2-) show ?thesis
+      apply (intro exI[of _ "Node x (tabulate (sorted_list_of_set (AD \<sigma> \<phi> i)) pick (pick ((SOME z. z \<notin> AD \<sigma> \<phi> i))))"] conjI)
+        apply simp_all
+      subgoal
+        apply (transfer fixing: pick x w i \<sigma> \<phi>)
+        apply (auto)
+        done
+      subgoal
+        apply (rule vars_order.intros)
+        apply (transfer fixing: pick x w i \<sigma> \<phi>)
+        apply (auto)
+        done
+      subgoal
+        apply safe
+        apply (transfer fixing: pick x w i \<sigma> \<phi>)
+        apply auto
+        subgoal for v vs z
+          apply (drule meta_spec[of _ "SOME z. z \<notin> AD \<sigma> \<phi> i"], drule spec[of _ "v(x := SOME z. z \<notin> AD \<sigma> \<phi> i)"])
+          apply simp
+          apply (auto simp: p_check_def split: sum.splits)
+          subgoal for sp sp'
+            apply (subst (asm) eval_pdt_fun_upd)
+              apply auto
+            apply (erule notE, erule check_AD_cong[THEN iffD1, rotated -1, of _ _ _ _ _ i])
+              apply assumption
+             apply (metis fun_upd_other fun_upd_same some_eq_imp)
+            using pdt_at_p_at_eval_pdt[of "i" "pick (SOME z. z \<notin> AD \<sigma> \<phi> i)" v]
+            apply (auto simp: p_at_def)
+            done
+          subgoal for sp vp'
+            apply (subst (asm) eval_pdt_fun_upd)
+              apply auto
+            done
+          subgoal for vp sp'
+            apply (subst (asm) eval_pdt_fun_upd)
+              apply auto
+            done
+          subgoal for vp vp'
+            apply (subst (asm) eval_pdt_fun_upd)
+              apply auto
+            apply (erule notE, erule check_AD_cong[THEN iffD1, rotated -1, of _ _ _ _ _ i])
+              apply assumption
+             apply (metis fun_upd_other fun_upd_same some_eq_imp)
+            using pdt_at_p_at_eval_pdt[of "i" "pick (SOME z. z \<notin> AD \<sigma> \<phi> i)" v]
+            apply (auto simp: p_at_def)
+            done
+          done
+        subgoal for v vs
+          apply (subst iffD2[OF find_Some_iff, of _ _ "({v x}, pick (v x))"])
+           apply (auto simp: split_beta)
+          apply (subgoal_tac "v x \<in> set (sorted_list_of_set UNIV)")
+           apply (auto simp: in_set_conv_nth) []
+          subgoal for i
+            apply (intro exI[of _ i])
+            apply (auto simp add: nth_eq_iff_index_eq)
+            done
+          apply (auto simp: finite_AD_UNIV)
+          done
+        subgoal for v vs z
+          apply (subst (asm) iffD2[OF find_Some_iff, of _ _ "({v x}, pick (v x))"])
+           apply (auto simp: split_beta)
+          apply (subgoal_tac "v x \<in> set (sorted_list_of_set (AD \<sigma> \<phi> i))")
+           apply (auto simp only: in_set_conv_nth) []
+          subgoal for i
+            apply (intro exI[of _ i])
+            apply (auto simp add: nth_eq_iff_index_eq)
+            done
+          apply simp
+          done
+        done
+      done
+  qed
+  done
+
+lemma eval_pdt_cong: "\<forall>x \<in> vars e. v x = v' x \<Longrightarrow>  eval_pdt v e = eval_pdt v' e"
+  by (induct e) auto
+
+lemma final_completeness: "future_bounded \<phi> \<Longrightarrow> \<exists>e. pdt_at i e \<and> check \<sigma> \<phi> e"
+  using final_completeness_aux[of "sorted_list_of_set (fv \<phi>)" \<phi> i "\<lambda>_. undefined" \<sigma>]
+  unfolding check_all_check check_def p_check_def
+  apply (auto elim!: exI[where P = "\<lambda>x. _ x \<and> _ x", OF conjI] simp: vars_order_distinct_paths split: sum.splits)
+  subgoal for e v sp
+    apply (drule spec[of _ "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"])
+    using eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+      check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+    apply (auto dest!: spec[of _ sp] vars_order_vars simp: subset_eq)
+    done
+  subgoal for e v vp
+    apply (drule spec[of _ "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"])
+    using eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+      check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+    apply (auto dest!: spec[of _ vp] vars_order_vars simp: subset_eq)
+    done
+  done
+
+lemma final_soundness_aux: "check \<sigma> \<phi> e \<Longrightarrow> p = eval_pdt v e \<Longrightarrow> isl p \<longleftrightarrow> sat \<sigma> v (p_at p) \<phi>"
+  unfolding check_all_check check_def
+  by (auto simp: isl_def p_check_def p_at_def dest!: spec[of _ v]
+    dest: check_soundness soundness split: sum.splits)
+
+lemma final_soundness: "check \<sigma> \<phi> e \<Longrightarrow> pdt_at i e \<Longrightarrow> isl (eval_pdt v e) \<longleftrightarrow> sat \<sigma> v i \<phi>"
+  by (drule final_soundness_aux[OF _ refl, of _ _ _ v]) (auto simp: pdt_at_p_at_eval_pdt)
+
+thm final_completeness final_soundness
 
 export_code interval enat nat_of_integer integer_of_nat
-  STT TT Inl EInt Var Leaf set part_hd sum_nat sub_nat subsvals
+  STT Formula.TT Inl EInt Formula.Var Leaf set part_hd sum_nat sub_nat subsvals
   check trace_of_list_specialized specialized_set ed_set abs_part 
   collect_paths_specialized
   in OCaml module_name Checker file_prefix "checker"

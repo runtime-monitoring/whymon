@@ -7,9 +7,15 @@
 (source
  (github runtime-monitoring/whymon))
 
-(authors "Leonardo Lima")
+(authors
+ "Leonardo Lima <hi@nameless.computer>"
+ "Jonathan Julian Huerta y Munive <jonjulian23@gmail.com>"
+ "Dmitriy Traytel <traytel@di.ku.dk>")
 
-(maintainers "Leonardo Lima")
+(maintainers
+ "Leonardo Lima <hi@nameless.computer>"
+ "Jonathan Julian Huerta y Munive <jonjulian23@gmail.com>"
+ "Dmitriy Traytel <traytel@di.ku.dk>")
 
 (license LICENSE)
 
@@ -30,6 +36,6 @@
   (zarith (>= 1.11))
   (zarith_stubs_js (>= v0.14.1)))
  (tags
-  (topics "to describe" your project)))
+  (explainable "first-order" runtime monitoring)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project

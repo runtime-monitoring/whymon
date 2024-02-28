@@ -1,8 +1,10 @@
-*#*#
-*.bc*
-*~
-vis/node_modules/
+# build
 _build/
+
+# node_modules
+vis/node_modules/
+
+# temporary files
 test/tmp/*.csv
 test/tmp/*.log
 test/tmp/*.mdl
@@ -13,10 +15,18 @@ test/tmp/*.r2u2
 test/tmp/gen_log
 test/tmp/gen_fmla
 test/tmp/gen_fmla_full
+
+# example
+examples/all/nokia/all.log
+
+# misc
+*#*#
+*.bc*
+*~
 *.exe
 *.aux
 *.txt
 *.DS_Store
 *.~undo-tree~
 *.ocaml
-examples/all/nokia/all.log
+*.opam

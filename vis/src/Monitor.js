@@ -348,7 +348,9 @@ export default function Monitor() {
                   <Grid item xs={12} sm={12} md={12} lg={12} xl={12}>
                     <FormulaTextField formula={formState.formula}
                                       setFormState={setFormState}
-                                      fixParameters={monitorState.fixParameters}/>
+                                      fixParameters={monitorState.fixParameters}
+                                      presentFormula={false}
+                    />
                   </Grid>
                 </Grid>
                 <Grid item xs={12} sm={12} md={6} lg={6} xl={6}>
@@ -384,6 +386,7 @@ export default function Monitor() {
                   <FormulaTextField formula={formState.formula}
                                     setFormState={setFormState}
                                     fixParameters={monitorState.fixParameters}
+                                    presentFormula={false}
                   />
                 </Grid>
                 <Grid item xs={24} sm={24} md={12} lg={12} xl={12}>

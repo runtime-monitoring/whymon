@@ -13,6 +13,7 @@ import { black, cellColor, updateHighlights, getHeaderHighlights, updateHovers }
 import MenuCell from './MenuCell';
 import DbTable from './DbTable';
 import HoverTable from './HoverTable';
+import FormulaTextField from './FormulaTextField';
 
 function DbCell(props) {
   if (props.value.length === 0) {
@@ -88,7 +89,7 @@ function TimeGrid ({ columns,
 
   // Preds columns
   const predsWidth = columns.preds.reduce ((acc, pred) =>
-    Math.max(acc, (8*(pred.length))), 50
+    Math.max(acc, (11.5*(pred.length))), 50
   );
 
   const predsGridColumns = columns.preds.slice(0).map((p, i) =>
@@ -97,10 +98,12 @@ function TimeGrid ({ columns,
       headerName: p,
       width: predsWidth,
       sortable: false,
-      renderHeader: () => p,
-      // renderCell: (params) => <DbCell value={tables.dbs[params.row.tp][i]} />,
+      renderHeader: () => <FormulaTextField formula={p}
+                                            presentFormula={true}
+                                            predsWidth={predsWidth}
+                          />,
       renderCell: (params) => <DbCell value={tables.dbs[params.row.tp][i]} />,
-      headerAlign: 'center',
+      // headerAlign: 'center',
       align: 'center',
       disableClickEventBubbling: true,
       hide: !selectedOptions.has('Trace')
@@ -160,7 +163,7 @@ function TimeGrid ({ columns,
 
   // Subfs columns
   const subfsWidth = columns.subfs.reduce((acc, subf) =>
-    Math.max(acc, (10.5*(subf.length)) + 9*(subf.split("[").length - 1)), 60
+    Math.max(acc, (11.5*(subf.length)) + 9*(subf.split("[").length - 1)), 60
   );
 
   // colGridIndex: index of the column in the grid
@@ -186,7 +189,29 @@ function TimeGrid ({ columns,
       },
       width: subfsWidth,
       sortable: false,
-      renderHeader: () => f,
+      renderHeader: () => {
+        let backgroundColorClass;
+
+        if (highlights.subfsHeader[i] === "curHighlight") {
+          backgroundColorClass = "blueGrey100Background";
+        } else {
+          if (highlights.subfsHeader[i] === "leftHighlight") {
+            backgroundColorClass = "amber200Background";
+          } else {
+            if (highlights.subfsHeader[i] === "rightHighlight") {
+              backgroundColorClass = "teal100Background";
+            } else {
+              backgroundColorClass = "";
+            }
+          }
+        }
+
+        return <FormulaTextField formula={f}
+                                 presentFormula={true}
+                                 predsWidth={subfsWidth}
+                                 backgroundColorClass={backgroundColorClass}
+               />;
+      },
       renderCell: (params) => {
         if (f.charAt(0) === '∃' || f.charAt(0) === '∀') {
           if (tables.cells[params.row.tp][i].kind === "partition" &&
@@ -211,7 +236,7 @@ function TimeGrid ({ columns,
                          onClick={() => handleClick(params.row.ts, params.row.tp, parseInt(params.colDef.field))}
                />;
       },
-      headerAlign: 'center',
+      // headerAlign: 'center',
       align: 'center',
       disableClickEventBubbling: true
     }));
@@ -259,7 +284,10 @@ function TimeGrid ({ columns,
                    highlightedCells: newHighlights.highlightedCells,
                    pathsMap: newHighlights.clonePathsMap,
                    subfsHeader: newSubfsHeaderHighlights,
-                   hoversTable: updateHovers([cell.var], [cell.value], colGridIndex - columns.preds.length, columns.subfsScopes, tables.hovers)
+                   hoversTable: updateHovers([cell.var], [cell.value],
+                                             colGridIndex - columns.preds.length,
+                                             columns.subfsScopes,
+                                             tables.hovers)
                  };
       } else {
         action = { type: "updateTable",

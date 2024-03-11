@@ -55,12 +55,16 @@ export default function PresentFormula ({ formula,
           enableSnippets: false,
           showLineNumbers: false,
           tabSize: 2,
+          cursorStyle: "slim",
         }}/>
     );
   };
 
   useEffect(() => {
     backgroundColor(aceEditor, backgroundColorClass);
+    aceEditor.current.editor.renderer.$markerBack.element.style.display = "none";
+    aceEditor.current.editor.renderer.$markerFront.element.style.display = "none";
+    aceEditor.current.editor.renderer.$cursorLayer.element.style.display = "none";
   }, [aceEditor, backgroundColorClass]);
 
   return (

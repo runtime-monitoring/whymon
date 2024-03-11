@@ -65,7 +65,7 @@ export default function PresentFormula ({ formula,
 
   return (
     <div>
-      <Box sx={{ width: '100%', height: '100%' }}
+      <Box sx={{ width: '100%', height: '100%', pt: '15px'}}
            className="presentFormula">
         <div style={{"minWidth": predsWidth}}>
           { initEditor() }

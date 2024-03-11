@@ -88,9 +88,11 @@ function TimeGrid ({ columns,
   };
 
   // Preds columns
-  const predsWidth = columns.preds.reduce ((acc, pred) =>
+  const predsWidth = columns.preds.reduce((acc, pred) =>
     Math.max(acc, (11.5*(pred.length))), 50
   );
+
+  const predsWidthArray = columns.preds.map(pred => 9.4*(pred.length));
 
   const predsGridColumns = columns.preds.slice(0).map((p, i) =>
     ({
@@ -99,10 +101,10 @@ function TimeGrid ({ columns,
       width: predsWidth,
       sortable: false,
       renderHeader: () => <PresentFormula formula={p}
-                                          predsWidth={predsWidth}
+                                          predsWidth={predsWidthArray[i]}
                           />,
       renderCell: (params) => <DbCell value={tables.dbs[params.row.tp][i]} />,
-      // headerAlign: 'center',
+      headerAlign: 'center',
       align: 'center',
       disableClickEventBubbling: true,
       hide: !selectedOptions.has('Trace')
@@ -162,8 +164,20 @@ function TimeGrid ({ columns,
 
   // Subfs columns
   const subfsWidth = columns.subfs.reduce((acc, subf) =>
-    Math.max(acc, (11.5*(subf.length)) + 9*(subf.split("[").length - 1)), 60
+    Math.max(acc, (12*(subf.length))), 50
   );
+
+  const subfsWidthArray = columns.subfs.map(subf => {
+    if (subf.length === 1) {
+      return 14;
+    } else {
+      if (subf.includes('[') || subf.includes('.')) {
+        return 10.5*(subf.length);
+      } else {
+        return 9.4*(subf.length);
+      }
+    }
+  });
 
   // colGridIndex: index of the column in the grid
   // i/curCol: index of the column in the subformulas part of the grid (i.e., after the TS column)
@@ -206,7 +220,7 @@ function TimeGrid ({ columns,
         }
 
         return <PresentFormula formula={f}
-                               predsWidth={subfsWidth}
+                               predsWidth={subfsWidthArray[i]}
                                backgroundColorClass={backgroundColorClass}
                />;
       },
@@ -234,7 +248,7 @@ function TimeGrid ({ columns,
                          onClick={() => handleClick(params.row.ts, params.row.tp, parseInt(params.colDef.field))}
                />;
       },
-      // headerAlign: 'center',
+      headerAlign: 'center',
       align: 'center',
       disableClickEventBubbling: true
     }));

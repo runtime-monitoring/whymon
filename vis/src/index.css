@@ -70,11 +70,10 @@ th, td {
     background-color: #b2dfdb;
 }
 
-/* .presentFormula { */
-/*     width: 100%; */
-/*     height: 100%; */
-/*     margin: 0 auto; */
-/* } */
+.presentFormula {
+    /* border: 1px solid #FFFFFF; */
+    /* border-radius: 2px; */
+}
 
 .ace_scroller.ace_scroll-left:after {
     box-shadow: none !important;

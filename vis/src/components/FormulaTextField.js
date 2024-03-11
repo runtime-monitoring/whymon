@@ -10,34 +10,9 @@ import Keyboard from "react-simple-keyboard";
 import "react-simple-keyboard/build/css/index.css";
 import "../keyboard.css";
 
-const backgroundColor = (aceEditor, backgroundColorClass) => {
-  let colorClasses = ["blueGrey100Background", "amber200Background", "teal100Background"];
-
-  if (aceEditor.current) {
-    if (backgroundColorClass && backgroundColorClass.length > 0) {
-      for (let i = 0; i < colorClasses.length; ++i) {
-        if (aceEditor.current.editor.container.classList.contains(colorClasses[i])) {
-          aceEditor.current.editor.container.classList.remove(colorClasses[i]);
-        }
-      }
-
-      aceEditor.current.editor.container.classList.add(backgroundColorClass);
-    } else {
-      for (let i = 0; i < colorClasses.length; ++i) {
-        if (aceEditor.current.editor.container.classList.contains(colorClasses[i])) {
-          aceEditor.current.editor.container.classList.remove(colorClasses[i]);
-        }
-      }
-    }
-  }
-};
-
 export default function FormulaTextField ({ formula,
                                             setFormState,
-                                            fixParameters,
-                                            presentFormula,
-                                            predsWidth,
-                                            backgroundColorClass }) {
+                                            fixParameters }) {
 
   const [isFocused, setIsFocused] = useState(false);
 
@@ -46,30 +21,6 @@ export default function FormulaTextField ({ formula,
 
   const aceEditor = useRef();
   const keyboard = useRef();
-
-  if (presentFormula) {
-    editorHeight = "40px";
-  } else {
-    if (fixParameters) {
-      editorHeight = "113px";
-    } else {
-      editorHeight = ((traceEditorHeight / 2) - 30).toString() + "px";
-    }
-  }
-
-  backgroundColor(aceEditor, backgroundColorClass);
-
-  const chooseBoxClassName = () => {
-    if (presentFormula) {
-      return "presentFormula";
-    } else {
-      if (isFocused && !fixParameters) {
-        return "focusedEditorBox";
-      } else {
-        return "editorBox";
-      }
-    }
-  };
 
   const handleKeyboardChange = input => {
     setFormState({ type: 'setFormula', formula: input });
@@ -100,13 +51,13 @@ export default function FormulaTextField ({ formula,
         onFocus={handleFocus}
         onBlur={handleBlur}
         width="100%"
-        height={editorHeight}
+        height={fixParameters ? "113px" : ((traceEditorHeight / 2) - 30).toString() + "px"}
         fontSize={14}
         showPrintMargin={false}
         showGutter={false}
         highlightActiveLine={false}
         value={formula}
-        readOnly={fixParameters || presentFormula}
+        readOnly={fixParameters}
         highlightIndentGuides={false}
         setOptions={{
           enableBasicAutocompletion: false,
@@ -124,14 +75,14 @@ export default function FormulaTextField ({ formula,
 
   return (
     <div>
-      { !(fixParameters || presentFormula) && <Typography variant="h6" position="left">Formula</Typography> }
+      { !fixParameters && <Typography variant="h6" position="left">Formula</Typography> }
       <Box sx={{ width: '100%', height: '100%' }}
-           className={chooseBoxClassName()}>
-        <div style={{"minWidth": predsWidth}} className={presentFormula ? "" : "editor"}>
+           className={(isFocused && !fixParameters) ? "focusedEditorBox" : "editorBox"}>
+        <div className="editor">
           { initEditor() }
         </div>
       </Box>
-      <div className={`keyboardContainer ${(fixParameters || presentFormula) ? "hidden" : ""}`}>
+      <div className={`keyboardContainer ${fixParameters ? "hidden" : ""}`}>
         <Keyboard
           keyboardRef={r => (keyboard.current = r) }
           layoutName={"default"}

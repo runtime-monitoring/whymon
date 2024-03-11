@@ -13,7 +13,7 @@ import { black, cellColor, updateHighlights, getHeaderHighlights, updateHovers }
 import MenuCell from './MenuCell';
 import DbTable from './DbTable';
 import HoverTable from './HoverTable';
-import FormulaTextField from './FormulaTextField';
+import PresentFormula from './PresentFormula';
 
 function DbCell(props) {
   if (props.value.length === 0) {
@@ -98,9 +98,8 @@ function TimeGrid ({ columns,
       headerName: p,
       width: predsWidth,
       sortable: false,
-      renderHeader: () => <FormulaTextField formula={p}
-                                            presentFormula={true}
-                                            predsWidth={predsWidth}
+      renderHeader: () => <PresentFormula formula={p}
+                                          predsWidth={predsWidth}
                           />,
       renderCell: (params) => <DbCell value={tables.dbs[params.row.tp][i]} />,
       // headerAlign: 'center',
@@ -206,10 +205,9 @@ function TimeGrid ({ columns,
           }
         }
 
-        return <FormulaTextField formula={f}
-                                 presentFormula={true}
-                                 predsWidth={subfsWidth}
-                                 backgroundColorClass={backgroundColorClass}
+        return <PresentFormula formula={f}
+                               predsWidth={subfsWidth}
+                               backgroundColorClass={backgroundColorClass}
                />;
       },
       renderCell: (params) => {

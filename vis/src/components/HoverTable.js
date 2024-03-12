@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -6,6 +6,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
+import PresentFormula from './PresentFormula';
+import { monospacedStringWidth } from '../util';
 
 export default function HoverTable({ table, subf }) {
 
@@ -21,7 +23,7 @@ export default function HoverTable({ table, subf }) {
             <TableRow>
               {table.columns.map((v, i) =>
                 <TableCell key={i} align="center">
-                  <span style={{fontWeight: 'bold'}}>
+                  <span style={{fontSize: '18px'}} className="editorFont">
                     {v}
                   </span>
                 </TableCell>
@@ -38,12 +40,16 @@ export default function HoverTable({ table, subf }) {
             <TableRow>
               {table.values.map((v, i) =>
                 <TableCell key={i}>
-                  {v}
+                  <span className="editorFont">
+                    {v}
+                  </span>
                 </TableCell>
               )}
               {/* <Box /\* maxWidth={(theme) => theme.breakpoints.values.sm} *\/> */}
               <TableCell key={table.values.length + 1} align="center">
-                {subf}
+                <PresentFormula formula={subf}
+                                predsWidth={monospacedStringWidth(subf)}
+                />
               </TableCell>
               {/* </Box> */}
             </TableRow>

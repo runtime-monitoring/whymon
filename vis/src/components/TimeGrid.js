@@ -9,7 +9,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import Popover from '@mui/material/Popover';
 import { red, amber, lightGreen, blueGrey, teal } from '@mui/material/colors';
 import { common } from '@mui/material/colors';
-import { black, cellColor, updateHighlights, getHeaderHighlights, updateHovers } from '../util';
+import { black, cellColor, updateHighlights, getHeaderHighlights, updateHovers, monospacedStringWidth } from '../util';
 import MenuCell from './MenuCell';
 import DbTable from './DbTable';
 import HoverTable from './HoverTable';
@@ -92,8 +92,6 @@ function TimeGrid ({ columns,
     Math.max(acc, (11.5*(pred.length))), 50
   );
 
-  const predsWidthArray = columns.preds.map(pred => 9.4*(pred.length));
-
   const predsGridColumns = columns.preds.slice(0).map((p, i) =>
     ({
       field: i.toString(),
@@ -101,7 +99,7 @@ function TimeGrid ({ columns,
       width: predsWidth,
       sortable: false,
       renderHeader: () => <PresentFormula formula={p}
-                                          predsWidth={predsWidthArray[i]}
+                                          predsWidth={monospacedStringWidth(p)}
                           />,
       renderCell: (params) => <DbCell value={tables.dbs[params.row.tp][i]} />,
       headerAlign: 'center',

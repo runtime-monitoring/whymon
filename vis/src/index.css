@@ -12,7 +12,7 @@ code {
 }
 
 .editorFont {
-    font-family: monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "Source Code Pro", "source-code-pro", monospace;
 }
 
 .variableFontSize {

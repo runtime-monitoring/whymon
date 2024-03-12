@@ -27,7 +27,7 @@ export default function DbTable( { db } ) {
             <TableRow>
               {vars.map((v, i) =>
                 <TableCell key={i} align="center">
-                  <span style={{fontWeight: 'bold'}}>
+                  <span style={{fontSize: '18px'}} className="editorFont">
                     {v}
                   </span>
                 </TableCell>
@@ -39,7 +39,9 @@ export default function DbTable( { db } ) {
               <TableRow key={i}>
                 { row.map((v, j) =>
                   <TableCell key={j}>
-                    {v}
+                    <span className="editorFont">
+                      {v}
+                    </span>
                   </TableCell>
                 )}
               </TableRow>

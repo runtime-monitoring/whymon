@@ -413,3 +413,12 @@ export function translateError(error) {
   //          };
   // }
 }
+
+export function monospacedStringWidth(str) {
+
+  let specialOccurrences = (str.match(/[,\[\]\(\)\.]/g) || []).length;
+  let regularOccurrences = (str.match(/[^,\[\]\(\)\.]/g) || []).length;
+
+  return (7 * specialOccurrences) + (10 * regularOccurrences);
+
+}

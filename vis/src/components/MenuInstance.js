@@ -16,10 +16,10 @@ function MenuInstance ({ explObj, curCol, open, domainValues, variableNames, han
 
     return (
       <div>
-        <Box sx={{ ml: 1, mr: 1, mb: 1, borderRadius: '8px' }}
-             style={{ color: "#000000",
+        <Box sx={{ ml: 1, mr: 1, mb: 1, borderRadius: '4px' }}
+             style={{ color: '#000000',
                       opacity: 1.0,
-                      background: teal[100] }}>
+                      background: '#ffc570' }}>
           <MenuItem disabled={true}
                     sx={{ justifyContent: 'center' }}
                     style={{ opacity: 1.0 }}>
@@ -45,7 +45,7 @@ function MenuInstance ({ explObj, curCol, open, domainValues, variableNames, han
                   fullString.slice(fullString.length-12,fullString.length);
               }
             } else {
-              domainValueLabel = (<span className="">{fullString}</span>);
+              domainValueLabel = (<span className="editorFont">{fullString}</span>);
             }
 
           } else {

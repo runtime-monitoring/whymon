@@ -17,7 +17,6 @@ export default function FormulaTextField ({ formula,
   const [isFocused, setIsFocused] = useState(false);
 
   const traceEditorHeight = window.innerHeight - 245;
-  let editorHeight;
 
   const aceEditor = useRef();
   const keyboard = useRef();

@@ -4,7 +4,6 @@ import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import MenuItem from '@mui/material/MenuItem';
 import WrapperNestedMenuItem from './WrapperNestedMenuItem';
 import WrapperIconMenuItem from './WrapperIconMenuItem';
-import { teal } from '@mui/material/colors';
 
 function MenuInstance ({ explObj, curCol, open, domainValues, variableNames, handleClose, handleClick }) {
 

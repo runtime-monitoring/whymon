@@ -101,7 +101,7 @@ module Json = struct
           Printf.sprintf "%s\"ts\": %d,\n" (String.make 8 ' ') ts ^
             Printf.sprintf "%s\"tp\": %d,\n" (String.make 8 ' ') tp ^
               Printf.sprintf "%s\"expl\": {\n" (String.make 8 ' ') ^
-                Printf.sprintf "%s\n" (Vis.Expl.to_json f e) ^
+                Printf.sprintf "%s\n" (Vis.Expl.to_json f (Expl.sort_parts e)) ^
                   Printf.sprintf "}%s}" (String.make 4 ' '))
 
   let aggregate dbs es =

@@ -156,6 +156,7 @@ type t = Proof.t Pdt.t
 
 val is_violated: t -> bool
 val at: t -> int
+val sort_parts: t -> t
 
 val to_string: t -> string
 val to_latex: Formula.t -> t -> string

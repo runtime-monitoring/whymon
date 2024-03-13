@@ -55,6 +55,10 @@ let diff cs1 cs2 = match cs1, cs2 with
   | Complement s1, Finite s2 -> Complement (Set.union s1 s2)
   | Complement s1, Complement s2 -> inter (Complement s1) (Finite s2)
 
+let min_elt = function
+  | Finite s -> Set.min_elt s
+  | Complement _ -> None
+
 (* TODO: This should be rewritten more carefully *)
 let some_elt tt = function
   | Finite s -> Set.min_elt_exn s

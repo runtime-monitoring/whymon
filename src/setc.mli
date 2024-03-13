@@ -20,6 +20,7 @@ val is_empty: ('a, 'b) t -> bool
 val inter: ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
 val union: ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
 val diff: ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
+val min_elt: ('a, 'b) t -> 'a option
 val some_elt: Domain.tt -> (Domain.t, 'a) t -> Domain.t
 val is_finite: ('a, 'b) t -> bool
 

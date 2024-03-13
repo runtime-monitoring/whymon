@@ -96,6 +96,14 @@ module Part = struct
                          dedup_rec part acc' in
     dedup_rec part []
 
+  let sort = function
+    | [] -> []
+    | (s1,v1)::part ->
+       (s1,v1)::(List.rev(List.sort part ~compare:(fun (s,_) (s',_) ->
+                              Domain.compare_t
+                                (Option.value_exn (Setc.min_elt s))
+                                (Option.value_exn (Setc.min_elt s')))))
+
   let map_dedup p_eq part f = dedup p_eq (map part f)
 
   let map2_dedup p_eq part f = dedup p_eq (map2 part f)
@@ -911,6 +919,10 @@ let rec is_violated = function
 let rec at = function
   | Pdt.Leaf pt -> Proof.p_at pt
   | Node (_, part) -> at (Part.hd part)
+
+let rec sort_parts = function
+  | Pdt.Leaf pt -> Pdt.Leaf pt
+  | Node (x, part) -> Node (x, Part.map (Part.sort part) sort_parts)
 
 let to_string expl = Pdt.to_string (Proof.to_string "") "" expl
 

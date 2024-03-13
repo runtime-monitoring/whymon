@@ -4,6 +4,10 @@ import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepButton';
 import Typography from '@mui/material/Typography';
+import { red, orange, green } from '@mui/material/colors';
+import ErrorIcon from '@mui/icons-material/Error';
+import PendingIcon from '@mui/icons-material/Pending';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const steps = ['Signature', 'Formula', 'Trace'];
 
@@ -17,18 +21,38 @@ export default function StatusBar({ checkedInputs }) {
       <Stepper nonLinear>
         {steps.map((label, index) => {
           const labelProps = {};
-          if (checkedInputs[index]) {
+
+          switch (checkedInputs[index]) {
+          case "ok":
+            labelProps.icon = (<CheckCircleIcon fontSize="large" />);
             labelProps.optional = (
-              <Typography variant="caption" color="#388e3c">
+              <Typography variant="caption" color={green[600]}>
                 valid
               </Typography>
             );
+            break;
+          case "error":
+            labelProps.icon = (<ErrorIcon fontSize="large" />);
+            labelProps.optional = (
+              <Typography variant="caption" color={red[900]}>
+                invalid
+              </Typography>
+            );
+            break;
+          case "empty":
+            labelProps.icon = (<PendingIcon fontSize="large" />);
+            labelProps.optional = (
+              <Typography variant="caption" color={orange[600]}>
+                empty
+              </Typography>
+            );
+            break;
           }
 
           return (
-            <Step active={!checkedInputs[index]} expanded
+            <Step active={checkedInputs[index] === "ok"} expanded
                   key={label}
-                  completed={checkedInputs[index]}
+                  /* completed={checkedInputs[index] === "ok"} */
                   sx={{
                     '& .MuiStepLabel-root .Mui-completed': {
                       color: 'black', // circle's color

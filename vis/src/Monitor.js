@@ -251,7 +251,7 @@ const BootstrapTooltip = styled(({ className, ...props }) => (
 export default function Monitor() {
 
   const [formState, setFormState] = useReducer(formStateReducer, { formula: "", trace: "", sig: "", appendTrace: "",
-                                                                   checkedInputs: {0: false, 1: false, 2: false} });
+                                                                   checkedInputs: {0: "empty", 1: "empty", 2: "empty"} });
   const [monitorState, setMonitorState] = useReducer(monitorStateReducer, initMonitorState ());
   const [isHelpCardVisible, setIsHelpCardVisible] = useState(false);
   const nodeRef = useRef(null);

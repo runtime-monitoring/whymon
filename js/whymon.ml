@@ -19,41 +19,41 @@ module Whymon = struct
   let check_sig js_sig =
     try
       let str_sig = Js_of_ocaml.Js.to_string js_sig in
-      if String.is_empty str_sig then Js_of_ocaml__Js.bool false
+      if String.is_empty str_sig then Js_of_ocaml__Js.string "empty"
       else
         (Base.Hashtbl.clear Pred.Sig.table;
          Other_parser.Sig.parse_from_string str_sig;
-         Js_of_ocaml__Js.bool true)
-    with _ -> Js_of_ocaml__Js.bool false
+         Js_of_ocaml__Js.string "ok")
+    with _ -> Js_of_ocaml__Js.string "error"
 
   let check_formula js_formula =
     try
       let str_f = Js_of_ocaml.Js.to_string js_formula in
-      if String.is_empty str_f then Js_of_ocaml__Js.bool false
+      if String.is_empty str_f then Js_of_ocaml__Js.string "empty"
       else (let _ = Formula_parser.formula Formula_lexer.token (Lexing.from_string str_f) in
-            Js_of_ocaml__Js.bool true)
-    with _ -> Js_of_ocaml__Js.bool false
+            Js_of_ocaml__Js.string "ok")
+    with _ -> Js_of_ocaml__Js.string "error"
 
   let check_log js_log =
     let check_step last_ts_opt db =
       try
         (match Other_parser.Trace.parse_from_string db with
-         | Finished -> (None, true)
-         | Skipped _ -> (None, false)
+         | Finished -> (None, "ok")
+         | Skipped _ -> (None, "error")
          | Processed pb ->
             if (Option.is_none last_ts_opt) || pb.ts >= (Option.value_exn last_ts_opt) then
-              (Some(pb.ts), true)
-            else (None, false))
-      with _ -> (None, false) in
+              (Some(pb.ts), "ok")
+            else (None, "error"))
+      with _ -> (None, "error") in
     let str_log = Js_of_ocaml.Js.to_string js_log in
-    if String.is_empty str_log then Js_of_ocaml__Js.bool false
+    if String.is_empty str_log then Js_of_ocaml__Js.string "empty"
     else (let str_dbs = List.map (List.filter (String.split str_log ~on:'@') ~f:(fun s -> not (String.is_empty s)))
                           ~f:(fun s -> "@" ^ s) in
-          List.fold_until str_dbs ~init:(None, true)
-            ~f:(fun (last_ts_opt, b) str_db ->
-              let (last_ts_opt, b) = check_step last_ts_opt str_db in
-              if b then Continue (last_ts_opt, b)
-              else Stop(Js_of_ocaml__Js.bool b)) ~finish:(fun (_, b) -> Js_of_ocaml__Js.bool b))
+          List.fold_until str_dbs ~init:(None, "empty")
+            ~f:(fun (last_ts_opt, s) str_db ->
+              let (last_ts_opt, s) = check_step last_ts_opt str_db in
+              if String.equal s "ok" then Continue (last_ts_opt, s)
+              else Stop(Js_of_ocaml__Js.string s)) ~finish:(fun (_, s) -> Js_of_ocaml__Js.string s))
 
   let get_columns js_formula =
     let str_f = Js_of_ocaml.Js.to_string js_formula in

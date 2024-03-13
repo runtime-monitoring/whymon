@@ -20,6 +20,8 @@ val comparator : (t, comparator_witness) Comparator.t
 
 val equal: t -> t -> bool
 
+val compare_t: t -> t -> int
+
 val tt_equal: tt -> tt -> bool
 
 val tt_of_string: string -> tt

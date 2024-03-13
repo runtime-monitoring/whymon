@@ -22,6 +22,20 @@ module T = struct
     | Float v, Float v' -> Float.equal v v'
     | _ -> false
 
+  let compare_t d d' = match d, d' with
+    | Int v, Int v' -> if Int.equal v v' then 0
+                       else (if Int.(>) v v' then 1 else -1)
+    | Str v, Str v' -> if String.equal v v' then 0
+                       else (if String.(>) v v' then 1 else -1)
+    | Float v, Float v' -> if Float.equal v v' then 0
+                           else (if Float.(>) v v' then 1 else -1)
+    | Int _, Str _ -> 1
+    | Int _, Float _ -> 1
+    | Str _, Int _ -> -1
+    | Str _, Float _ -> 1
+    | Float _, Int _ -> -1
+    | Float _, Str _ -> -1
+
   let tt_equal tt tt' = match tt, tt' with
     | TInt, TInt
       | TStr, TStr

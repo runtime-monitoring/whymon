@@ -1636,6 +1636,6 @@ let exec_vis (ms_opt: MState.t option) f log =
            (err_msgs, (json_es @ json_es', json_dbs @ json_dbs'), m')
         | Some (Some(err_msg), (json_es', json_dbs'), m') ->
            (err_msgs @ [err_msg], (json_es @ json_es', json_dbs @ json_dbs'), m')) in
-  let json = Out.Json.aggregate json_dbs json_expls in
-  List.iter err_msgs ~f:(fun err_msg -> Stdio.print_endline err_msg);
-  (ms, json)
+  let json_errs = Etc.string_list_to_json err_msgs in
+  let out_json = Out.Json.aggregate json_dbs json_expls json_errs in
+  (ms, out_json)

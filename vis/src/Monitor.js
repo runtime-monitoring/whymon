@@ -40,8 +40,15 @@ function initMonitor(monitorState, action) {
     const monitorOutput = window.monitorInit(action.trace.replace(/\n/g, " "),
                                              action.sig.replace(/\n/g, " "), action.formula);
     const columns = JSON.parse(window.getColumns(action.formula));
-    const dbsObjs = (JSON.parse(monitorOutput)).dbs_objs
+    const dbsObjs = (JSON.parse(monitorOutput)).dbs_objs;
     const explsObjs = (JSON.parse(monitorOutput, (k, v) => v === "true" ? true : v === "false" ? false : v)).expls_objs;
+    const errors = (JSON.parse(monitorOutput)).errors;
+
+    if (errors.length > 0) {
+      return { ...monitorState,
+               dialog: translateError(errors[0])
+             };
+    }
 
     return { columns: { preds: columns.predsColumns, subfs: columns.subfsColumns, subfsScopes: columns.subfsScopes },
              objs: { dbs: dbsObjs, expls: explsObjs },
@@ -57,10 +64,12 @@ function initMonitor(monitorState, action) {
              fixParameters: true,
              dialog: {},
              options: new Set() };
+
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     return { ...monitorState,
-             dialog: translateError(error) };
+             dialog: translateError(error)
+           };
   }
 }
 
@@ -73,6 +82,13 @@ function execMonitor(monitorState, action) {
     const newExplsObjs = (JSON.parse(monitorOutput, (k, v) =>
       v === "true" ? true : v === "false" ? false : v)).expls_objs;
     const explsObjs = monitorState.objs.expls.concat(newExplsObjs);
+    const errors = (JSON.parse(monitorOutput)).errors;
+
+    if (errors.length > 0) {
+      return { ...monitorState,
+               dialog: translateError(errors[0])
+             };
+    }
 
     return { ...monitorState,
              objs: { dbs: dbsObjs, expls: explsObjs },
@@ -88,7 +104,7 @@ function execMonitor(monitorState, action) {
              dialog: {} };
 
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     return { ...monitorState,
              dialog: translateError(error) };
   }

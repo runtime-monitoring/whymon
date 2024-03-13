@@ -104,13 +104,15 @@ module Json = struct
                 Printf.sprintf "%s\n" (Vis.Expl.to_json f (Expl.sort_parts e)) ^
                   Printf.sprintf "}%s}" (String.make 4 ' '))
 
-  let aggregate dbs es =
+  let aggregate dbs expls errors =
     Printf.sprintf "{\n" ^
       Printf.sprintf "%s\"dbs_objs\": [\n" (String.make 4 ' ') ^
         String.concat ~sep:",\n" dbs ^
           Printf.sprintf "],\n" ^
             Printf.sprintf "%s\"expls_objs\": [\n" (String.make 4 ' ') ^
-              String.concat ~sep:",\n" es ^
-                Printf.sprintf "]}"
+              String.concat ~sep:",\n" expls ^
+                Printf.sprintf "],\n" ^
+                  Printf.sprintf "%s\"errors\": %s\n" (String.make 4 ' ') errors ^
+                    Printf.sprintf "}"
 
 end

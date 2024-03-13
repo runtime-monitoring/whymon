@@ -30,6 +30,6 @@ module Json : sig
 
   val expls: (timepoint, timestamp) Hashtbl.t -> Formula.t -> Expl.t list -> string list
 
-  val aggregate: string list -> string list -> string
+  val aggregate: string list -> string list -> string -> string
 
 end

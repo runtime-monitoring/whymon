@@ -54,7 +54,8 @@ module Plain = struct
                     ~f:(fun ((ts, tp), e) (b, _, _) -> expl (ExplanationCheck ((ts, tp), e, b)))
     | LATEX -> List.iter tstp_expls ~f:(fun ((ts, tp), e) ->
                    expl (ExplanationLatex ((ts, tp), e, Option.value_exn f_opt)))
-    | LIGHT -> List.iter tstp_expls ~f:(fun ((ts, tp), e) -> if Expl.is_violated e then expl (ExplanationLight ((ts, tp), e)))
+    | LIGHT -> List.iter tstp_expls ~f:(fun ((ts, tp), e) -> if Expl.is_violated e then
+                                                               expl (ExplanationLight ((ts, tp), e)))
     | DEBUG -> List.iter2_exn (List.zip_exn tstp_expls (Option.value_exn checker_es_opt))
                  (Option.value_exn paths_opt)
                  ~f:(fun (((ts, tp), e), (b, checker_e, trace)) path_opt ->
@@ -75,7 +76,8 @@ module Json = struct
                                           (Printf.sprintf "%s(%s)" r (Etc.string_list_to_string var_names)) :: acc)) in
     let subfs_columns = List.map (Formula.subfs_dfs f) ~f:Formula.op_to_string in
     let subfs_scope = List.map (Formula.subfs_scope f 0) ~f:(fun (i, (js, ks)) ->
-                          Printf.sprintf "{\"col\": %d, \"leftCols\": %s, \"rightCols\": %s}" i (Etc.int_list_to_json js) (Etc.int_list_to_json ks)) in
+                          Printf.sprintf "{\"col\": %d, \"leftCols\": %s, \"rightCols\": %s}"
+                            i (Etc.int_list_to_json js) (Etc.int_list_to_json ks)) in
     let subfs = List.map (Formula.subfs_dfs f) ~f:Formula.to_string in
     Printf.sprintf "{\n  \"predsColumns\": %s,\n
                     \"subfsColumns\": %s,\n

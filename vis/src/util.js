@@ -394,7 +394,7 @@ export function translateError(error) {
            };
   case "trace is not monotonic":
     return { name: "Error",
-             message: "The new event(s) will make the trace non-monotonic.\n\nPlease double check your timestamps." };
+             message: "Your trace is non-monotonic.\n\nPlease double check your timestamps." };
   default:
     return { name: "Error",
              message: "Invalid input: " + message + ".\n\nPlease make the necessary corrections and try again."

@@ -41,7 +41,7 @@ module Part = struct
 
   let values part = List.map part ~f:(fun (_, p) -> p)
 
-  let rec tabulate ds f z =
+  let tabulate ds f z =
     (Setc.Complement ds, z) ::
       (Set.fold ds ~init:[] ~f:(fun acc d -> (Setc.Finite (Set.of_list (module Domain) [d]), f d) :: acc))
 

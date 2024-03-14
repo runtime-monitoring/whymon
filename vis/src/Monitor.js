@@ -37,21 +37,25 @@ function initMonitorState () {
 
 function initMonitor(monitorState, action) {
   try {
-    const monitorOutput = window.monitorInit(action.trace.replace(/\n/g, " "),
-                                             action.sig.replace(/\n/g, " "), action.formula);
+    const trace = action.trace.replace(/\n/g, " ");
+    const sig = action.sig.replace(/\n/g, " ");
+    const formula = action.formula;
+
     const columns = JSON.parse(window.getColumns(action.formula));
-    const dbsObjs = (JSON.parse(monitorOutput)).dbs_objs;
-    const explsObjs = (JSON.parse(monitorOutput, (k, v) => v === "true" ? true : v === "false" ? false : v)).expls_objs;
-    const errors = (JSON.parse(monitorOutput)).errors;
+
+    const monitorOutput = JSON.parse(window.monitorInit(trace, sig, formula));
+    const dbsObjs = monitorOutput.dbs_objs;
+    const explsObjs = monitorOutput.expls_objs;
+    const errors = monitorOutput.errors;
 
     if (errors.length > 0) {
-      return { ...monitorState,
-               dialog: translateError(errors[0])
-             };
+      return { ...monitorState, dialog: translateError(errors[0]) };
     }
 
-    return { columns: { preds: columns.predsColumns, subfs: columns.subfsColumns, subfsScopes: columns.subfsScopes },
-             objs: { dbs: dbsObjs, expls: explsObjs },
+    return { columns: { preds: columns.predsColumns,
+                        subfs: columns.subfsColumns,
+                        subfsScopes: columns.subfsScopes },
+             objs:   { dbs: dbsObjs, expls: explsObjs },
              tables: { dbs: computeDbsTable(dbsObjs, columns.predsColumns.length),
                        colors: initRhsTable(dbsObjs, columns.subfsColumns),
                        cells: initRhsTable(dbsObjs, columns.subfsColumns),
@@ -65,37 +69,34 @@ function initMonitor(monitorState, action) {
              dialog: {},
              options: new Set() };
 
-  } catch (error) {
-    // console.log(error);
-    return { ...monitorState,
-             dialog: translateError(error)
-           };
+  } catch (ex) {
+    return { ...monitorState, dialog: translateError(ex) };
   }
 }
 
 function execMonitor(monitorState, action) {
   try {
 
-    const monitorOutput = window.monitorAppend(action.appendTrace.replace(/\n/g, " "), action.formula);
-    const columns = JSON.parse(window.getColumns(action.formula));
-    const dbsObjs = monitorState.objs.dbs.concat((JSON.parse(monitorOutput)).dbs_objs);
-    const newExplsObjs = (JSON.parse(monitorOutput, (k, v) =>
-      v === "true" ? true : v === "false" ? false : v)).expls_objs;
+    const trace = action.appendTrace.replace(/\n/g, " ");
+    const formula = action.formula;
+
+    const monitorOutput = JSON.parse(window.monitorAppend(trace, formula));
+
+    const dbsObjs = monitorState.objs.dbs.concat(monitorOutput.dbs_objs);
+    const newExplsObjs = monitorOutput.expls_objs;
     const explsObjs = monitorState.objs.expls.concat(newExplsObjs);
-    const errors = (JSON.parse(monitorOutput)).errors;
+    const errors = monitorOutput.errors;
 
     if (errors.length > 0) {
-      return { ...monitorState,
-               dialog: translateError(errors[0])
-             };
+      return { ...monitorState, dialog: translateError(errors[0]) };
     }
 
     return { ...monitorState,
-             objs: { dbs: dbsObjs, expls: explsObjs },
-             tables: { dbs: computeDbsTable(dbsObjs, columns.predsColumns.length),
-                       colors: initRhsTable(dbsObjs, columns.subfsColumns),
-                       cells: initRhsTable(dbsObjs, columns.subfsColumns),
-                       hovers: initHovers(dbsObjs, columns.subfsColumns) },
+             objs:   { dbs: dbsObjs, expls: explsObjs },
+             tables: { dbs: computeDbsTable(dbsObjs, monitorState.columns.preds.length),
+                       colors: initRhsTable(dbsObjs, monitorState.columns.subfs),
+                       cells: initRhsTable(dbsObjs, monitorState.columns.subfs),
+                       hovers: initHovers(dbsObjs, monitorState.columns.subfs) },
              highlights: { selectedRows: [],
                            highlightedCells: [],
                            pathsMap: new Map(),
@@ -104,9 +105,7 @@ function execMonitor(monitorState, action) {
              dialog: {} };
 
   } catch (error) {
-    // console.log(error);
-    return { ...monitorState,
-             dialog: translateError(error) };
+    return { ...monitorState, dialog: translateError(error) };
   }
 }
 

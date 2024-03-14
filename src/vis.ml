@@ -396,14 +396,14 @@ module Expl = struct
             (match kind with
              | Boolean b ->
                 (Printf.sprintf "%s\"kind\": \"boolean\",\n" (indent ^ (String.make 4 ' '))) ^
-                  (Printf.sprintf "%s\"bool\": \"%b\",\n" (indent ^ (String.make 4 ' ')) b) ^
+                  (Printf.sprintf "%s\"bool\": %b,\n" (indent ^ (String.make 4 ' ')) b) ^
                     (Printf.sprintf "%s\"cells\":" (indent ^ (String.make 4 ' '))) ^
                       (inner_cells_to_json indent cells)
              | Assignment (x, d, b) ->
                 (Printf.sprintf "%s\"kind\": \"assignment\",\n" (indent ^ (String.make 4 ' '))) ^
                   (Printf.sprintf "%s\"var\": \"%s\",\n" (indent ^ (String.make 4 ' ')) x) ^
                     (Printf.sprintf "%s\"value\": \"%s\",\n" (indent ^ (String.make 4 ' ')) d) ^
-                      (Printf.sprintf "%s\"bool\": \"%b\",\n" (indent ^ (String.make 4 ' ')) b) ^
+                      (Printf.sprintf "%s\"bool\": %b,\n" (indent ^ (String.make 4 ' ')) b) ^
                         (Printf.sprintf "%s\"cells\":" (indent ^ (String.make 4 ' '))) ^
                           (inner_cells_to_json indent cells)
              | Partition (x, part_tbl) ->

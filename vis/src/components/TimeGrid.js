@@ -100,6 +100,7 @@ function TimeGrid ({ columns,
       sortable: false,
       renderHeader: () => <PresentFormula formula={p}
                                           predsWidth={monospacedStringWidth(p)}
+                                          presentingColumn={true}
                           />,
       renderCell: (params) => <DbCell value={tables.dbs[params.row.tp][i]} />,
       headerAlign: 'center',
@@ -220,6 +221,7 @@ function TimeGrid ({ columns,
         return <PresentFormula formula={f}
                                predsWidth={subfsWidthArray[i]}
                                backgroundColorClass={backgroundColorClass}
+                               presentingColumn={true}
                />;
       },
       renderCell: (params) => {

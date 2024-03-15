@@ -48,7 +48,8 @@ export default function HoverTable({ table, subf }) {
               {/* <Box /\* maxWidth={(theme) => theme.breakpoints.values.sm} *\/> */}
               <TableCell key={table.values.length + 1} align="center">
                 <PresentFormula formula={subf}
-                                predsWidth={monospacedStringWidth(subf)}
+                                predsWidth={monospacedStringWidth(subf)+5}
+                                presentingColumn={false}
                 />
               </TableCell>
               {/* </Box> */}

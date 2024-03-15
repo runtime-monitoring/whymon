@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-java";
@@ -30,8 +30,19 @@ const backgroundColor = (aceEditor, backgroundColorClass) => {
 
 export default function PresentFormula ({ formula,
                                           predsWidth,
-                                          backgroundColorClass }) {
+                                          backgroundColorClass,
+                                          presentingColumn }) {
+
+  const windowWidthMinusOffset = window.screen.width - 200;
+
   const aceEditor = useRef();
+
+  let height = "40px";
+
+  if (predsWidth > windowWidthMinusOffset) {
+    height = (40+((predsWidth/windowWidthMinusOffset)*25)).toString() + 'px';
+    predsWidth = windowWidthMinusOffset - 600;
+  }
 
   const initEditor = () => {
     return (
@@ -42,7 +53,7 @@ export default function PresentFormula ({ formula,
         theme="tomorrow"
         name="formula"
         width="100%"
-        height="40px"
+        height={height}
         fontSize={14}
         showPrintMargin={false}
         showGutter={false}
@@ -56,6 +67,7 @@ export default function PresentFormula ({ formula,
           showLineNumbers: false,
           tabSize: 2,
           cursorStyle: "slim",
+          wrap: !presentingColumn,
         }}/>
     );
   };

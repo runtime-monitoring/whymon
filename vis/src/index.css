@@ -94,6 +94,11 @@ th, td {
     display: none;
 }
 
+/* Hide scrollbar */
+.ace_scrollbar {
+    display: none !important;
+}
+
 /* Hide parenthesis highlighting all the time */
 /* .ace_editor .ace_marker-layer .ace_bracket { */
 /*     display: none */

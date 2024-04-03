@@ -646,42 +646,9 @@ definition "mk_values_subset p tXs X
       then {p} \<times> mk_values tXs \<subseteq> X
       else (if finite X then False else Code.abort STR ''subset on infinite subset'' (\<lambda>_. {p} \<times> mk_values tXs \<subseteq> X)))"
 
-lemma set_Cons_eq: "set_Cons X XS = (\<Union>xs\<in>XS. (\<lambda>x. x # xs) ` X)"
-  by (auto simp: set_Cons_def)
-
-lemma set_Cons_empty_iff: "set_Cons X XS = {} \<longleftrightarrow> (X = {} \<or> XS = {})"
-  by (auto simp: set_Cons_eq)
-
 lemma mk_values_nemptyI: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Longrightarrow> mk_values tXs \<noteq> {}"
   by (induct tXs)
     (auto simp: Let_def set_Cons_eq split: prod.splits trm.splits)
-
-lemma infinite_set_ConsI:
-  "XS \<noteq> {} \<Longrightarrow> infinite X \<Longrightarrow> infinite (set_Cons X XS)"
-  "X \<noteq> {} \<Longrightarrow> infinite XS \<Longrightarrow> infinite (set_Cons X XS)"
-proof(unfold set_Cons_eq)
-  assume "infinite X" and "XS \<noteq> {}"
-  then obtain xs where "xs \<in> XS"
-    by blast
-  hence "inj (\<lambda>x. x # xs)"
-    by (clarsimp simp: inj_on_def)
-  hence "infinite ((\<lambda>x. x # xs) ` X)"
-    using \<open>infinite X\<close> finite_imageD inj_on_def
-    by blast
-  moreover have "((\<lambda>x. x # xs) ` X) \<subseteq> (\<Union>xs\<in>XS. (\<lambda>x. x # xs) ` X)"
-    using \<open>xs \<in> XS\<close> by auto
-  ultimately show "infinite (\<Union>xs\<in>XS. (\<lambda>x. x # xs) ` X)"
-    by (simp add: infinite_super)
-next
-  assume "infinite XS" and "X \<noteq> {}"
-  hence disjf: "disjoint_family_on (\<lambda>xs. (\<lambda>x. x # xs) ` X) XS"
-    by (auto simp: disjoint_family_on_def)
-  moreover have "x \<in> XS \<Longrightarrow> (\<lambda>xs. xs # x) ` X \<noteq> {}" for x
-    using \<open>X \<noteq> {}\<close> by auto
-  ultimately show "infinite (\<Union>xs\<in>XS. (\<lambda>x. x # xs) ` X)"
-    using infinite_disjoint_family_imp_infinite_UNION[OF \<open>infinite XS\<close> _ disjf]
-    by auto
-qed
 
 lemma infinite_mk_values1: "\<forall>tX \<in> set tXs. snd tX \<noteq> {} \<Longrightarrow> tY \<in> set tXs \<Longrightarrow>
   \<forall>Y. (fst tY, Y) \<in> set tXs \<longrightarrow> infinite Y \<Longrightarrow> infinite (mk_values tXs)"

@@ -1,40 +1,110 @@
 theory Checker_Code
   imports Checker "HOL-Library.Code_Target_Nat" "HOL.String"
     "HOL-Library.List_Lexorder" "HOL-Library.AList_Mapping"
-    "HOL-Library.Cardinality"
+    "HOL-Library.Cardinality" "HOL-ex.Sketch_and_Explore"
 begin
 
-class nonunit = assumes two: "\<exists>x y. x \<noteq> (y :: 'a)"
+class universe =
+  fixes universe :: "'a list option"
+  assumes infinite: "universe = None \<Longrightarrow> infinite (UNIV :: 'a set)"
+  and finite: "universe = Some xs \<Longrightarrow> distinct xs \<and> set xs = UNIV"
 begin
 
-lemma card_not_Suc0[simp]: "CARD ('a) \<noteq> Suc 0"
-  using two unfolding card_1_singleton_iff set_eq_iff
-  by auto (metis (full_types))
+lemma finite_coset: "finite (List.coset (xs :: 'a list)) = (case universe of None \<Rightarrow> False | _ \<Rightarrow> True)"
+  using infinite finite
+  by (auto split: option.splits dest!: equalityD2 elim!: finite_subset)
 
 end
 
-class infinite = assumes infinite: "infinite (UNIV :: 'a set)"
-begin
+definition nonunit :: "'a :: universe itself \<Rightarrow> bool" where
+  "nonunit (TYPE('a)) = (case universe :: 'a list option of Some [x] \<Rightarrow> False | _ \<Rightarrow> True)"
 
-lemma finite_coset: "finite (List.coset (xs :: 'a list)) = False"
-  using infinite
-  by auto
-
-subclass nonunit
-  by standard (metis (full_types) UNIV_eq_I finite.simps insert_iff infinite)
-
-end
+lemma card_not_Suc0[simp]:
+  assumes "nonunit (TYPE('a::universe))"
+  shows "CARD ('a) \<noteq> Suc 0"
+proof -
+  have "\<exists>xa. (xa::'a) \<noteq> x"
+    if "\<forall>x. (x::'a) = a \<or> x = b \<or> x \<in> set xs"
+      and "(a::'a) \<noteq> b" and "(a::'a) \<notin> set xs" and "(b::'a) \<notin> set xs" for a b x xs
+    using that by (metis (full_types))
+  with assms show ?thesis
+    by (auto simp: nonunit_def card_1_singleton_iff set_eq_iff
+      dest!: infinite finite ex_new_if_finite[of "{_}"] split: option.splits list.splits)
+qed
 
 declare [[code drop: finite]]
 declare finite_set[THEN eqTrueI, code] finite_coset[code]
 
-instance nat :: infinite by standard auto
-instance list :: (nonunit) infinite by standard (auto simp: infinite_UNIV_listI)
-instance option :: (type) nonunit by standard auto
-instance prod :: (type, infinite) infinite by standard (auto simp: finite_prod infinite)
-instance char :: nonunit by (standard, rule exI[of _ "CHR ''a''"], rule exI[of _ "CHR ''b''"]) auto
-instance String.literal :: infinite by standard (simp add: infinite_literal)
-instance "fun" :: (infinite, nonunit) infinite by standard (auto simp: finite_UNIV_fun infinite)
+instantiation bool :: universe begin
+definition universe_bool :: "bool list option" where "universe_bool = Some [True, False]"
+instance by standard (auto simp: universe_bool_def)
+end
+instantiation char :: universe begin
+definition universe_char :: "char list option" where "universe_char = Some (map char_of [0::nat..<256])"
+instance by standard (use UNIV_char_of_nat in \<open>auto simp: universe_char_def distinct_map\<close>)
+end
+instantiation nat :: universe begin
+definition universe_nat :: "nat list option" where "universe_nat = None"
+instance by standard (auto simp: universe_nat_def)
+end
+instantiation list :: (type) universe begin
+definition universe_list :: "'a list list option" where "universe_list = None"
+instance by standard (auto simp: universe_list_def infinite_UNIV_listI)
+end
+instantiation String.literal :: universe begin
+definition universe_literal :: "String.literal list option" where "universe_literal = None"
+instance by standard (auto simp: universe_literal_def infinite_literal)
+end
+instantiation string8 :: universe begin
+definition universe_string8 :: "string8 list option" where "universe_string8 = None"
+lemma UNIV_string8: "UNIV = Abs_string8 ` UNIV"
+  by (auto simp: image_iff intro: Abs_string8_cases)
+instance by standard
+  (auto simp: universe_string8_def UNIV_string8 finite_image_iff Abs_string8_inject inj_on_def infinite_UNIV_listI)
+end
+instantiation prod :: (universe, universe) universe begin
+definition universe_prod :: "('a \<times> 'b) list option" where "universe_prod =
+  (case (universe, universe) of (Some xs, Some ys) \<Rightarrow> Some (List.product xs ys) | _ \<Rightarrow> None)"
+instance by standard
+  (auto simp: universe_prod_def finite_prod distinct_product infinite finite split: option.splits)
+end
+instantiation sum :: (universe, universe) universe begin
+definition universe_sum :: "('a + 'b) list option" where "universe_sum =
+  (case (universe, universe) of (Some xs, Some ys) \<Rightarrow> Some (map Inl xs @ map Inr ys) | _ \<Rightarrow> None)"
+instance by standard
+  (use UNIV_sum in \<open>auto simp: universe_sum_def distinct_map infinite finite split: option.splits\<close>)
+end
+instantiation option :: (universe) universe begin
+definition "universe_option = (case universe of Some xs \<Rightarrow> Some (None # map Some xs) | _ \<Rightarrow> None)"
+instance by standard (auto simp: universe_option_def distinct_map finite infinite image_iff split: option.splits)
+end
+
+instantiation "fun" :: (universe, universe) universe begin
+definition universe_fun :: "('a \<Rightarrow> 'b) list option" where "universe_fun = 
+  (case (universe, universe) of
+    (Some xs, Some ys) \<Rightarrow> Some (map (\<lambda>zs. the \<circ> map_of (zip xs zs)) (List.n_lists (length xs) ys))
+  | (_, Some [x]) \<Rightarrow> Some [\<lambda>_. x]
+  | _ \<Rightarrow> None)"
+instance
+proof -
+  have 1: False if "infinite (UNIV::'a set)" "CARD('b) = Suc 0" "a \<noteq> b" for a b :: 'b
+    using that by (metis (full_types) UNIV_I card_1_singleton_iff singletonD)
+  have 2: "ys = zs"
+    if "distinct (xs::'a list)" and "length ys = length xs" and "length zs = length xs"
+    and "\<forall>a. the (map_of (zip xs ys) a) = the (map_of (zip xs zs) a)"
+    for xs :: "'a list" and ys zs :: "'b list"
+    using that by (metis map_fst_zip map_of_eqI map_of_zip_inject map_of_zip_is_None option.expand)
+  have 3: "\<exists>zs. length zs = length xs \<and> set zs \<subseteq> set ys \<and> (\<forall>x. f x = the (map_of (zip xs zs) x))"
+    if "\<forall>x. x \<in> set xs" "\<forall>x. x \<in> set ys"
+    for xs ys and f :: "'a \<Rightarrow> 'b"
+    using that by (metis length_map map_of_zip_map option.sel subsetI)
+  show "OFCLASS('a \<Rightarrow> 'b, universe_class)"
+    by standard
+      (auto 0 3 simp: universe_fun_def set_eq_iff fun_eq_iff image_iff set_n_lists distinct_map
+        inj_on_def distinct_n_lists finite_UNIV_fun dest!: infinite finite
+        split: option.splits list.splits intro: 1 2 3)
+qed
+end
 
 section \<open>Code\<close>
 
@@ -751,11 +821,16 @@ definition default_list :: "'a list" where "default_list = []"
 instance proof qed
 end
 
-lemma coset_subset_set_code[code]: "(List.coset (xs :: _ :: infinite list) \<subseteq> set ys) = False"
-  using finite_coset finite_subset by fastforce
+lemma coset_subset_set_code[code]:
+  "(List.coset (xs :: _ :: universe list) \<subseteq> set ys) = (case universe of None \<Rightarrow> False
+  | Some zs \<Rightarrow> \<forall>z \<in> set zs. z \<in> set xs \<or> z \<in> set ys)"
+  using finite_compl finite_subset
+  by (auto split: option.splits dest!: infinite finite)
 
-lemma is_empty_coset[code]: "Set.is_empty (List.coset (xs :: _ :: infinite list)) = False"
-  using coset_subset_set_code by (fastforce simp: Set.is_empty_def)
+lemma is_empty_coset[code]: "Set.is_empty (List.coset (xs :: _ :: universe list)) =
+  (case universe of None \<Rightarrow> False
+  | Some zs \<Rightarrow> \<forall>z \<in> set zs. z \<in> set xs)"
+  using coset_subset_set_code[of xs] by (auto simp: Set.is_empty_def split: option.splits dest: infinite finite)
 
 fun check_one where
   "check_one \<sigma> v \<phi> (Leaf p) = p_check \<sigma> v \<phi> p"
@@ -816,7 +891,10 @@ proof (induct e arbitrary: vs)
   qed
 qed (auto simp: p_check_exec_def p_check_def check_exec_check split: sum.splits)
 
-instance event_data :: infinite by standard (simp add: infinite_UNIV_event_data)
+instantiation event_data :: universe begin
+definition universe_event_data :: "event_data list option" where "universe_event_data = None"  
+instance by standard (simp_all add: infinite_UNIV_event_data universe_event_data_def)
+end
 
 instance event_data :: equal by standard
 
@@ -886,142 +964,92 @@ lemma eval_pdt_fun_upd: "vars_order vs e \<Longrightarrow> x \<notin> set vs \<L
 lemma pdt_at_p_at_eval_pdt: "pdt_at i e \<Longrightarrow> p_at (eval_pdt v e) = i"
   by (induct e) auto
 
+lemma Vals_tabulate[simp]: "Vals (tabulate xs f z) =
+  (if distinct xs then if set xs = UNIV then f ` set xs else {z} \<union> f ` set xs else {z})"
+  by transfer (auto simp: image_iff)
+
+lemma lookup_part_tabulate[simp]: "lookup_part (tabulate xs f z) x =
+  (if distinct xs \<and> x \<in> set xs then f x else z)"
+  by (transfer fixing: x xs f z)
+    (auto simp: find_dropWhile dropWhile_eq_Cons_conv map_eq_append_conv split: list.splits)
+
 lemma final_completeness_aux: "set vs \<subseteq> fv \<phi> \<Longrightarrow> future_bounded \<phi> \<Longrightarrow> distinct vs \<Longrightarrow>
   \<exists>e. pdt_at i e \<and> vars_order vs e \<and> (\<forall>v. (\<forall>x. x \<notin> set vs \<longrightarrow> v x = w x) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v e))"
-  apply (induct vs arbitrary: w)
-   apply simp
-  subgoal for w
-    apply (cases "sat \<sigma> w i \<phi>")
-     apply (drule completeness)
-     apply (drule check_completeness)
-      apply assumption
-     apply (erule exE)
-    subgoal for sp
-      apply (rule exI[of _ "Leaf (Inl sp)"])
-      apply (auto simp: vars_order.intros p_check_def p_at_def)
-      apply (metis ext)
-      done
-    apply (drule completeness)
-    apply (drule check_completeness)
-     apply assumption
-    apply (erule exE)
-    subgoal for vp
-      apply (rule exI[of _ "Leaf (Inr vp)"])
-      apply (auto simp: vars_order.intros p_check_def p_at_def)
-      apply (metis ext)
-      done
-    done
-  subgoal premises prems for x vs w
-  proof -
-    from prems obtain pick :: "'a \<Rightarrow> 'a expl"
-      where "pdt_at i (pick a)" "vars_order vs (pick a)"
-        "(\<forall>v. (\<forall>z. z \<notin> set vs \<longrightarrow> v z = (w(x := a)) z) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v (pick a)))" for a
-      apply atomize_elim
-      apply simp
-      apply (rule rev_mp)
-       apply (erule allI)
-      apply (intro impI)
-      apply (drule choice)
-      apply (erule exE)
-      subgoal for pick
-        apply (rule exI[of _ "\<lambda>a. pick (w(x := a))"])
-        apply auto
-        done
-      done
-    with prems(2-) show ?thesis
-      apply (intro exI[of _ "Node x (tabulate (sorted_list_of_set (AD \<sigma> \<phi> i)) pick (pick ((SOME z. z \<notin> AD \<sigma> \<phi> i))))"] conjI)
-        apply simp_all
-      subgoal
-        apply (transfer fixing: pick x w i \<sigma> \<phi>)
-        apply (auto)
-        done
-      subgoal
-        apply (rule vars_order.intros)
-        apply (transfer fixing: pick x w i \<sigma> \<phi>)
-        apply (auto)
-        done
-      subgoal
-        apply safe
-        apply (transfer fixing: pick x w i \<sigma> \<phi>)
-        apply auto
-        subgoal for v vs z
-          apply (drule meta_spec[of _ "SOME z. z \<notin> AD \<sigma> \<phi> i"], drule spec[of _ "v(x := SOME z. z \<notin> AD \<sigma> \<phi> i)"])
-          apply simp
-          apply (auto simp: p_check_def split: sum.splits)
-          subgoal for sp sp'
-            apply (subst (asm) eval_pdt_fun_upd)
-              apply auto
-            apply (erule notE, erule check_AD_cong[THEN iffD1, rotated -1, of _ _ _ _ _ i])
-              apply assumption
-             apply (metis fun_upd_other fun_upd_same some_eq_imp)
-            using pdt_at_p_at_eval_pdt[of "i" "pick (SOME z. z \<notin> AD \<sigma> \<phi> i)" v]
-            apply (auto simp: p_at_def)
-            done
-          subgoal for sp vp'
-            apply (subst (asm) eval_pdt_fun_upd)
-              apply auto
-            done
-          subgoal for vp sp'
-            apply (subst (asm) eval_pdt_fun_upd)
-              apply auto
-            done
-          subgoal for vp vp'
-            apply (subst (asm) eval_pdt_fun_upd)
-              apply auto
-            apply (erule notE, erule check_AD_cong[THEN iffD1, rotated -1, of _ _ _ _ _ i])
-              apply assumption
-             apply (metis fun_upd_other fun_upd_same some_eq_imp)
-            using pdt_at_p_at_eval_pdt[of "i" "pick (SOME z. z \<notin> AD \<sigma> \<phi> i)" v]
-            apply (auto simp: p_at_def)
-            done
-          done
-        subgoal for v vs
-          apply (subst iffD2[OF find_Some_iff, of _ _ "({v x}, pick (v x))"])
-           apply (auto simp: split_beta)
-          apply (subgoal_tac "v x \<in> set (sorted_list_of_set UNIV)")
-           apply (auto simp: in_set_conv_nth) []
-          subgoal for i
-            apply (intro exI[of _ i])
-            apply (auto simp add: nth_eq_iff_index_eq)
-            done
-          apply (auto simp: finite_AD_UNIV)
-          done
-        subgoal for v vs z
-          apply (subst (asm) iffD2[OF find_Some_iff, of _ _ "({v x}, pick (v x))"])
-           apply (auto simp: split_beta)
-          apply (subgoal_tac "v x \<in> set (sorted_list_of_set (AD \<sigma> \<phi> i))")
-           apply (auto simp only: in_set_conv_nth) []
-          subgoal for i
-            apply (intro exI[of _ i])
-            apply (auto simp add: nth_eq_iff_index_eq)
-            done
-          apply simp
-          done
-        done
-      done
+proof (induct vs arbitrary: w)
+  case Nil
+  then show ?case
+  proof (cases "sat \<sigma> w i \<phi>")
+    case True
+    then have "SAT \<sigma> w i \<phi>" by (rule completeness)
+    with Nil obtain sp where "s_at sp = i" "s_check \<sigma> w \<phi> sp" by (blast dest: check_completeness)
+    then show ?thesis
+      by (intro exI[of _ "Leaf (Inl sp)"]) (auto simp: vars_order.intros p_check_def p_at_def)
+  next
+    case False
+    then have "VIO \<sigma> w i \<phi>" by (rule completeness)
+    with Nil obtain vp where "v_at vp = i" "v_check \<sigma> w \<phi> vp" by (blast dest: check_completeness)
+    then show ?thesis
+      by (intro exI[of _ "Leaf (Inr vp)"]) (auto simp: vars_order.intros p_check_def p_at_def)
   qed
-  done
+next
+  case (Cons x vs)
+  define eq :: "(name \<Rightarrow> 'a) \<Rightarrow> (name \<Rightarrow> 'a) \<Rightarrow> bool" where "eq = rel_fun (eq_onp (\<lambda>x. x \<notin> set vs)) (=)"
+  from Cons have "\<forall>w. \<exists>e. pdt_at i e \<and> vars_order vs e \<and>
+    (\<forall>v. (\<forall>x. x \<notin> set vs \<longrightarrow> v x = w x) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v e))" by simp
+  then obtain pick :: "'a \<Rightarrow> 'a expl" where pick: "pdt_at i (pick a)" "vars_order vs (pick a)" and
+    eq_pick: "\<And>v. eq v (w(x := a)) \<Longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v (pick a))" for a
+    unfolding eq_def rel_fun_def eq_onp_def choice_iff
+  proof (atomize_elim, elim exE, goal_cases pick_val)
+    case (pick_val f)
+    then show ?case
+      by (auto intro!: exI[of _ "\<lambda>a. f (w(x := a))"])
+  qed
+  let ?a = "SOME z. z \<notin> AD \<sigma> \<phi> i"
+  let ?AD = "sorted_list_of_set (AD \<sigma> \<phi> i)"
+  show ?case
+  proof (intro exI[of _ "Node x (tabulate ?AD pick (pick ?a))"] conjI allI impI,
+    goal_cases pdt_at vars_order p_check)
+    case (p_check w')
+    have "w' x \<notin> AD \<sigma> \<phi> i \<Longrightarrow> ?a \<notin> AD \<sigma> \<phi> i"
+      by (metis some_eq_imp)
+    moreover have "eq (w'(x := ?a)) (w(x := ?a))"
+      using p_check by (auto simp: eq_def rel_fun_def eq_onp_def)
+    moreover have "eq w' (w(x := w' x))"
+      using p_check by (auto simp: eq_def rel_fun_def eq_onp_def)
+    ultimately show ?case
+      using pick Cons(2-) eq_pick[of w' "w' x"] eq_pick[of "w'(x := ?a)" ?a]
+        pdt_at_p_at_eval_pdt[of "i" "pick ?a" w'] eval_pdt_fun_upd[of vs "pick ?a" x w' ?a]
+      by (auto simp: p_check_def p_at_def
+        elim!: check_AD_cong[THEN iffD1, rotated -1, of _ _ _ _ _ i]
+        split: if_splits sum.splits sum.splits)
+  qed (use Cons(2-) pick in \<open>simp_all add: vars_order.intros\<close>)
+qed
 
 lemma eval_pdt_cong: "\<forall>x \<in> vars e. v x = v' x \<Longrightarrow>  eval_pdt v e = eval_pdt v' e"
   by (induct e) auto
 
-lemma final_completeness: "future_bounded \<phi> \<Longrightarrow> \<exists>e. pdt_at i e \<and> check \<sigma> \<phi> e"
-  using final_completeness_aux[of "sorted_list_of_set (fv \<phi>)" \<phi> i "\<lambda>_. undefined" \<sigma>]
-  unfolding check_all_check check_def p_check_def
-  apply (auto elim!: exI[where P = "\<lambda>x. _ x \<and> _ x", OF conjI] simp: vars_order_distinct_paths split: sum.splits)
-  subgoal for e v sp
-    apply (drule spec[of _ "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"])
-    using eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+lemma final_completeness: assumes "future_bounded \<phi>" shows "\<exists>e. pdt_at i e \<and> check \<sigma> \<phi> e"
+proof -
+  have s: "s_check \<sigma> v \<phi> sp"
+    if "vars_order (sorted_list_of_set (fv \<phi>)) e"
+    and "\<forall>v. (\<forall>sp. eval_pdt v e = Inl sp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> s_check \<sigma> v \<phi> sp) \<and>
+             (\<forall>vp. eval_pdt v e = Inr vp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> v_check \<sigma> v \<phi> vp)"
+    and "eval_pdt v e = Inl sp" for e v sp
+    using that eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]  check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+    by (auto dest!: spec[of _ sp] vars_order_vars simp: subset_eq)
+  have v: "v_check \<sigma> v \<phi> vp"
+    if "vars_order (sorted_list_of_set (fv \<phi>)) e"
+    and "\<forall>v. (\<forall>sp. eval_pdt v e = Inl sp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> s_check \<sigma> v \<phi> sp) \<and>
+             (\<forall>vp. eval_pdt v e = Inr vp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> v_check \<sigma> v \<phi> vp)"
+    and "eval_pdt v e = Inr vp" for e v vp
+    using that eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
       check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
-    apply (auto dest!: spec[of _ sp] vars_order_vars simp: subset_eq)
-    done
-  subgoal for e v vp
-    apply (drule spec[of _ "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"])
-    using eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
-      check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
-    apply (auto dest!: spec[of _ vp] vars_order_vars simp: subset_eq)
-    done
-  done
+    by (auto dest!: spec[of _ vp] vars_order_vars simp: subset_eq)
+  show ?thesis
+    using final_completeness_aux[of "sorted_list_of_set (fv \<phi>)" \<phi> i "\<lambda>_. undefined" \<sigma>] assms
+    unfolding check_all_check check_def p_check_def
+    by (auto elim!: exI [where P = "\<lambda>x. _ x \<and> _ x" , OF conjI] simp: vars_order_distinct_paths split: sum.splits intro: s v)
+qed
 
 lemma final_soundness_aux: "check \<sigma> \<phi> e \<Longrightarrow> p = eval_pdt v e \<Longrightarrow> isl p \<longleftrightarrow> sat \<sigma> v (p_at p) \<phi>"
   unfolding check_all_check check_def
@@ -1030,8 +1058,6 @@ lemma final_soundness_aux: "check \<sigma> \<phi> e \<Longrightarrow> p = eval_p
 
 lemma final_soundness: "check \<sigma> \<phi> e \<Longrightarrow> pdt_at i e \<Longrightarrow> isl (eval_pdt v e) \<longleftrightarrow> sat \<sigma> v i \<phi>"
   by (drule final_soundness_aux[OF _ refl, of _ _ _ v]) (auto simp: pdt_at_p_at_eval_pdt)
-
-thm final_completeness final_soundness
 
 export_code interval enat nat_of_integer integer_of_nat
   STT Formula.TT Inl EInt Formula.Var Leaf set part_hd sum_nat sub_nat subsvals

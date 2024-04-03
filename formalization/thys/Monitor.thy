@@ -30,26 +30,28 @@ lemma wf_part_list_filter_inter:
   assumes "partition_on X (set (map fst ((P1, v1) # part1)))"
     and "partition_on X (set (map fst part2))"
   shows "partition_on P1 (set (map fst (inP1 P1 f v1 part2)))"
-    and "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst (part2)) 
-      \<Longrightarrow> distinct (map fst (inP1 P1 f v1 part2))"
+    and "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst (part2)) \<Longrightarrow>
+    distinct (map fst (inP1 P1 f v1 part2))"
 proof (rule partition_onI)
   show "\<Union> (set (map fst (inP1 P1 f v1 part2))) = P1"
     using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)] inP1_def
     by (auto simp: map_filter_def split: if_splits)
       (metis (no_types, lifting) Int_iff UN_iff Un_Int_eq(3) empty_iff prod.collapse)
-  show "\<And>A1 A2. A1 \<in> set (map fst (inP1 P1 f v1 part2)) 
-    \<Longrightarrow> A2 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
-    using partition_onD2[OF assms(2)] partition_onD2[OF assms(3)] inP1_def
-    by (clarsimp simp: disjnt_def map_filter_def disjoint_def split: if_splits)
-      (smt (verit, del_insts) Int_assoc Int_commute fst_conv inf_bot_right)
+  show "\<And>A1 A2. A1 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow>
+    A2 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
+    using partition_onD2[OF assms(2)] partition_onD2[OF assms(3)]
+    by (force simp: disjnt_iff map_filter_def disjoint_def inP1_def split: if_splits)
   show "{} \<notin> set (map fst (inP1 P1 f v1 part2))" 
     using assms
     by (auto simp: map_filter_def split: if_splits)
-  show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) 
-    \<Longrightarrow> distinct (map fst (inP1 P1 f v1 part2))"
-    using partition_onD2[OF assms(3), unfolded disjoint_def] distinct_map[of fst part2]
-    by (clarsimp simp: inP1_def map_filter_def distinct_map inj_on_def split: prod.splits)
-      (metis Int_assoc fst_conv inf.idem inf_bot_right prod.inject)
+  show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) \<Longrightarrow>
+    distinct (map fst (inP1 P1 f v1 part2))"
+    using partition_onD2[OF assms(3), unfolded disjoint_def, simplified, rule_format] distinct_map[of fst part2]
+    apply (auto simp: inP1_def map_filter_def distinct_map inj_on_def split: prod.splits)
+    apply (metis Int_iff empty_iff)
+     apply (metis Int_iff empty_iff)
+    apply (metis Int_iff empty_iff fst_conv prod.inject)
+    done
 qed
 
 lemma wf_part_list_filter_minus: 
@@ -103,8 +105,7 @@ qed
 
 lemma partition_on_append: "partition_on X (set xs) \<Longrightarrow> partition_on Y (set ys) 
   \<Longrightarrow> X \<inter> Y = {} \<Longrightarrow> partition_on (X \<union> Y) (set (xs @ ys))"
-  by (auto simp: partition_on_def disjoint_def)
-    (metis disjoint_iff)+
+  by (auto simp: partition_on_def intro!: disjoint_union)
 
 lemma wf_part_list_merge_part2_raw: 
   "partition_on X (set (map fst part1)) \<and> distinct (map fst part1) 
@@ -133,8 +134,7 @@ proof(induct f part1 part2 arbitrary: X rule: merge_part2_raw.induct)
       "2.prems" by auto
   moreover have "(fst ` set ?inP1) \<inter> (fst ` set (merge_part2_raw f part1 (?notinP1))) = {}"
     using IH(1)[THEN partition_onD1]
-    by (intro set_eqI iffI; clarsimp simp: map_filter_def split: prod.splits if_splits)
-      (smt (z3) Diff_disjoint Int_iff UN_iff disjoint_iff fst_conv)+
+    by (intro set_eqI iffI; fastforce simp: map_filter_def split: prod.splits if_splits)
   ultimately show ?case 
     using partition_on_append[OF wf_inP1(1) IH(1)] \<open>P1 \<union> X = X\<close> wf_inP1(2) IH(2)
     by simp

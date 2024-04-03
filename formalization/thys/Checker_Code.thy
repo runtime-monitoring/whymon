@@ -16,22 +16,6 @@ lemma finite_coset: "finite (List.coset (xs :: 'a list)) = (case universe of Non
 
 end
 
-definition nonunit :: "'a :: universe itself \<Rightarrow> bool" where
-  "nonunit (TYPE('a)) = (case universe :: 'a list option of Some [x] \<Rightarrow> False | _ \<Rightarrow> True)"
-
-lemma card_not_Suc0[simp]:
-  assumes "nonunit (TYPE('a::universe))"
-  shows "CARD ('a) \<noteq> Suc 0"
-proof -
-  have "\<exists>xa. (xa::'a) \<noteq> x"
-    if "\<forall>x. (x::'a) = a \<or> x = b \<or> x \<in> set xs"
-      and "(a::'a) \<noteq> b" and "(a::'a) \<notin> set xs" and "(b::'a) \<notin> set xs" for a b x xs
-    using that by (metis (full_types))
-  with assms show ?thesis
-    by (auto simp: nonunit_def card_1_singleton_iff set_eq_iff
-      dest!: infinite finite ex_new_if_finite[of "{_}"] split: option.splits list.splits)
-qed
-
 declare [[code drop: finite]]
 declare finite_set[THEN eqTrueI, code] finite_coset[code]
 
@@ -78,7 +62,6 @@ instantiation option :: (universe) universe begin
 definition "universe_option = (case universe of Some xs \<Rightarrow> Some (None # map Some xs) | _ \<Rightarrow> None)"
 instance by standard (auto simp: universe_option_def distinct_map finite infinite image_iff split: option.splits)
 end
-
 instantiation "fun" :: (universe, universe) universe begin
 definition universe_fun :: "('a \<Rightarrow> 'b) list option" where "universe_fun = 
   (case (universe, universe) of
@@ -205,7 +188,7 @@ proof -
     by (fastforce simp: P_def intro: arg_cong[where ?f=Min])
 qed
 
-lemmas progress_code[code] = progress.simps(1-14) progress_Eventually_code progress_Always_code progress.simps(18) progress_Until_code
+lemmas progress_code[code] = progress.simps(1-15) progress_Eventually_code progress_Always_code progress.simps(18) progress_Until_code
 
 subsection \<open>Trace\<close>
 
@@ -265,30 +248,30 @@ proof -
     by simp
 qed
 
-typedef 'a trace_rbt = "{(n, m, t) :: (nat \<times> nat \<times> (nat, 'a set \<times> nat) mapping) |
+typedef 'a trace_mapping = "{(n, m, t) :: (nat \<times> nat \<times> (nat, 'a set \<times> nat) mapping) |
   n m t. Mapping.keys t = {..<n} \<and>
   sorted (map (snd \<circ> (the \<circ> Mapping.lookup t)) [0..<n]) \<and>
   (case n of 0 \<Rightarrow> True | Suc n' \<Rightarrow> (case Mapping.lookup t n' of Some (X', t') \<Rightarrow> t' \<le> m | None \<Rightarrow> False)) \<and> 
   (\<forall>n' < n. case Mapping.lookup t n' of Some (X', t') \<Rightarrow> finite X' | None \<Rightarrow> False)}"
   by (rule exI[of _ "(0, 0, Mapping.empty)"]) auto
 
-setup_lifting type_definition_trace_rbt
+setup_lifting type_definition_trace_mapping
 
 lemma lookup_bulkload_Some: "i < length list \<Longrightarrow>
   Mapping.lookup (Mapping.bulkload list) i = Some (list ! i)"
   by transfer auto
 
-lift_definition trace_rbt_of_list :: "('a set \<times> nat) list \<Rightarrow> 'a trace_rbt" is
+lift_definition trace_mapping_of_list :: "('a set \<times> nat) list \<Rightarrow> 'a trace_mapping" is
   "\<lambda>xs. if sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) then (if xs = [] then (0, 0, Mapping.empty)
   else (length xs, snd (last xs), Mapping.bulkload xs))
   else (0, 0, Mapping.empty)"
   by (auto simp: lookup_bulkload_Some sorted_iff_nth_Suc last_conv_nth
     list_all_iff in_set_conv_nth Ball_def Bex_def image_iff split: nat.splits)
 
-lift_definition trace_rbt_nth :: "'a trace_rbt \<Rightarrow> nat \<Rightarrow> ('a set \<times> nat)" is
+lift_definition trace_mapping_nth :: "'a trace_mapping \<Rightarrow> nat \<Rightarrow> ('a set \<times> nat)" is
   "\<lambda>(n, m, t) i. if i < n then the (Mapping.lookup t i) else ({}, (i - n) + m)" .
 
-lift_definition Trace_RBT :: "'a trace_rbt \<Rightarrow> 'a Trace.trace" is
+lift_definition Trace_Mapping :: "'a trace_mapping \<Rightarrow> 'a Trace.trace" is
   "\<lambda>(n, m, t). map (the \<circ> Mapping.lookup t) [0..<n] @- smap (\<lambda>n. ({} :: 'a set, n + m)) nats"
 proof (goal_cases)
   case (1 prod)
@@ -310,17 +293,17 @@ proof (goal_cases)
     by (rule extend_is_stream[where ?m=m]) (use props aux aux2 in \<open>auto simp: prod_def\<close>)
 qed
 
-code_datatype Trace_RBT
+code_datatype Trace_Mapping
 
-definition "trace_of_list xs = Trace_RBT (trace_rbt_of_list xs)"
+definition "trace_of_list xs = Trace_Mapping (trace_mapping_of_list xs)"
 
-lemma \<Gamma>_rbt_code[code]: "\<Gamma> (Trace_RBT t) i = fst (trace_rbt_nth t i)"
+lemma \<Gamma>_rbt_code[code]: "\<Gamma> (Trace_Mapping t) i = fst (trace_mapping_nth t i)"
   by transfer (auto split: prod.splits)
 
-lemma \<tau>_rbt_code[code]: "\<tau> (Trace_RBT t) i = snd (trace_rbt_nth t i)"
+lemma \<tau>_rbt_code[code]: "\<tau> (Trace_Mapping t) i = snd (trace_mapping_nth t i)"
   by transfer (auto split: prod.splits)
                                        
-lemma trace_rbt_of_list_sound: "sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) \<Longrightarrow> i < length xs \<Longrightarrow>
+lemma trace_mapping_of_list_sound: "sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) \<Longrightarrow> i < length xs \<Longrightarrow>
   xs ! i = (\<Gamma> (trace_of_list xs) i, \<tau> (trace_of_list xs) i)"
   unfolding trace_of_list_def
   by transfer (auto simp: lookup_bulkload_Some)
@@ -442,11 +425,11 @@ lemma ETP_minus_eq_iff: "j = ETP \<sigma> (\<tau> \<sigma> i - n) \<longleftrigh
 
 lemma LTP_minus_ge_iff: "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i \<Longrightarrow> j \<le> LTP \<sigma> (\<tau> \<sigma> i - n) \<longleftrightarrow>
   (case n of 0 \<Rightarrow> \<delta> \<sigma> j i = 0 | _ \<Rightarrow> j \<le> i \<and> \<delta> \<sigma> i j \<ge> n)"
-  by (auto simp add: i_LTP_tau split: nat.splits)
-     (smt (z3) add.commute add_Suc_right add_leD2 ETP_ge i_ETP_tau le_diff_conv2 less_le_trans less_or_eq_imp_le plus_1_eq_Suc)
+  using \<tau>_mono[of i j \<sigma>]
+  by (fastforce simp add: i_LTP_tau le_diff_conv2 Suc_le_eq split: nat.splits)
 
 lemma LTP_plus_ge_iff: "j \<le> LTP \<sigma> (\<tau> \<sigma> i + n) \<longleftrightarrow> \<delta> \<sigma> j i \<le> n"
-  by (smt (z3) \<tau>_mono diff_self_eq_0 i_LTP_tau le_diff_conv le_imp_diff_is_add nat_le_iff_add trans_le_add2 add.commute)
+  by (simp add: add.commute i_LTP_tau le_diff_conv trans_le_add2)
 
 lemma LTP_minus_lt_if:
   assumes "j \<le> i" "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i" "\<delta> \<sigma> i j < n"
@@ -491,8 +474,7 @@ next
     case 0
     then show ?thesis
       using False assms
-      by (simp add: i_LTP_tau not_le_imp_less)
-        (metis "0" Nat.add_0_right assms i_LTP_tau linorder_not_less)
+      by (metis add.right_neutral diff_is_0_eq diff_zero i_LTP_tau linorder_not_less)
   next
     case (Suc n')
     then show ?thesis
@@ -529,9 +511,7 @@ lemma LTP_plus_eq_iff:
   by (meson LTP_plus_ge_iff linorder_not_less not_less_eq_eq)
 
 lemma LTP_p_def: "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i \<Longrightarrow> LTP_p \<sigma> i I = (case left I of 0 \<Rightarrow> i | _ \<Rightarrow> LTP \<sigma> (\<tau> \<sigma> i - left I))"
-  using i_le_LTPi
-  by (simp add: min_def split: nat.splits)
-    (smt (verit, ccfv_threshold) Zero_not_Suc add_leD2 add_le_imp_le_diff diff_diff_cancel diff_is_0_eq' i_LTP_tau i_le_LTPi)
+  using i_le_LTPi by (auto simp: min_def i_LTP_tau split: nat.splits)
 
 definition "check_upt_LTP_p \<sigma> I li xs i \<longleftrightarrow> (case xs of [] \<Rightarrow>
   (case left I of 0 \<Rightarrow> i < li | Suc n \<Rightarrow>
@@ -765,17 +745,12 @@ proof -
     by (rule Max_ge)
 qed
 
-function LTP_rec where
+function (sequential) LTP_rec where
   "LTP_rec \<sigma> t i = (if \<tau> \<sigma> (Suc i) \<le> t then LTP_rec \<sigma> t (i + 1) else i)"
   by pat_completeness auto
 termination
   using LTP_aux
   by (relation "measure (\<lambda>(\<sigma>, t, i). Suc (LTP \<sigma> t) - i)") (fastforce simp: LTP_def)+
-
-lemma max_aux: "finite X \<Longrightarrow> Suc j \<in> X \<Longrightarrow> Max (insert (Suc j) (X - {j})) = Max (insert j X)"
-  (* sledgehammer *)
-  by (smt (verit) max.orderI Max.insert_remove Max_ge Max_insert empty_iff insert_Diff_single
-      insert_absorb insert_iff max_def not_less_eq_eq)
 
 lemma LTP_rec_sound: "LTP_rec \<sigma> t j = Max ({i. i \<ge> j \<and> (\<tau> \<sigma> i) \<le> t} \<union> {j})"
 proof (induction \<sigma> t j rule: LTP_rec.induct)
@@ -795,7 +770,8 @@ proof (induction \<sigma> t j rule: LTP_rec.induct)
     case False
     then show ?thesis
       using fin
-      by simp (smt (verit) Max_insert2 \<tau>_mono mem_Collect_eq not_less_eq_eq order_trans)
+      by (auto simp: not_le intro!: Max_insert2[symmetric]
+        dest!: order.strict_trans1 less_\<tau>D)
   qed
 qed
 

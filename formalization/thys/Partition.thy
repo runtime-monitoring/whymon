@@ -1,6 +1,10 @@
+(*<*)
 theory Partition
   imports "HOL-Library.Disjoint_Sets"
 begin
+(*>*)
+
+section \<open>Valued Partitions\<close>
 
 lemma part_list_set_eq_aux1:
   assumes
@@ -46,10 +50,9 @@ lemma part_list_eq:
   using part_list_set_eq_aux1 part_list_set_eq_aux2
   unfolding partition_on_def by (auto 5 0)
 
-(* 'd: domain (such that the union of 'd sets form a partition) *)
+text \<open>@{typ 'd}: domain (such that the union of @{typ 'd} sets form a partition)\<close>
 typedef ('d, 'a) part = "{xs :: ('d set \<times> 'a) list. partition_on UNIV (set (map fst xs)) \<and> distinct (map fst xs)}"
-  by (rule exI[of _ "[(UNIV, undefined)]"]) 
-    (auto simp: partition_on_def)
+  by (rule exI[of _ "[(UNIV, undefined)]"]) (auto simp: partition_on_def)
 
 setup_lifting type_definition_part
 
@@ -106,6 +109,8 @@ lemma size_part_estimation'[termination_simp]: "x \<in> Vals xs \<Longrightarrow
 lemma size_part_pointwise[termination_simp]: "(\<And>x. x \<in> Vals xs \<Longrightarrow> f x \<le> g x) \<Longrightarrow> size_part h f xs \<le> size_part h g xs"
   by transfer (force simp: image_iff intro!: size_list_pointwise)
 
+subsection \<open>Functions on Valued Partitions\<close>
+
 lemma Vals_code[code]: "Vals x = set (map snd (Rep_part x))"
   by (force simp: Vals_def)
 
@@ -117,11 +122,20 @@ lemma set_vals[simp]: "set (vals xs) = Vals xs"
 
 lift_definition part_hd :: "('d, 'a) part \<Rightarrow> 'a" is "snd \<circ> hd" .
 
-lift_definition tabulate :: "'d list \<Rightarrow> ('d \<Rightarrow> 'v) \<Rightarrow> 'v \<Rightarrow> ('d, 'v) part" is
+lift_definition tabulate :: "'d list \<Rightarrow> ('d \<Rightarrow> 'n) \<Rightarrow> 'n \<Rightarrow> ('d, 'n) part" is
   "\<lambda>ds f z. if distinct ds then if set ds = UNIV then map (\<lambda>d. ({d}, f d)) ds else (- set ds, z) # map (\<lambda>d. ({d}, f d)) ds else [(UNIV, z)]"
   by (auto simp: o_def distinct_map inj_on_def partition_on_def disjoint_def)
 
 lift_definition lookup_part :: "('d, 'a) part \<Rightarrow> 'd \<Rightarrow> 'a" is "\<lambda>xs d. snd (the (find (\<lambda>(D, _). d \<in> D) xs))" .
+
+lemma Vals_tabulate[simp]: "Vals (tabulate xs f z) =
+  (if distinct xs then if set xs = UNIV then f ` set xs else {z} \<union> f ` set xs else {z})"
+  by transfer (auto simp: image_iff)
+
+lemma lookup_part_tabulate[simp]: "lookup_part (tabulate xs f z) x =
+  (if distinct xs \<and> x \<in> set xs then f x else z)"
+  by (transfer fixing: x xs f z)
+    (auto simp: find_dropWhile dropWhile_eq_Cons_conv map_eq_append_conv split: list.splits)
 
 lemma part_hd_Vals[simp]: "part_hd part \<in> Vals part"
   by transfer (auto simp: partition_on_def image_iff intro!: hd_in_set)
@@ -233,12 +247,12 @@ lemma SubsVals_trivial[simp]: "SubsVals (trivial_part pt) = {(UNIV, pt)}"
   unfolding SubsVals_def
   by (transfer) simp
 
-subsection \<open>Partitioned Decision Trees\<close>
+section \<open>Partitioned Decision Trees\<close>
 
-(* 'd: domain; 'l: leaf, 'v: variable *)
-datatype (dead 'd, leaves: 'l, vars: 'v) pdt = Leaf (unleaf: 'l) | Node 'v "('d, ('d, 'l, 'v) pdt) part"
+(* 'd: domain; 'l: leaf, 'n: variable *)
+datatype (dead 'd, leaves: 'l, vars: 'n) pdt = Leaf (unleaf: 'l) | Node 'n "('d, ('d, 'l, 'n) pdt) part"
 
-inductive vars_order :: "'v list \<Rightarrow> ('d, 'l, 'v) pdt \<Rightarrow> bool" where
+inductive vars_order :: "'n list \<Rightarrow> ('d, 'l, 'n) pdt \<Rightarrow> bool" where
   "vars_order vs (Leaf _)"
 | "\<forall>expl \<in> Vals part1. vars_order vs expl \<Longrightarrow> vars_order (x # vs) (Node x part1)"
 | "vars_order vs (Node x part1) \<Longrightarrow> x \<noteq> z \<Longrightarrow> vars_order (z # vs) (Node x part1)"
@@ -266,5 +280,18 @@ fun eval_pdt where
   "eval_pdt v (Leaf l) = l"
 | "eval_pdt v (Node x part) = eval_pdt v (lookup_part part (v x))"
 
+lemma eval_pdt_cong: "\<forall>x \<in> vars e. v x = v' x \<Longrightarrow>  eval_pdt v e = eval_pdt v' e"
+  by (induct e) auto
 
+lemma vars_order_vars: "vars_order vs e \<Longrightarrow> vars e \<subseteq> set vs"
+  by (induct vs e rule: vars_order.induct) auto
+
+lemma vars_order_distinct_paths: "vars_order vs e \<Longrightarrow> distinct vs \<Longrightarrow> distinct_paths e"
+  by (induct vs e rule: vars_order.induct) (auto dest!: vars_order_vars)
+
+lemma eval_pdt_fun_upd: "vars_order vs e \<Longrightarrow> x \<notin> set vs \<Longrightarrow> eval_pdt (v(x := d)) e = eval_pdt v e"
+  by (induct vs e rule: vars_order.induct) auto
+
+(*<*)
 end
+(*>*)

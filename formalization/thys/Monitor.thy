@@ -1,10 +1,10 @@
 (*<*)
 theory Monitor
-  imports Proof_System Checker "HOL-Library.Simps_Case_Conv"
+  imports Checker_Code
 begin
 (*>*)
 
-section \<open>Algorithm\<close>
+section \<open>Unverified Explanation-Producing Monitoring Algorithm\<close>
 
 fun merge_part2_raw :: "('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> ('d set \<times> 'a) list \<Rightarrow> ('d set \<times> 'b) list \<Rightarrow> ('d set \<times> 'c) list" where
   "merge_part2_raw f [] _ = []"  
@@ -34,9 +34,10 @@ lemma wf_part_list_filter_inter:
     distinct (map fst (inP1 P1 f v1 part2))"
 proof (rule partition_onI)
   show "\<Union> (set (map fst (inP1 P1 f v1 part2))) = P1"
-    using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)] inP1_def
-    by (auto simp: map_filter_def split: if_splits)
-      (metis (no_types, lifting) Int_iff UN_iff Un_Int_eq(3) empty_iff prod.collapse)
+    using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)]
+    apply (auto simp: map_filter_def inP1_def split: if_splits)
+    apply (metis (no_types, lifting) Int_iff UN_iff Un_Int_eq(3) empty_iff prod.collapse)
+    done
   show "\<And>A1 A2. A1 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow>
     A2 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
     using partition_onD2[OF assms(2)] partition_onD2[OF assms(3)]
@@ -47,10 +48,8 @@ proof (rule partition_onI)
   show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) \<Longrightarrow>
     distinct (map fst (inP1 P1 f v1 part2))"
     using partition_onD2[OF assms(3), unfolded disjoint_def, simplified, rule_format] distinct_map[of fst part2]
-    apply (auto simp: inP1_def map_filter_def distinct_map inj_on_def split: prod.splits)
-    apply (metis Int_iff empty_iff)
-     apply (metis Int_iff empty_iff)
-    apply (metis Int_iff empty_iff fst_conv prod.inject)
+    apply (auto simp: inP1_def map_filter_def distinct_map inj_on_def Ball_def image_iff split_beta)
+    apply blast+
     done
 qed
 
@@ -60,26 +59,29 @@ lemma wf_part_list_filter_minus:
   assumes "partition_on X (set (map fst ((P1, v1) # part1)))"
     and "partition_on X (set (map fst part2))"
   shows "partition_on (X - P1) (set (map fst (notinP2 P1 f v1 part2)))"
-    and "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst (part2)) 
-      \<Longrightarrow> distinct (map fst (notinP2 P1 f v1 part2))"
+    and "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst (part2)) \<Longrightarrow>
+      distinct (map fst (notinP2 P1 f v1 part2))"
 proof (rule partition_onI)
   show "\<Union> (set (map fst (notinP2 P1 f v1 part2))) = X - P1"
-    using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)] notinP2_def
-    apply (intro set_eqI iffI; clarsimp simp: map_filter_def subset_eq split: if_splits)
-    by (metis (no_types, lifting) UN_iff Un_iff fst_conv prod.collapse)+
-  show "\<And>A1 A2. A1 \<in> set (map fst (notinP2 P1 f v1 part2)) 
-    \<Longrightarrow> A2 \<in> set (map fst (notinP2 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
+    using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)]
+    apply (auto simp: map_filter_def subset_eq split_beta notinP2_def split: if_splits)
+    apply (metis (no_types, lifting) UN_iff Un_iff fst_conv prod.collapse)
+    done
+  show "\<And>A1 A2. A1 \<in> set (map fst (notinP2 P1 f v1 part2)) \<Longrightarrow>
+    A2 \<in> set (map fst (notinP2 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
     using partition_onD2[OF assms(2)] partition_onD2[OF assms(3)] notinP2_def
-    by (clarsimp simp: disjnt_def map_filter_def disjoint_def split: if_splits)
-      (smt (verit, ccfv_SIG) Diff_disjoint Int_Diff Int_commute fst_conv)
+    apply (clarsimp simp: disjnt_def map_filter_def disjoint_def split: if_splits)
+    apply (smt (verit, ccfv_SIG) Diff_disjoint Int_Diff Int_commute fst_conv)
+    done
   show "{} \<notin> set (map fst (notinP2 P1 f v1 part2))" 
     using assms
     by (auto simp: map_filter_def split: if_splits)
-  show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) 
-    \<Longrightarrow> distinct (map fst ((notinP2 P1 f v1 part2)))"
+  show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) \<Longrightarrow>
+    distinct (map fst ((notinP2 P1 f v1 part2)))"
     using partition_onD2[OF assms(3), unfolded disjoint_def] distinct_map[of fst part2]
-    by (clarsimp simp: notinP2_def map_filter_def distinct_map inj_on_def split: prod.splits)
-      (metis Diff_Diff_Int Diff_empty Diff_iff fst_conv prod.inject)
+    apply (clarsimp simp: notinP2_def map_filter_def distinct_map inj_on_def split: prod.splits)
+    apply (metis Diff_Diff_Int Diff_empty Diff_iff fst_conv prod.inject)
+    done
 qed
 
 lemma wf_part_list_tail: 
@@ -103,14 +105,14 @@ proof (rule partition_onI)
     by auto
 qed
 
-lemma partition_on_append: "partition_on X (set xs) \<Longrightarrow> partition_on Y (set ys) 
-  \<Longrightarrow> X \<inter> Y = {} \<Longrightarrow> partition_on (X \<union> Y) (set (xs @ ys))"
+lemma partition_on_append: "partition_on X (set xs) \<Longrightarrow> partition_on Y (set ys) \<Longrightarrow> X \<inter> Y = {} \<Longrightarrow>
+  partition_on (X \<union> Y) (set (xs @ ys))"
   by (auto simp: partition_on_def intro!: disjoint_union)
 
 lemma wf_part_list_merge_part2_raw: 
-  "partition_on X (set (map fst part1)) \<and> distinct (map fst part1) 
-  \<Longrightarrow> partition_on X (set (map fst part2)) \<and> distinct (map fst part2) 
-  \<Longrightarrow> partition_on X (set (map fst (merge_part2_raw f part1 part2))) 
+  "partition_on X (set (map fst part1)) \<and> distinct (map fst part1) \<Longrightarrow>
+   partition_on X (set (map fst part2)) \<and> distinct (map fst part2) \<Longrightarrow>
+   partition_on X (set (map fst (merge_part2_raw f part1 part2))) 
     \<and> distinct (map fst (merge_part2_raw f part1 part2))"
 proof(induct f part1 part2 arbitrary: X rule: merge_part2_raw.induct)
   case (2 f P1 v1 part1 part2)
@@ -134,17 +136,17 @@ proof(induct f part1 part2 arbitrary: X rule: merge_part2_raw.induct)
       "2.prems" by auto
   moreover have "(fst ` set ?inP1) \<inter> (fst ` set (merge_part2_raw f part1 (?notinP1))) = {}"
     using IH(1)[THEN partition_onD1]
-    by (intro set_eqI iffI; fastforce simp: map_filter_def split: prod.splits if_splits)
+    by (fastforce simp: map_filter_def split: prod.splits if_splits)
   ultimately show ?case 
     using partition_on_append[OF wf_inP1(1) IH(1)] \<open>P1 \<union> X = X\<close> wf_inP1(2) IH(2)
     by simp
 qed simp
 
 lemma wf_part_list_merge_part3_raw: 
-  "partition_on X (set (map fst part1)) \<and> distinct (map fst part1) 
-  \<Longrightarrow> partition_on X (set (map fst part2)) \<and> distinct (map fst part2) 
-  \<Longrightarrow> partition_on X (set (map fst part3)) \<and> distinct (map fst part3) 
-  \<Longrightarrow> partition_on X (set (map fst (merge_part3_raw f part1 part2 part3))) 
+  "partition_on X (set (map fst part1)) \<and> distinct (map fst part1) \<Longrightarrow>
+   partition_on X (set (map fst part2)) \<and> distinct (map fst part2) \<Longrightarrow>
+   partition_on X (set (map fst part3)) \<and> distinct (map fst part3) \<Longrightarrow>
+   partition_on X (set (map fst (merge_part3_raw f part1 part2 part3))) 
     \<and> distinct (map fst (merge_part3_raw f part1 part2 part3))"
 proof(induct f part1 part2 part3 arbitrary: X rule: merge_part3_raw.induct)
   case (4 f v va vb vc vd ve)
@@ -169,7 +171,7 @@ lift_definition merge_part2 :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightar
 lift_definition merge_part3 :: "('a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> ('d, 'a) part \<Rightarrow> ('d, 'a) part \<Rightarrow> ('d, 'a) part \<Rightarrow> ('d, 'a) part" is merge_part3_raw
   by (rule wf_part_list_merge_part3_raw)
 
-definition proof_app :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof" (infixl "\<oplus>" 65) where
+definition proof_app :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof" (infixl "\<oplus>" 65) where
   "p \<oplus> q = (case (p, q) of
    (Inl (SHistorically i li sps), Inl q) \<Rightarrow> Inl (SHistorically (i+1) li (sps @ [q]))
  | (Inl (SAlways i hi sps), Inl q) \<Rightarrow> Inl (SAlways (i-1) hi (q # sps))
@@ -182,7 +184,7 @@ definition proof_app :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof"
  | (Inr (VUntil i vp2s vp1), Inr q) \<Rightarrow> Inr (VUntil (i-1) (q # vp2s) vp1)
  | (Inr (VUntilInf i hi vp2s), Inr q) \<Rightarrow> Inr (VUntilInf (i-1) hi (q # vp2s)))"
 
-definition proof_incr :: "'d proof \<Rightarrow> 'd proof" where
+definition proof_incr :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof" where
   "proof_incr p = (case p of
    Inl (SOnce i sp) \<Rightarrow> Inl (SOnce (i+1) sp)
  | Inl (SEventually i sp) \<Rightarrow> Inl (SEventually (i-1) sp)
@@ -197,43 +199,43 @@ definition proof_incr :: "'d proof \<Rightarrow> 'd proof" where
  | Inr (VUntil i vp2s vp1) \<Rightarrow> Inr (VUntil (i-1) vp2s vp1)
  | Inr (VUntilInf i hi vp2s) \<Rightarrow> Inr (VUntilInf (i-1) hi vp2s))"
 
-definition min_list_wrt :: "('d proof \<Rightarrow> 'd proof \<Rightarrow> bool) \<Rightarrow> 'd proof list \<Rightarrow> 'd proof" where
+definition min_list_wrt :: "(('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> bool) \<Rightarrow> ('n, 'd) proof list \<Rightarrow> ('n, 'd) proof" where
   "min_list_wrt r xs = hd [x \<leftarrow> xs. \<forall>y \<in> set xs. r x y]"
 
-definition do_neg :: "'d proof \<Rightarrow> 'd proof list" where
+definition do_neg :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_neg p = (case p of
   Inl sp \<Rightarrow> [Inr (VNeg sp)]
 | Inr vp \<Rightarrow> [Inl (SNeg vp)])"
 
-definition do_or :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_or :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_or p1 p2 = (case (p1, p2) of
   (Inl sp1, Inl sp2) \<Rightarrow> [Inl (SOrL sp1), Inl (SOrR sp2)]
 | (Inl sp1, Inr _  ) \<Rightarrow> [Inl (SOrL sp1)]
 | (Inr _  , Inl sp2) \<Rightarrow> [Inl (SOrR sp2)]
 | (Inr vp1, Inr vp2) \<Rightarrow> [Inr (VOr vp1 vp2)])"
 
-definition do_and :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_and :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_and p1 p2 = (case (p1, p2) of
   (Inl sp1, Inl sp2) \<Rightarrow> [Inl (SAnd sp1 sp2)]
 | (Inl _  , Inr vp2) \<Rightarrow> [Inr (VAndR vp2)]
 | (Inr vp1, Inl _  ) \<Rightarrow> [Inr (VAndL vp1)]
 | (Inr vp1, Inr vp2) \<Rightarrow> [Inr (VAndL vp1), Inr (VAndR vp2)])"
 
-definition do_imp :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_imp :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_imp p1 p2 = (case (p1, p2) of
   (Inl _  , Inl sp2) \<Rightarrow> [Inl (SImpR sp2)]
 | (Inl sp1, Inr vp2) \<Rightarrow> [Inr (VImp sp1 vp2)]
 | (Inr vp1, Inl sp2) \<Rightarrow> [Inl (SImpL vp1), Inl (SImpR sp2)]
 | (Inr vp1, Inr _  ) \<Rightarrow> [Inl (SImpL vp1)])"
 
-definition do_iff :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_iff :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_iff p1 p2 = (case (p1, p2) of
   (Inl sp1, Inl sp2) \<Rightarrow> [Inl (SIffSS sp1 sp2)]
 | (Inl sp1, Inr vp2) \<Rightarrow> [Inr (VIffSV sp1 vp2)]
 | (Inr vp1, Inl sp2) \<Rightarrow> [Inr (VIffVS vp1 sp2)]
 | (Inr vp1, Inr vp2) \<Rightarrow> [Inl (SIffVV vp1 vp2)])"
 
-definition do_exists :: "Formula.name \<Rightarrow> ('d::{default,linorder}) proof + ('d, 'd proof) part \<Rightarrow> 'd proof list" where
+definition do_exists :: "'n \<Rightarrow> ('n, 'd::{default,linorder}) proof + ('d, ('n, 'd) proof) part \<Rightarrow> ('n, 'd) proof list" where
   "do_exists x p_part = (case p_part of
   Inl p \<Rightarrow> (case p of
     Inl sp \<Rightarrow> [Inl (SExists x default sp)]
@@ -243,7 +245,7 @@ definition do_exists :: "Formula.name \<Rightarrow> ('d::{default,linorder}) pro
               else
                 [Inr (VExists x (map_part projr part))]))"
 
-definition do_forall :: "Formula.name \<Rightarrow> ('d::{default,linorder}) proof + ('d, 'd proof) part \<Rightarrow> 'd proof list" where
+definition do_forall :: "'n \<Rightarrow> ('n, 'd::{default,linorder}) proof + ('d, ('n, 'd) proof) part \<Rightarrow> ('n, 'd) proof list" where
   "do_forall x p_part = (case p_part of
   Inl p \<Rightarrow> (case p of
     Inl sp \<Rightarrow> [Inl (SForall x (trivial_part sp))]
@@ -253,27 +255,27 @@ definition do_forall :: "Formula.name \<Rightarrow> ('d::{default,linorder}) pro
               else 
                 map (\<lambda>(D,p). map_sum id (VForall x (Min D)) p) (filter (\<lambda>(_, p). \<not>isl p) (subsvals part))))"
 
-definition do_prev :: "nat \<Rightarrow> \<I> \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_prev :: "nat \<Rightarrow> \<I> \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_prev i I t p = (case (p, t < left I) of
   (Inl _ , True) \<Rightarrow> [Inr (VPrevOutL i)]
 | (Inl sp, False) \<Rightarrow> (if mem t I then [Inl (SPrev sp)] else [Inr (VPrevOutR i)])
 | (Inr vp, True) \<Rightarrow> [Inr (VPrev vp), Inr (VPrevOutL i)]
 | (Inr vp, False) \<Rightarrow> (if mem t I then [Inr (VPrev vp)] else [Inr (VPrev vp), Inr (VPrevOutR i)]))"
 
-definition do_next :: "nat \<Rightarrow> \<I> \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_next :: "nat \<Rightarrow> \<I> \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_next i I t p = (case (p, t < left I) of
   (Inl _ , True) \<Rightarrow> [Inr (VNextOutL i)]
 | (Inl sp, False) \<Rightarrow> (if mem t I then [Inl (SNext sp)] else [Inr (VNextOutR i)])
 | (Inr vp, True) \<Rightarrow> [Inr (VNext vp), Inr (VNextOutL i)]
 | (Inr vp, False) \<Rightarrow> (if mem t I then [Inr (VNext vp)] else [Inr (VNext vp), Inr (VNextOutR i)]))"
 
-definition do_once_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_once_base :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_once_base i a p' = (case (p', a = 0) of
   (Inl sp', True) \<Rightarrow> [Inl (SOnce i sp')]
 | (Inr vp', True) \<Rightarrow> [Inr (VOnce i i [vp'])]
 | ( _ , False) \<Rightarrow> [Inr (VOnce i i [])])"
 
-definition do_once :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_once :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_once i a p p' = (case (p, a = 0, p') of
   (Inl sp, True,  Inr _ ) \<Rightarrow> [Inl (SOnce i sp)]
 | (Inl sp, True,  Inl (SOnce _ sp')) \<Rightarrow> [Inl (SOnce i sp'), Inl (SOnce i sp)]
@@ -284,13 +286,13 @@ definition do_once :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow
 | (Inr _ , False, Inl (SOnce _ sp')) \<Rightarrow> [Inl (SOnce i sp')]
 | (Inr _ , False, Inr (VOnce _ li vps')) \<Rightarrow> [Inr (VOnce i li vps')])"
 
-definition do_eventually_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_eventually_base :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_eventually_base i a p' = (case (p', a = 0) of
   (Inl sp', True) \<Rightarrow> [Inl (SEventually i sp')]
 | (Inr vp', True) \<Rightarrow> [Inr (VEventually i i [vp'])]
 | ( _ , False) \<Rightarrow> [Inr (VEventually i i [])])"
 
-definition do_eventually :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_eventually :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_eventually i a p p' = (case (p, a = 0, p') of
   (Inl sp, True,  Inr _ ) \<Rightarrow> [Inl (SEventually i sp)]
 | (Inl sp, True,  Inl (SEventually _ sp')) \<Rightarrow> [Inl (SEventually i sp'), Inl (SEventually i sp)]
@@ -301,13 +303,13 @@ definition do_eventually :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Righ
 | (Inr _ , False, Inl (SEventually _ sp')) \<Rightarrow> [Inl (SEventually i sp')]
 | (Inr _ , False, Inr (VEventually _ hi vps')) \<Rightarrow> [Inr (VEventually i hi vps')])"
 
-definition do_historically_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_historically_base :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_historically_base i a p' = (case (p', a = 0) of
   (Inl sp', True) \<Rightarrow> [Inl (SHistorically i i [sp'])]
 | (Inr vp', True) \<Rightarrow> [Inr (VHistorically i vp')]
 | ( _ , False) \<Rightarrow> [Inl (SHistorically i i [])])"
 
-definition do_historically :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_historically :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_historically i a p p' = (case (p, a = 0, p') of
   (Inl _ , True,  Inr (VHistorically _ vp')) \<Rightarrow> [Inr (VHistorically i vp')]
 | (Inl sp, True,  Inl sp') \<Rightarrow> [(Inl sp') \<oplus> (Inl sp)]
@@ -318,13 +320,13 @@ definition do_historically :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Ri
 | (Inr _ , False, Inl (SHistorically _ li sps')) \<Rightarrow> [Inl (SHistorically i li sps')]
 | (Inr _ , False, Inr (VHistorically _ vp')) \<Rightarrow> [Inr (VHistorically i vp')])"
 
-definition do_always_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_always_base :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_always_base i a p' = (case (p', a = 0) of
   (Inl sp', True) \<Rightarrow> [Inl (SAlways i i [sp'])]
 | (Inr vp', True) \<Rightarrow> [Inr (VAlways i vp')]
 | ( _ , False) \<Rightarrow> [Inl (SAlways i i [])])"
 
-definition do_always :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_always :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_always i a p p' = (case (p, a = 0, p') of
   (Inl _ , True,  Inr (VAlways _ vp')) \<Rightarrow> [Inr (VAlways i vp')]
 | (Inl sp, True,  Inl sp') \<Rightarrow> [(Inl sp') \<oplus> (Inl sp)]
@@ -335,7 +337,7 @@ definition do_always :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarr
 | (Inr _ , False, Inl (SAlways _ hi sps')) \<Rightarrow> [Inl (SAlways i hi sps')]
 | (Inr _ , False, Inr (VAlways _ vp')) \<Rightarrow> [Inr (VAlways i vp')])"
 
-definition do_since_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_since_base :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_since_base i a p1 p2 = (case (p1, p2, a = 0) of
   ( _ , Inl sp2, True) \<Rightarrow> [Inl (SSince sp2 [])]
 | (Inl _ , _ , False) \<Rightarrow> [Inr (VSinceInf i i [])]
@@ -343,7 +345,7 @@ definition do_since_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Righ
 | (Inr vp1, _ , False) \<Rightarrow> [Inr (VSince i vp1 []), Inr (VSinceInf i i [])]
 | (Inr vp1, Inr sp2, True) \<Rightarrow> [Inr (VSince i vp1 [sp2]), Inr (VSinceInf i i [sp2])])"
 
-definition do_since :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_since :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_since i a p1 p2 p' = (case (p1, p2, a = 0, p') of 
   (Inl sp1, Inr _ , True, Inl sp') \<Rightarrow> [(Inl sp') \<oplus> (Inl sp1)]
 | (Inl sp1, _ , False, Inl sp') \<Rightarrow> [(Inl sp') \<oplus> (Inl sp1)]
@@ -362,7 +364,7 @@ definition do_since :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarro
 | (Inr vp1, _ , False, Inr (VSince _ vp1' vp2s')) \<Rightarrow> [Inr (VSince i vp1 []), Inr (VSince i vp1' vp2s')]
 | ( _ , Inl vp2, True, Inr (VSince _ _ _ )) \<Rightarrow> [Inl (SSince vp2 [])])"
 
-definition do_until_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_until_base :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_until_base i a p1 p2 = (case (p1, p2, a = 0) of
   ( _ , Inl sp2, True) \<Rightarrow> [Inl (SUntil [] sp2)]
 | (Inl sp1, _ , False) \<Rightarrow> [Inr (VUntilInf i i [])]
@@ -370,7 +372,7 @@ definition do_until_base :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Righ
 | (Inr vp1, _ , False) \<Rightarrow> [Inr (VUntil i [] vp1), Inr (VUntilInf i i [])]
 | (Inr vp1, Inr vp2, True) \<Rightarrow> [Inr (VUntil i [vp2] vp1), Inr (VUntilInf i i [vp2])])"
 
-definition do_until :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof list" where
+definition do_until :: "nat \<Rightarrow> nat \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof list" where
   "do_until i a p1 p2 p' = (case (p1, p2, a = 0, p') of
   (Inl sp1, Inr _ , True, Inl (SUntil _ _ )) \<Rightarrow> [p' \<oplus> (Inl sp1)]
 | (Inl sp1, _ , False, Inl (SUntil _ _ )) \<Rightarrow> [p' \<oplus> (Inl sp1)]
@@ -389,15 +391,7 @@ definition do_until :: "nat \<Rightarrow> nat \<Rightarrow> 'd proof \<Rightarro
 | (Inr vp1, _ , False, Inr (VUntil _ vp2s' vp1')) \<Rightarrow> [Inr (VUntil i [] vp1), Inr (VUntil i vp2s' vp1')]
 | ( _ , Inl sp2, True, Inr (VUntil _ _ _ )) \<Rightarrow> [Inl (SUntil [] sp2)])"
 
-context 
-  fixes \<sigma> :: "'d :: {default, linorder} Formula.trace" and
-  cmp :: "'d proof \<Rightarrow> 'd proof \<Rightarrow> bool"
-begin
-
-definition optimal :: "'d Formula.envset \<Rightarrow> nat \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd proof \<Rightarrow> bool" where
-  "optimal vs i \<phi> p = (valid \<sigma> vs i \<phi> p \<and> (\<forall>q. valid \<sigma> vs i \<phi> q \<longrightarrow> cmp p q))"
-
-fun match :: "'d Formula.trm list \<Rightarrow> 'd list \<Rightarrow> (Formula.name \<rightharpoonup> 'd) option" where
+fun match :: "('n, 'd) Formula.trm list \<Rightarrow> 'd list \<Rightarrow> ('n \<rightharpoonup> 'd) option" where
   "match [] [] = Some Map.empty"
 | "match (Formula.Const x # ts) (y # ys) = (if x = y then match ts ys else None)"
 | "match (Formula.Var x # ts) (y # ys) = (case match ts ys of
@@ -407,95 +401,90 @@ fun match :: "'d Formula.trm list \<Rightarrow> 'd list \<Rightarrow> (Formula.n
       | Some z \<Rightarrow> if y = z then Some f else None))"
 | "match _ _ = None"
 
-(* Note: this is only used in the Pred case.                                    *)
-(* Based on a set of (partial) functions from variables to values of a domain,  *)
-(* we compute values for each one of the variables in vars, put them in a list, *)
-(* and we create a partition with subsets considering each one of these values  *)
-(* and another subset considering the complement of the union of these values.  *)
-fun pdt_of :: "nat \<Rightarrow> Formula.name \<Rightarrow> 'd Formula.trm list \<Rightarrow> Formula.name list \<Rightarrow> (Formula.name \<rightharpoonup> 'd) set \<Rightarrow> 'd expl" where
-  "pdt_of i r ts [] V = (if Set.is_empty V then Leaf (Inr (VPred i r ts)) else Leaf (Inl (SPred i r ts)))"
-| "pdt_of i r ts (x # vars) V =
-     (let ds = sorted_list_of_set (Option.these {v x | v. v \<in> V});
-          part = tabulate ds (\<lambda>d. pdt_of i r ts vars ({v \<in> V. v x = Some d})) (pdt_of i r ts vars {})
+fun pdt_of :: "nat \<Rightarrow> 'n \<Rightarrow> ('n, 'd :: linorder) Formula.trm list \<Rightarrow> 'n list \<Rightarrow> ('n \<rightharpoonup> 'd) list \<Rightarrow> ('n, 'd) expl" where
+  "pdt_of i r ts [] V = (if List.null V then Leaf (Inr (VPred i r ts)) else Leaf (Inl (SPred i r ts)))"
+| "pdt_of i r ts (x # vs) V =
+     (let ds = remdups (List.map_filter (\<lambda>v. v x) V);
+          part = tabulate ds (\<lambda>d. pdt_of i r ts vs (filter (\<lambda>v. v x = Some d) V)) (pdt_of i r ts vs [])
      in Node x part)"
 
-fun "apply_pdt1" :: "Formula.name list \<Rightarrow> ('d proof \<Rightarrow> 'd proof) \<Rightarrow> 'd expl \<Rightarrow> 'd expl" where
-  "apply_pdt1 vars f (Leaf pt) = Leaf (f pt)"
-| "apply_pdt1 (z # vars) f (Node x part) =
+fun "apply_pdt1" :: "'n list \<Rightarrow> (('n, 'd) proof \<Rightarrow> ('n, 'd) proof) \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl" where
+  "apply_pdt1 vs f (Leaf pt) = Leaf (f pt)"
+| "apply_pdt1 (z # vs) f (Node x part) =
   (if x = z then
-     Node x (map_part (\<lambda>expl. apply_pdt1 vars f expl) part)
+     Node x (map_part (\<lambda>expl. apply_pdt1 vs f expl) part)
    else
-     apply_pdt1 vars f (Node x part))"
+     apply_pdt1 vs f (Node x part))"
 | "apply_pdt1 [] _ (Node _ _) = undefined"
 
-fun "apply_pdt2" :: "Formula.name list \<Rightarrow> ('d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof) \<Rightarrow> 'd expl \<Rightarrow> 'd expl \<Rightarrow> 'd expl" where
-  "apply_pdt2 vars f (Leaf pt1) (Leaf pt2) = Leaf (f pt1 pt2)"
-| "apply_pdt2 vars f (Leaf pt1) (Node x part2) = Node x (map_part (apply_pdt1 vars (f pt1)) part2)"
-| "apply_pdt2 vars f (Node x part1) (Leaf pt2) = Node x (map_part (apply_pdt1 vars (\<lambda>pt1. f pt1 pt2)) part1)"
-| "apply_pdt2 (z # vars) f (Node x part1) (Node y part2) =
+fun "apply_pdt2" :: "'n list \<Rightarrow> (('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof) \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl" where
+  "apply_pdt2 vs f (Leaf pt1) (Leaf pt2) = Leaf (f pt1 pt2)"
+| "apply_pdt2 vs f (Leaf pt1) (Node x part2) = Node x (map_part (apply_pdt1 vs (f pt1)) part2)"
+| "apply_pdt2 vs f (Node x part1) (Leaf pt2) = Node x (map_part (apply_pdt1 vs (\<lambda>pt1. f pt1 pt2)) part1)"
+| "apply_pdt2 (z # vs) f (Node x part1) (Node y part2) =
     (if x = z \<and> y = z then
-       Node z (merge_part2 (apply_pdt2 vars f) part1 part2)
+       Node z (merge_part2 (apply_pdt2 vs f) part1 part2)
      else if x = z then
-       Node x (map_part (\<lambda>expl1. apply_pdt2 vars f expl1 (Node y part2)) part1)
+       Node x (map_part (\<lambda>expl1. apply_pdt2 vs f expl1 (Node y part2)) part1)
      else if y = z then
-       Node y (map_part (\<lambda>expl2. apply_pdt2 vars f (Node x part1) expl2) part2)
+       Node y (map_part (\<lambda>expl2. apply_pdt2 vs f (Node x part1) expl2) part2)
      else
-       apply_pdt2 vars f (Node x part1) (Node y part2))"
+       apply_pdt2 vs f (Node x part1) (Node y part2))"
 | "apply_pdt2 [] _ (Node _ _) (Node _ _) = undefined"
 
-fun "apply_pdt3" :: "Formula.name list \<Rightarrow> ('d proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof \<Rightarrow> 'd proof) \<Rightarrow> 'd expl \<Rightarrow> 'd expl \<Rightarrow> 'd expl \<Rightarrow> 'd expl" where
-  "apply_pdt3 vars f (Leaf pt1) (Leaf pt2) (Leaf pt3) = Leaf (f pt1 pt2 pt3)"
-| "apply_pdt3 vars f (Leaf pt1) (Leaf pt2) (Node x part3) = Node x (map_part (apply_pdt2 vars (f pt1) (Leaf pt2)) part3)" 
-| "apply_pdt3 vars f (Leaf pt1) (Node x part2) (Leaf pt3) = Node x (map_part (apply_pdt2 vars (\<lambda>pt2. f pt1 pt2) (Leaf pt3)) part2)"
-| "apply_pdt3 vars f (Node x part1) (Leaf pt2) (Leaf pt3) = Node x (map_part (apply_pdt2 vars (\<lambda>pt1. f pt1 pt2) (Leaf pt3)) part1)"
-| "apply_pdt3 (w # vars) f (Leaf pt1) (Node y part2) (Node z part3) = 
+fun "apply_pdt3" :: "'n list \<Rightarrow> (('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> ('n, 'd) proof) \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl" where
+  "apply_pdt3 vs f (Leaf pt1) (Leaf pt2) (Leaf pt3) = Leaf (f pt1 pt2 pt3)"
+| "apply_pdt3 vs f (Leaf pt1) (Leaf pt2) (Node x part3) = Node x (map_part (apply_pdt2 vs (f pt1) (Leaf pt2)) part3)" 
+| "apply_pdt3 vs f (Leaf pt1) (Node x part2) (Leaf pt3) = Node x (map_part (apply_pdt2 vs (\<lambda>pt2. f pt1 pt2) (Leaf pt3)) part2)"
+| "apply_pdt3 vs f (Node x part1) (Leaf pt2) (Leaf pt3) = Node x (map_part (apply_pdt2 vs (\<lambda>pt1. f pt1 pt2) (Leaf pt3)) part1)"
+| "apply_pdt3 (w # vs) f (Leaf pt1) (Node y part2) (Node z part3) = 
   (if y = w \<and> z = w then
-     Node w (merge_part2 (apply_pdt2 vars (f pt1)) part2 part3)
+     Node w (merge_part2 (apply_pdt2 vs (f pt1)) part2 part3)
    else if y = w then
-     Node y (map_part (\<lambda>expl2. apply_pdt2 vars (f pt1) expl2 (Node z part3)) part2)
+     Node y (map_part (\<lambda>expl2. apply_pdt2 vs (f pt1) expl2 (Node z part3)) part2)
    else if z = w then
-     Node z (map_part (\<lambda>expl3. apply_pdt2 vars (f pt1) (Node y part2) expl3) part3)
+     Node z (map_part (\<lambda>expl3. apply_pdt2 vs (f pt1) (Node y part2) expl3) part3)
    else
-     apply_pdt3 vars f (Leaf pt1) (Node y part2) (Node z part3))"
-| "apply_pdt3 (w # vars) f (Node x part1) (Node y part2) (Leaf pt3) = 
+     apply_pdt3 vs f (Leaf pt1) (Node y part2) (Node z part3))"
+| "apply_pdt3 (w # vs) f (Node x part1) (Node y part2) (Leaf pt3) = 
   (if x = w \<and> y = w then
-     Node w (merge_part2 (apply_pdt2 vars (\<lambda>pt1 pt2. f pt1 pt2 pt3)) part1 part2)
+     Node w (merge_part2 (apply_pdt2 vs (\<lambda>pt1 pt2. f pt1 pt2 pt3)) part1 part2)
    else if x = w then
-     Node x (map_part (\<lambda>expl1. apply_pdt2 vars (\<lambda>pt1 pt2. f pt1 pt2 pt3) expl1 (Node y part2)) part1)
+     Node x (map_part (\<lambda>expl1. apply_pdt2 vs (\<lambda>pt1 pt2. f pt1 pt2 pt3) expl1 (Node y part2)) part1)
    else if y = w then
-     Node y (map_part (\<lambda>expl2. apply_pdt2 vars (\<lambda>pt1 pt2. f pt1 pt2 pt3) (Node x part1) expl2) part2)
+     Node y (map_part (\<lambda>expl2. apply_pdt2 vs (\<lambda>pt1 pt2. f pt1 pt2 pt3) (Node x part1) expl2) part2)
    else
-     apply_pdt3 vars f (Node x part1) (Node y part2) (Leaf pt3))"
-| "apply_pdt3 (w # vars) f (Node x part1) (Leaf pt2) (Node z part3) = 
+     apply_pdt3 vs f (Node x part1) (Node y part2) (Leaf pt3))"
+| "apply_pdt3 (w # vs) f (Node x part1) (Leaf pt2) (Node z part3) = 
   (if x = w \<and> z = w then
-     Node w (merge_part2 (apply_pdt2 vars (\<lambda>pt1. f pt1 pt2)) part1 part3)
+     Node w (merge_part2 (apply_pdt2 vs (\<lambda>pt1. f pt1 pt2)) part1 part3)
    else if x = w then
-     Node x (map_part (\<lambda>expl1. apply_pdt2 vars (\<lambda>pt1. f pt1 pt2) expl1 (Node z part3)) part1)
+     Node x (map_part (\<lambda>expl1. apply_pdt2 vs (\<lambda>pt1. f pt1 pt2) expl1 (Node z part3)) part1)
    else if z = w then
-     Node z (map_part (\<lambda>expl3. apply_pdt2 vars (\<lambda>pt1. f pt1 pt2) (Node x part1) expl3) part3)
+     Node z (map_part (\<lambda>expl3. apply_pdt2 vs (\<lambda>pt1. f pt1 pt2) (Node x part1) expl3) part3)
    else
-     apply_pdt3 vars f (Node x part1) (Leaf pt2) (Node z part3))"
-| "apply_pdt3 (w # vars) f (Node x part1) (Node y part2) (Node z part3) = 
+     apply_pdt3 vs f (Node x part1) (Leaf pt2) (Node z part3))"
+| "apply_pdt3 (w # vs) f (Node x part1) (Node y part2) (Node z part3) = 
   (if x = w \<and> y = w \<and> z = w then
-     Node z (merge_part3 (apply_pdt3 vars f) part1 part2 part3)
+     Node z (merge_part3 (apply_pdt3 vs f) part1 part2 part3)
    else if x = w \<and> y = w then
-     Node w (merge_part2 (apply_pdt3 vars (\<lambda>pt3 pt1 pt2. f pt1 pt2 pt3) (Node z part3)) part1 part2)
+     Node w (merge_part2 (apply_pdt3 vs (\<lambda>pt3 pt1 pt2. f pt1 pt2 pt3) (Node z part3)) part1 part2)
    else if x = w \<and> z = w then
-     Node w (merge_part2 (apply_pdt3 vars (\<lambda>pt2 pt1 pt3. f pt1 pt2 pt3) (Node y part2)) part1 part3)
+     Node w (merge_part2 (apply_pdt3 vs (\<lambda>pt2 pt1 pt3. f pt1 pt2 pt3) (Node y part2)) part1 part3)
    else if y = w \<and> z = w then
-     Node w (merge_part2 (apply_pdt3 vars (\<lambda>pt1. f pt1) (Node x part1)) part2 part3)
+     Node w (merge_part2 (apply_pdt3 vs (\<lambda>pt1. f pt1) (Node x part1)) part2 part3)
    else if x = w then
-     Node x (map_part (\<lambda>expl1. apply_pdt3 vars f expl1 (Node y part2) (Node z part3)) part1)
+     Node x (map_part (\<lambda>expl1. apply_pdt3 vs f expl1 (Node y part2) (Node z part3)) part1)
    else if y = w then
-     Node y (map_part (\<lambda>expl2. apply_pdt3 vars f (Node x part1) expl2 (Node z part3)) part2)
+     Node y (map_part (\<lambda>expl2. apply_pdt3 vs f (Node x part1) expl2 (Node z part3)) part2)
    else if z = w then
-     Node z (map_part (\<lambda>expl3. apply_pdt3 vars f (Node x part1) (Node y part2) expl3) part3)
+     Node z (map_part (\<lambda>expl3. apply_pdt3 vs f (Node x part1) (Node y part2) expl3) part3)
    else 
-     apply_pdt3 vars f (Node x part1) (Node y part2) (Node z part3))"
+     apply_pdt3 vs f (Node x part1) (Node y part2) (Node z part3))"
 | "apply_pdt3 [] _ _ _ _ = undefined"
 
-fun "hide_pdt" :: "Formula.name list \<Rightarrow> ('d proof + ('d, 'd proof) part \<Rightarrow> 'd proof) \<Rightarrow> 'd expl \<Rightarrow> 'd expl" where
-  "hide_pdt vars f (Leaf pt) = Leaf (f (Inl pt))"
+fun "hide_pdt" :: "'n list \<Rightarrow> (('n, 'd) proof + ('d, ('n, 'd) proof) part \<Rightarrow> ('n, 'd) proof) \<Rightarrow> ('n, 'd) expl \<Rightarrow> ('n, 'd) expl" where
+  "hide_pdt vs f (Leaf pt) = Leaf (f (Inl pt))"
 | "hide_pdt [x] f (Node y part) = Leaf (f (Inr (map_part unleaf part)))"
 | "hide_pdt (x # xs) f (Node y part) = 
   (if x = y then
@@ -504,71 +493,77 @@ fun "hide_pdt" :: "Formula.name list \<Rightarrow> ('d proof + ('d, 'd proof) pa
      hide_pdt xs f (Node y part))"
 | "hide_pdt [] _ _ = undefined"
 
-function (sequential) eval :: "Formula.name list \<Rightarrow> nat \<Rightarrow> 'd Formula.formula \<Rightarrow> 'd expl" where
-  "eval vars i Formula.TT = Leaf (Inl (STT i))"
-| "eval vars i Formula.FF = Leaf (Inr (VFF i))"
-| "eval vars i (Formula.Pred r ts) = 
-  (pdt_of i r ts (filter (\<lambda>x. x \<in> Formula.fv (Formula.Pred r ts)) vars) (Option.these (match ts ` snd ` {rd \<in> \<Gamma> \<sigma> i. fst rd = r })))"
-| "eval vars i (Formula.Neg \<phi>) = apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_neg p)) (eval vars i \<phi>)"
-| "eval vars i (Formula.Or \<phi> \<psi>) = apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_or p1 p2)) (eval vars i \<phi>) (eval vars i \<psi>)"
-| "eval vars i (Formula.And \<phi> \<psi>) = apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_and p1 p2)) (eval vars i \<phi>) (eval vars i \<psi>)"
-| "eval vars i (Formula.Imp \<phi> \<psi>) = apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_imp p1 p2)) (eval vars i \<phi>) (eval vars i \<psi>)"
-| "eval vars i (Formula.Iff \<phi> \<psi>) = apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_iff p1 p2)) (eval vars i \<phi>) (eval vars i \<psi>)"
-| "eval vars i (Formula.Exists x \<phi>) = hide_pdt (vars @ [x]) (\<lambda>p. min_list_wrt cmp (do_exists x p)) (eval (vars @ [x]) i \<phi>)"
-| "eval vars i (Formula.Forall x \<phi>) = hide_pdt (vars @ [x]) (\<lambda>p. min_list_wrt cmp (do_forall x p)) (eval (vars @ [x]) i \<phi>)"
-| "eval vars i (Formula.Prev I \<phi>) = (if i = 0 then Leaf (Inr VPrevZ) 
-                                   else apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_prev i I (\<Delta> \<sigma> i) p)) (eval vars (i-1) \<phi>))"
-| "eval vars i (Formula.Next I \<phi>) = apply_pdt1 vars (\<lambda>l. min_list_wrt cmp (do_next i I (\<Delta> \<sigma> (i+1)) l)) (eval vars (i+1) \<phi>)"
-| "eval vars i (Formula.Once I \<phi>) = 
+context 
+  fixes \<sigma> :: "('n, 'd :: {default, linorder}) trace" and
+  cmp :: "('n, 'd) proof \<Rightarrow> ('n, 'd) proof \<Rightarrow> bool"
+begin
+
+function (sequential) eval :: "'n list \<Rightarrow> nat \<Rightarrow> ('n, 'd) Formula.formula \<Rightarrow> ('n, 'd) expl" where
+  "eval vs i Formula.TT = Leaf (Inl (STT i))"
+| "eval vs i Formula.FF = Leaf (Inr (VFF i))"
+| "eval vs i (Eq_Const x c) = Node x (tabulate [c] (\<lambda>c. Leaf (Inl (SEq_Const i x c))) (Leaf (Inr (VEq_Const i x c))))"
+| "eval vs i (Formula.Pred r ts) = 
+  (pdt_of i r ts (filter (\<lambda>x. x \<in> Formula.fv (Formula.Pred r ts)) vs) (List.map_filter (match ts) (sorted_list_of_set (snd ` {rd \<in> \<Gamma> \<sigma> i. fst rd = r}))))"
+| "eval vs i (Formula.Neg \<phi>) = apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_neg p)) (eval vs i \<phi>)"
+| "eval vs i (Formula.Or \<phi> \<psi>) = apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_or p1 p2)) (eval vs i \<phi>) (eval vs i \<psi>)"
+| "eval vs i (Formula.And \<phi> \<psi>) = apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_and p1 p2)) (eval vs i \<phi>) (eval vs i \<psi>)"
+| "eval vs i (Formula.Imp \<phi> \<psi>) = apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_imp p1 p2)) (eval vs i \<phi>) (eval vs i \<psi>)"
+| "eval vs i (Formula.Iff \<phi> \<psi>) = apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_iff p1 p2)) (eval vs i \<phi>) (eval vs i \<psi>)"
+| "eval vs i (Formula.Exists x \<phi>) = hide_pdt (vs @ [x]) (\<lambda>p. min_list_wrt cmp (do_exists x p)) (eval (vs @ [x]) i \<phi>)"
+| "eval vs i (Formula.Forall x \<phi>) = hide_pdt (vs @ [x]) (\<lambda>p. min_list_wrt cmp (do_forall x p)) (eval (vs @ [x]) i \<phi>)"
+| "eval vs i (Formula.Prev I \<phi>) = (if i = 0 then Leaf (Inr VPrevZ) 
+                                   else apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_prev i I (\<Delta> \<sigma> i) p)) (eval vs (i-1) \<phi>))"
+| "eval vs i (Formula.Next I \<phi>) = apply_pdt1 vs (\<lambda>l. min_list_wrt cmp (do_next i I (\<Delta> \<sigma> (i+1)) l)) (eval vs (i+1) \<phi>)"
+| "eval vs i (Formula.Once I \<phi>) = 
   (if \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I then Leaf (Inr (VOnceOut i)) 
-   else (let expl = eval vars i \<phi> in
+   else (let expl = eval vs i \<phi> in
         (if i = 0 then 
-           apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_once_base 0 0 p)) expl
+           apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_once_base 0 0 p)) expl
          else (if right I \<ge> enat (\<Delta> \<sigma> i) then
-                 apply_pdt2 vars (\<lambda>p p'. min_list_wrt cmp (do_once i (left I) p p')) expl
-                            (eval vars (i-1) (Formula.Once (subtract (\<Delta> \<sigma> i) I) \<phi>))
-               else apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_once_base i (left I) p)) expl))))"
-| "eval vars i (Formula.Historically I \<phi>) = 
+                 apply_pdt2 vs (\<lambda>p p'. min_list_wrt cmp (do_once i (left I) p p')) expl
+                            (eval vs (i-1) (Formula.Once (subtract (\<Delta> \<sigma> i) I) \<phi>))
+               else apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_once_base i (left I) p)) expl))))"
+| "eval vs i (Formula.Historically I \<phi>) = 
   (if \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I then Leaf (Inl (SHistoricallyOut i)) 
-   else (let expl = eval vars i \<phi> in
+   else (let expl = eval vs i \<phi> in
         (if i = 0 then 
-           apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_historically_base 0 0 p)) expl
+           apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_historically_base 0 0 p)) expl
          else (if right I \<ge> enat (\<Delta> \<sigma> i) then
-                 apply_pdt2 vars (\<lambda>p p'. min_list_wrt cmp (do_historically i (left I) p p')) expl
-                            (eval vars (i-1) (Formula.Historically (subtract (\<Delta> \<sigma> i) I) \<phi>))
-               else apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_historically_base i (left I) p)) expl))))"
-| "eval vars i (Formula.Eventually I \<phi>) = 
-  (let expl = eval vars i \<phi> in
+                 apply_pdt2 vs (\<lambda>p p'. min_list_wrt cmp (do_historically i (left I) p p')) expl
+                            (eval vs (i-1) (Formula.Historically (subtract (\<Delta> \<sigma> i) I) \<phi>))
+               else apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_historically_base i (left I) p)) expl))))"
+| "eval vs i (Formula.Eventually I \<phi>) = 
+  (let expl = eval vs i \<phi> in
   (if right I = \<infinity> then undefined 
    else (if right I \<ge> enat (\<Delta> \<sigma> (i+1)) then
-           apply_pdt2 vars (\<lambda>p p'. min_list_wrt cmp (do_eventually i (left I) p p')) expl
-                            (eval vars (i+1) (Formula.Eventually (subtract (\<Delta> \<sigma> (i+1)) I) \<phi>))
-         else apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_eventually_base i (left I) p)) expl)))"
-| "eval vars i (Formula.Always I \<phi>) = 
-  (let expl = eval vars i \<phi> in
+           apply_pdt2 vs (\<lambda>p p'. min_list_wrt cmp (do_eventually i (left I) p p')) expl
+                            (eval vs (i+1) (Formula.Eventually (subtract (\<Delta> \<sigma> (i+1)) I) \<phi>))
+         else apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_eventually_base i (left I) p)) expl)))"
+| "eval vs i (Formula.Always I \<phi>) = 
+  (let expl = eval vs i \<phi> in
   (if right I = \<infinity> then undefined 
    else (if right I \<ge> enat (\<Delta> \<sigma> (i+1)) then
-           apply_pdt2 vars (\<lambda>p p'. min_list_wrt cmp (do_always i (left I) p p')) expl
-                            (eval vars (i+1) (Formula.Always (subtract (\<Delta> \<sigma> (i+1)) I) \<phi>))
-         else apply_pdt1 vars (\<lambda>p. min_list_wrt cmp (do_always_base i (left I) p)) expl)))"
-| "eval vars i (Formula.Since \<phi> I \<psi>) = 
+           apply_pdt2 vs (\<lambda>p p'. min_list_wrt cmp (do_always i (left I) p p')) expl
+                            (eval vs (i+1) (Formula.Always (subtract (\<Delta> \<sigma> (i+1)) I) \<phi>))
+         else apply_pdt1 vs (\<lambda>p. min_list_wrt cmp (do_always_base i (left I) p)) expl)))"
+| "eval vs i (Formula.Since \<phi> I \<psi>) = 
   (if \<tau> \<sigma> i < \<tau> \<sigma> 0 + left I then Leaf (Inr (VSinceOut i)) 
-   else (let expl1 = eval vars i \<phi> in
-         let expl2 = eval vars i \<psi> in
+   else (let expl1 = eval vs i \<phi> in
+         let expl2 = eval vs i \<psi> in
          (if i = 0 then 
-            apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_since_base 0 0 p1 p2)) expl1 expl2
+            apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_since_base 0 0 p1 p2)) expl1 expl2
           else (if right I \<ge> enat (\<Delta> \<sigma> i) then
-                  apply_pdt3 vars (\<lambda>p1 p2 p'. min_list_wrt cmp (do_since i (left I) p1 p2 p')) expl1 expl2
-                             (eval vars (i-1) (Formula.Since \<phi> (subtract (\<Delta> \<sigma> i) I) \<psi>))
-                else apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_since_base i (left I) p1 p2)) expl1 expl2))))"
-| "eval vars i (Formula.Until \<phi> I \<psi>) = 
-  (let expl1 = eval vars i \<phi> in
-   let expl2 = eval vars i \<psi> in
+                  apply_pdt3 vs (\<lambda>p1 p2 p'. min_list_wrt cmp (do_since i (left I) p1 p2 p')) expl1 expl2
+                             (eval vs (i-1) (Formula.Since \<phi> (subtract (\<Delta> \<sigma> i) I) \<psi>))
+                else apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_since_base i (left I) p1 p2)) expl1 expl2))))"
+| "eval vs i (Formula.Until \<phi> I \<psi>) = 
+  (let expl1 = eval vs i \<phi> in
+   let expl2 = eval vs i \<psi> in
    (if right I = \<infinity> then undefined 
     else (if right I \<ge> enat (\<Delta> \<sigma> (i+1)) then
-            apply_pdt3 vars (\<lambda>p1 p2 p'. min_list_wrt cmp (do_until i (left I) p1 p2 p')) expl1 expl2
-                             (eval vars (i+1) (Formula.Until \<phi> (subtract (\<Delta> \<sigma> (i+1)) I) \<psi>))
-          else apply_pdt2 vars (\<lambda>p1 p2. min_list_wrt cmp (do_until_base i (left I) p1 p2)) expl1 expl2)))"
+            apply_pdt3 vs (\<lambda>p1 p2 p'. min_list_wrt cmp (do_until i (left I) p1 p2 p')) expl1 expl2
+                             (eval vs (i+1) (Formula.Until \<phi> (subtract (\<Delta> \<sigma> (i+1)) I) \<psi>))
+          else apply_pdt2 vs (\<lambda>p1 p2. min_list_wrt cmp (do_until_base i (left I) p1 p2)) expl1 expl2)))"
   by pat_completeness auto
 
 fun dist where
@@ -580,9 +575,12 @@ fun dist where
 | "dist i (Formula.Until _ I _) = LTP \<sigma> (case right I of \<infinity> \<Rightarrow> 0 | enat b \<Rightarrow> (\<tau> \<sigma> i + b)) - i"
 | "dist _ _ = undefined"
 
+lemma i_less_LTP: "\<tau> \<sigma> (Suc i) \<le> b + \<tau> \<sigma> i \<Longrightarrow> i < LTP \<sigma> (b + \<tau> \<sigma> i)"
+  by (metis Suc_le_lessD i_le_LTPi_add le_iff_add)
+
 termination eval
-  apply (relation "measure size")
-  sorry
+  by (relation "measures [\<lambda>(_, _, \<phi>). size \<phi>, \<lambda>(_, i, \<phi>). dist i \<phi>]")
+    (auto simp: add.commute le_diff_conv i_less_LTP intro!: diff_less_mono2)
 
 end
 

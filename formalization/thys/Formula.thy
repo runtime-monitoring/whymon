@@ -1,82 +1,47 @@
 (*<*)
 theory Formula
-  imports Trace Event_Data
+  imports Trace
 begin
 (*>*)
 
 section \<open>Metric First-Order Temporal Logic\<close>
 
-subsection \<open>Formulas and Satisfiability\<close>
+subsection \<open>Syntax\<close>
 
-type_synonym name = string8
-type_synonym 'a event = "(name \<times> 'a list)"
-type_synonym 'a database = "'a event set"
-type_synonym 'a prefix = "(name \<times> 'a list) prefix"
-type_synonym 'a trace = "(name \<times> 'a list) trace"
-type_synonym 'a env = "name \<Rightarrow> 'a"
-type_synonym 'a envset = "name \<Rightarrow> 'a set"
+type_synonym ('n, 'a) event = "('n \<times> 'a list)"
+type_synonym ('n, 'a) database = "('n, 'a) event set"
+type_synonym ('n, 'a) prefix = "('n \<times> 'a list) prefix"
+type_synonym ('n, 'a) trace = "('n \<times> 'a list) trace"
+type_synonym ('n, 'a) env = "'n \<Rightarrow> 'a"
+type_synonym ('n, 'a) envset = "'n \<Rightarrow> 'a set"
 
-datatype 'a trm = is_Var: Var name ("\<^bold>v") | is_Const: Const 'a ("\<^bold>c")
-
-primrec fv_trm :: "'a trm \<Rightarrow> name set" where
-  "fv_trm (\<^bold>v x) = {x}"
-| "fv_trm (\<^bold>c _) = {}"
+datatype (fv_trm: 'n, 'a) trm = is_Var: Var 'n ("\<^bold>v") | is_Const: Const 'a ("\<^bold>c")
 
 lemma in_fv_trm_conv: "x \<in> fv_trm t \<longleftrightarrow> t = \<^bold>v x"
   by (cases t) auto
 
-primrec eval_trm :: "'a env \<Rightarrow> 'a trm \<Rightarrow> 'a"("_\<lbrakk>_\<rbrakk>" [70,89] 89) where
-  "eval_trm v (\<^bold>v x) = v x"
-| "eval_trm v (\<^bold>c x) = x"
+datatype ('n, 'a) formula = 
+  TT                                            ("\<top>")
+| FF                                            ("\<bottom>")
+| Eq_Const 'n 'a                                ("_ \<^bold>\<approx> _" [85, 85] 85)
+| Pred 'n "('n, 'a) trm list"                   ("_ \<dagger> _" [85, 85] 85)
+| Neg "('n, 'a) formula"                        ("\<not>\<^sub>F _" [82] 82)
+| Or "('n, 'a) formula" "('n, 'a) formula"      (infixr "\<or>\<^sub>F" 80)
+| And "('n, 'a) formula" "('n, 'a) formula"     (infixr "\<and>\<^sub>F" 80)
+| Imp "('n, 'a) formula" "('n, 'a) formula"     (infixr "\<longrightarrow>\<^sub>F" 79)
+| Iff "('n, 'a) formula" "('n, 'a) formula"     (infixr "\<longleftrightarrow>\<^sub>F" 79)
+| Exists "'n" "('n, 'a) formula"                ("\<exists>\<^sub>F_. _" [70,70] 70)
+| Forall "'n" "('n, 'a) formula"                ("\<forall>\<^sub>F_. _" [70,70] 70)
+| Prev \<I> "('n, 'a) formula"                     ("\<^bold>Y _ _" [1000, 65] 65)
+| Next \<I> "('n, 'a) formula"                     ("\<^bold>X _ _" [1000, 65] 65)
+| Once \<I> "('n, 'a) formula"                     ("\<^bold>P _ _" [1000, 65] 65)
+| Historically \<I> "('n, 'a) formula"             ("\<^bold>H _ _" [1000, 65] 65)
+| Eventually \<I> "('n, 'a) formula"               ("\<^bold>F _ _" [1000, 65] 65)
+| Always \<I> "('n, 'a) formula"                   ("\<^bold>G _ _" [1000, 65] 65)
+| Since "('n, 'a) formula" \<I> "('n, 'a) formula" ("_ \<^bold>S _ _" [60,1000,60] 60)
+| Until "('n, 'a) formula" \<I> "('n, 'a) formula" ("_ \<^bold>U _ _" [60,1000,60] 60)
 
-lemma eval_trm_fv_cong: "\<forall>x\<in>fv_trm t. v x = v' x \<Longrightarrow> v\<lbrakk>t\<rbrakk> = v'\<lbrakk>t\<rbrakk>"
-  by (induction t) simp_all
-
-definition eval_trms :: "'a env \<Rightarrow> 'a trm list \<Rightarrow> 'a list" ("_\<^bold>\<lbrakk>_\<^bold>\<rbrakk>" [70,89] 89) where
-  "eval_trms v ts = map (eval_trm v) ts"
-
-lemma eval_trms_fv_cong: 
-  "\<forall>t\<in>set ts. \<forall>x\<in>fv_trm t. v x = v' x \<Longrightarrow> v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk> = v'\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"
-  using eval_trm_fv_cong[of _ v v']
-  by (auto simp: eval_trms_def)
-
-(* vs :: "'a envset" is used whenever we define executable functions *)
-primrec eval_trm_set :: "'a envset \<Rightarrow> 'a trm \<Rightarrow> 'a trm \<times> 'a set"("_\<lbrace>_\<rbrace>" [70,89] 89) where
-  "eval_trm_set vs (\<^bold>v x) = (\<^bold>v x, vs x)"
-| "eval_trm_set vs (\<^bold>c x) = (\<^bold>c x, {x})"
-
-definition eval_trms_set :: "'a envset \<Rightarrow> 'a trm list \<Rightarrow> ('a trm \<times> 'a set) list" ("_\<^bold>\<lbrace>_\<^bold>\<rbrace>" [70,89] 89)
-  where "eval_trms_set vs ts = map (eval_trm_set vs) ts"
-
-lemma eval_trms_set_Nil: "vs\<^bold>\<lbrace>[]\<^bold>\<rbrace> = []"
-  by (simp add: eval_trms_set_def)
-
-lemma eval_trms_set_Cons: 
-  "vs\<^bold>\<lbrace>(t # ts)\<^bold>\<rbrace> = vs\<lbrace>t\<rbrace> # vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>"
-  by (simp add: eval_trms_set_def)
-
-datatype 'a formula = 
-  TT                                ("\<top>")
-| FF                                ("\<bottom>")
-| Eq_Const name 'a                  ("_ \<^bold>\<approx> _" [85, 85] 85)
-| Pred name "'a trm list"           ("_ \<dagger> _" [85, 85] 85)
-| Neg "'a formula"                  ("\<not>\<^sub>F _" [82] 82)
-| Or "'a formula" "'a formula"      (infixr "\<or>\<^sub>F" 80)
-| And "'a formula" "'a formula"     (infixr "\<and>\<^sub>F" 80)
-| Imp "'a formula" "'a formula"     (infixr "\<longrightarrow>\<^sub>F" 79)
-| Iff "'a formula" "'a formula"     (infixr "\<longleftrightarrow>\<^sub>F" 79)
-| Exists "name" "'a formula"        ("\<exists>\<^sub>F_. _" [70,70] 70)
-| Forall "name" "'a formula"        ("\<forall>\<^sub>F_. _" [70,70] 70)
-| Prev \<I> "'a formula"               ("\<^bold>Y _ _" [1000, 65] 65)
-| Next \<I> "'a formula"               ("\<^bold>X _ _" [1000, 65] 65)
-| Once \<I> "'a formula"               ("\<^bold>P _ _" [1000, 65] 65)
-| Historically \<I> "'a formula"       ("\<^bold>H _ _" [1000, 65] 65)
-| Eventually \<I> "'a formula"         ("\<^bold>F _ _" [1000, 65] 65)
-| Always \<I> "'a formula"             ("\<^bold>G _ _" [1000, 65] 65)
-| Since "'a formula" \<I> "'a formula" ("_ \<^bold>S _ _" [60,1000,60] 60)
-| Until "'a formula" \<I> "'a formula" ("_ \<^bold>U _ _" [60,1000,60] 60)
-
-primrec fv :: "'a formula \<Rightarrow> name set" where
+primrec fv :: "('n, 'a) formula \<Rightarrow> 'n set" where
   "fv (r \<dagger> ts) = \<Union> (fv_trm ` set ts)"
 | "fv \<top> = {}"
 | "fv \<bottom> = {}"
@@ -97,7 +62,7 @@ primrec fv :: "'a formula \<Rightarrow> name set" where
 | "fv (\<phi> \<^bold>S I \<psi>) = fv \<phi> \<union> fv \<psi>"
 | "fv (\<phi> \<^bold>U I \<psi>) = fv \<phi> \<union> fv \<psi>"
 
-primrec "consts" :: "'a formula \<Rightarrow> 'a set" where
+primrec "consts" :: "('n, 'a) formula \<Rightarrow> 'a set" where
   "consts (r \<dagger> ts) = {}" \<comment> \<open>terms may also contain constants,
      but these only filter out values from the trace and do not introduce
      new values of interest (i.e., do not extend the active domain)\<close>
@@ -129,10 +94,10 @@ lemma finite_fv[simp]: "finite (fv \<phi>)"
 lemma finite_consts[simp]: "finite (consts \<phi>)"
   by (induction \<phi>) simp_all
 
-definition nfv :: "'a formula \<Rightarrow> nat" where
+definition nfv :: "('n, 'a) formula \<Rightarrow> nat" where
   "nfv \<phi> = card (fv \<phi>)"
 
-fun future_bounded :: "'a formula \<Rightarrow> bool" where
+fun future_bounded :: "('n, 'a) formula \<Rightarrow> bool" where
   "future_bounded \<top> = True"
 | "future_bounded \<bottom> = True"
 | "future_bounded (_ \<dagger> _) = True"
@@ -153,7 +118,39 @@ fun future_bounded :: "'a formula \<Rightarrow> bool" where
 | "future_bounded (\<phi> \<^bold>S I \<psi>) = (future_bounded \<phi> \<and> future_bounded \<psi>)"
 | "future_bounded (\<phi> \<^bold>U I \<psi>) = (future_bounded \<phi> \<and> future_bounded \<psi> \<and> right I \<noteq> \<infinity>)"
 
-primrec sat :: "'a trace \<Rightarrow> 'a env \<Rightarrow> nat \<Rightarrow> 'a formula \<Rightarrow> bool" ("\<langle>_, _, _\<rangle> \<Turnstile> _" [56, 56, 56, 56] 55) where
+subsection \<open>Semantics\<close>
+
+primrec eval_trm :: "('n, 'a) env \<Rightarrow> ('n, 'a) trm \<Rightarrow> 'a"("_\<lbrakk>_\<rbrakk>" [70,89] 89) where
+  "eval_trm v (\<^bold>v x) = v x"
+| "eval_trm v (\<^bold>c x) = x"
+
+lemma eval_trm_fv_cong: "\<forall>x\<in>fv_trm t. v x = v' x \<Longrightarrow> v\<lbrakk>t\<rbrakk> = v'\<lbrakk>t\<rbrakk>"
+  by (induction t) simp_all
+
+definition eval_trms :: "('n, 'a) env \<Rightarrow> ('n, 'a) trm list \<Rightarrow> 'a list" ("_\<^bold>\<lbrakk>_\<^bold>\<rbrakk>" [70,89] 89) where
+  "eval_trms v ts = map (eval_trm v) ts"
+
+lemma eval_trms_fv_cong: 
+  "\<forall>t\<in>set ts. \<forall>x\<in>fv_trm t. v x = v' x \<Longrightarrow> v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk> = v'\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"
+  using eval_trm_fv_cong[of _ v v']
+  by (auto simp: eval_trms_def)
+
+(* vs :: "'a envset" is used whenever we define executable functions *)
+primrec eval_trm_set :: "('n, 'a) envset \<Rightarrow> ('n, 'a) trm \<Rightarrow> ('n, 'a) trm \<times> 'a set"("_\<lbrace>_\<rbrace>" [70,89] 89) where
+  "eval_trm_set vs (\<^bold>v x) = (\<^bold>v x, vs x)"
+| "eval_trm_set vs (\<^bold>c x) = (\<^bold>c x, {x})"
+
+definition eval_trms_set :: "('n, 'a) envset \<Rightarrow> ('n, 'a) trm list \<Rightarrow> (('n, 'a) trm \<times> 'a set) list" ("_\<^bold>\<lbrace>_\<^bold>\<rbrace>" [70,89] 89)
+  where "eval_trms_set vs ts = map (eval_trm_set vs) ts"
+
+lemma eval_trms_set_Nil: "vs\<^bold>\<lbrace>[]\<^bold>\<rbrace> = []"
+  by (simp add: eval_trms_set_def)
+
+lemma eval_trms_set_Cons: 
+  "vs\<^bold>\<lbrace>(t # ts)\<^bold>\<rbrace> = vs\<lbrace>t\<rbrace> # vs\<^bold>\<lbrace>ts\<^bold>\<rbrace>"
+  by (simp add: eval_trms_set_def)
+
+primrec sat :: "('n, 'a) trace \<Rightarrow> ('n, 'a) env \<Rightarrow> nat \<Rightarrow> ('n, 'a) formula \<Rightarrow> bool" ("\<langle>_, _, _\<rangle> \<Turnstile> _" [56, 56, 56, 56] 55) where
   "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<top> = True"
 | "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<bottom> = False"
 | "\<langle>\<sigma>, v, i\<rangle> \<Turnstile> r \<dagger> ts = ((r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<in> \<Gamma> \<sigma> i)"

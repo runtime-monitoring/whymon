@@ -1,6 +1,10 @@
+(*<*)
 theory Prelim
 imports Main
 begin
+(*>*)
+
+section \<open>Auxiliary Lemmas\<close>
 
 lemma Cons_eq_upt_conv: "x # xs = [m ..< n] \<longleftrightarrow> m < n \<and> x = m \<and> xs = [Suc m ..< n]"
   by (induct n arbitrary: xs) (force simp: Cons_eq_append_conv)+
@@ -127,4 +131,12 @@ lemma max_aux: "finite X \<Longrightarrow> Suc j \<in> X \<Longrightarrow> Max (
   by (smt (verit) max.orderI Max.insert_remove Max_ge Max_insert empty_iff insert_Diff_single
       insert_absorb insert_iff max_def not_less_eq_eq)
 
+lemma ball_swap: "(\<forall>x \<in> A. \<forall>y \<in> B. P x y) = (\<forall>y \<in> B. \<forall>x \<in> A. P x y)"
+  by auto
+
+lemma ball_triv_nonempty: "A \<noteq> {} \<Longrightarrow> (\<forall>x \<in> A. P) = P"
+  by auto
+
+(*<*)
 end
+(*>*)

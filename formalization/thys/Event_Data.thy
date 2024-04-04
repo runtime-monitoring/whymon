@@ -3,9 +3,11 @@ theory Event_Data
   imports
     "HOL-Library.Char_ord"
 begin
-  (*>*)
+(*>*)
 
-section \<open>Code adaptation for 8-bit strings\<close>
+section \<open>Type of Events\<close>
+
+subsection \<open>Code Adaptation for 8-bit strings\<close>
 
 typedef string8 = "UNIV :: char list set" ..
 
@@ -65,7 +67,7 @@ code_printing
   | constant "(<) :: string8 \<Rightarrow> string8 \<Rightarrow> bool" \<rightharpoonup> (Eval) infixl 6 "<"
   | constant "Code_Evaluation.term_of :: string8 \<Rightarrow> term" \<rightharpoonup> (Eval) "String8.to'_term"
 
-section \<open>Event parameters\<close>
+subsection \<open>Event Parameters\<close>
 
 definition div_to_zero :: "integer \<Rightarrow> integer \<Rightarrow> integer" where
   "div_to_zero x y = (let z = fst (Code_Numeral.divmod_abs x y) in

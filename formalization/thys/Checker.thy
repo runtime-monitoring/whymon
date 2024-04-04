@@ -4,14 +4,16 @@ theory Checker
 begin
 (*>*)
 
+section \<open>Proof Checker\<close>
+
 unbundle MFOTL_notation
 
-context fixes \<sigma> :: "'d :: {default, linorder} trace"
+context fixes \<sigma> :: "('n, 'd :: {default, linorder}) trace"
 
 begin
 
-fun s_check :: "'d env \<Rightarrow> 'd formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
-  and v_check :: "'d env \<Rightarrow> 'd formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
+fun s_check :: "('n, 'd) env \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) sproof \<Rightarrow> bool"
+and v_check :: "('n, 'd) env \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) vproof \<Rightarrow> bool" where
   "s_check v f p = (case (f, p) of
     (\<top>, STT i) \<Rightarrow> True
   | (r \<dagger> ts, SPred i s ts') \<Rightarrow>
@@ -84,8 +86,7 @@ fun s_check :: "'d env \<Rightarrow> 'd formula \<Rightarrow> 'd sproof \<Righta
   | (\<^bold>Y I \<phi>, VPrev vp) \<Rightarrow>
     (let j = v_at vp; i = v_at (VPrev vp) in
     i = j+1 \<and> v_check v \<phi> vp)
-  | (\<^bold>Y I \<phi>, VPrevZ) \<Rightarrow>
-    v_at (VPrevZ::'d vproof) = 0
+  | (\<^bold>Y I \<phi>, VPrevZ) \<Rightarrow> True
   | (\<^bold>Y I \<phi>, VPrevOutL i) \<Rightarrow>
     i > 0 \<and> \<Delta> \<sigma> i < left I
   | (\<^bold>Y I \<phi>, VPrevOutR i) \<Rightarrow>
@@ -142,6 +143,7 @@ declare s_check.simps[simp del] v_check.simps[simp del]
 simps_of_case s_check_simps[simp]: s_check.simps[unfolded prod.case] (splits: formula.split sproof.split)
 simps_of_case v_check_simps[simp]: v_check.simps[unfolded prod.case] (splits: formula.split vproof.split)
 
+subsection \<open>Checker Soundness\<close>
 
 lemma check_soundness:
   "s_check v \<phi> sp \<Longrightarrow> SAT \<sigma> v (s_at sp) \<phi>"
@@ -581,7 +583,7 @@ lemma compatible_extensible:
 
 lemmas compatible_vals_extensible = compatible_extensible[unfolded compatible_alt]
 
-primrec mk_values :: "('b trm \<times> 'a set) list \<Rightarrow> 'a list set"
+primrec mk_values :: "(('n, 'd) trm \<times> 'a set) list \<Rightarrow> 'a list set"
   where "mk_values [] = {[]}"
   | "mk_values (T # Ts) = (case T of
       (\<^bold>v x, X) \<Rightarrow>
@@ -1035,8 +1037,10 @@ proof (safe, goal_cases)
     by (auto simp: subset_eq check_values_eq_NoneI[where f=Map.empty, simplified] dest!: spec[of _ us])
 qed (auto simp: subset_eq  dest!: check_values_neq_NoneI[where f=Map.empty, simplified])
 
-fun s_check_exec :: "'d envset \<Rightarrow> 'd formula \<Rightarrow> 'd sproof \<Rightarrow> bool"
-  and v_check_exec :: "'d envset \<Rightarrow> 'd formula \<Rightarrow> 'd vproof \<Rightarrow> bool" where
+subsection \<open>Executable Variant of the Checker\<close>
+
+fun s_check_exec :: "('n, 'd) envset \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) sproof \<Rightarrow> bool"
+and v_check_exec :: "('n, 'd) envset \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) vproof \<Rightarrow> bool" where
   "s_check_exec vs f p = (case (f, p) of
     (\<top>, STT i) \<Rightarrow> True
   | (r \<dagger> ts, SPred i s ts') \<Rightarrow>
@@ -1109,8 +1113,7 @@ fun s_check_exec :: "'d envset \<Rightarrow> 'd formula \<Rightarrow> 'd sproof 
   | (\<^bold>Y I \<phi>, VPrev vp) \<Rightarrow>
     (let j = v_at vp; i = v_at (VPrev vp) in
     i = j+1 \<and> v_check_exec vs \<phi> vp)
-  | (\<^bold>Y I \<phi>, VPrevZ) \<Rightarrow>
-    v_at (VPrevZ::'d vproof) = 0
+  | (\<^bold>Y I \<phi>, VPrevZ) \<Rightarrow> True
   | (\<^bold>Y I \<phi>, VPrevOutL i) \<Rightarrow>
     i > 0 \<and> \<Delta> \<sigma> i < left I
   | (\<^bold>Y I \<phi>, VPrevOutR i) \<Rightarrow>
@@ -1167,77 +1170,6 @@ declare s_check_exec.simps[simp del] v_check_exec.simps[simp del]
 simps_of_case s_check_exec_simps[simp, code]: s_check_exec.simps[unfolded prod.case] (splits: formula.split sproof.split)
 simps_of_case v_check_exec_simps[simp, code]: v_check_exec.simps[unfolded prod.case] (splits: formula.split vproof.split)
 
-definition AD :: "'d formula \<Rightarrow> nat \<Rightarrow> 'd set"
-  where "AD \<phi> i = consts \<phi> \<union> (\<Union> k \<le> the (LRTP \<sigma> \<phi> i). \<Union> (set ` snd ` \<Gamma> \<sigma> k))"
-
-lemma val_in_AD_iff:
-  "x \<in> fv \<phi> \<Longrightarrow> v x \<in> AD \<phi> i \<longleftrightarrow> v x \<in> consts \<phi> \<or>
-  (\<exists>r ts k. k \<le> the (LRTP \<sigma> \<phi> i) \<and> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<in> \<Gamma> \<sigma> k \<and> x \<in> \<Union> (set (map fv_trm ts)))"
-  unfolding AD_def Un_iff UN_iff Bex_def atMost_iff set_map
-    ex_comm[of "P :: _ \<Rightarrow> nat \<Rightarrow> _" for P] ex_simps image_iff
-proof (safe intro!: arg_cong[of _ _ "\<lambda>x. _ \<or> x"] ex_cong, unfold snd_conv, goal_cases LR RL)
-  case (LR i _ r ds)
-  then show ?case
-    by (intro exI[of _ r] conjI
-        exI[of _ "map (\<lambda>d. if v x = d then (\<^bold>v x) else \<^bold>c d) ds"])
-      (auto simp: eval_trms_def o_def map_idI)
-next
-  case (RL i r ts t)
-  then show ?case
-    by (intro exI[of _ "v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"] conjI)
-      (auto simp: eval_trms_def image_iff in_fv_trm_conv intro!: bexI[of _ t])
-qed
-
-lemma val_notin_AD_iff:
-  "x \<in> fv \<phi> \<Longrightarrow> v x \<notin> AD \<phi> i \<longleftrightarrow> v x \<notin> consts \<phi> \<and>
-    (\<forall>r ts k. k \<le> the (LRTP \<sigma> \<phi> i) \<and> x \<in> \<Union> (set (map fv_trm ts)) \<longrightarrow> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<notin> \<Gamma> \<sigma> k)"
-  using val_in_AD_iff by blast
-
-lemma fv_formula_fv_trm:
-  assumes "x \<in> fv (r \<dagger> ts)"
-  shows "\<exists>t \<in> set ts. x \<in> fv_trm t"
-  using assms by auto
-
-lemma eval_trm_val_eq: "v\<lbrakk>x\<rbrakk> = v'\<lbrakk>x\<rbrakk> \<Longrightarrow> (case x of \<^bold>v x \<Rightarrow> v x = v' x | \<^bold>c x \<Rightarrow> True)"
-  by (simp split: trm.splits) auto
-
-lemma compatible_vals_fun_upd: "compatible_vals A (vs(x := X)) =
-  (if x \<in> A then {v \<in> compatible_vals (A - {x}) vs. v x \<in> X} else compatible_vals A vs)"
-  unfolding compatible_vals_def
-  by auto
-
-lemma fun_upd_in_compatible_vals: "v \<in> compatible_vals (A - {x}) vs \<Longrightarrow> v(x := t) \<in> compatible_vals (A - {x}) vs"
-  unfolding compatible_vals_def
-  by auto
-
-lemma fun_upd_in_compatible_vals_in: "v \<in> compatible_vals (A - {x}) vs \<Longrightarrow> t \<in> vs x \<Longrightarrow> v(x := t) \<in> compatible_vals A vs"
-  unfolding compatible_vals_def
-  by auto
-
-lemma fun_upd_in_compatible_vals_notin: "x \<notin> A \<Longrightarrow> v \<in> compatible_vals A vs \<Longrightarrow> v(x := t) \<in> compatible_vals A vs"
-  unfolding compatible_vals_def
-  by auto
-
-lemma finite_values: "finite (\<Union> (set ` snd ` \<Gamma> \<sigma> k))"
-  by (transfer, auto simp add: sfinite_def)
-
-lemma finite_tps: "future_bounded \<phi> \<Longrightarrow> finite (\<Union> k < the (LRTP \<sigma> \<phi> i). {k})"
-  using fb_LRTP[of \<phi>] finite_enat_bounded
-  by simp
-
-lemma finite_AD [simp]: "future_bounded \<phi> \<Longrightarrow> finite (AD \<phi> i)"
-  using finite_tps finite_values
-  by (simp add: AD_def enat_def)
-
-lemma finite_AD_UNIV:
-  assumes "future_bounded \<phi>" and "AD \<phi> i = (UNIV:: 'd set)"
-  shows "finite (UNIV::'d set)"
-proof -
-  have "finite (AD \<phi> i)"
-    using finite_AD[of \<phi> i, OF assms(1)] by simp
-  then show ?thesis
-    using assms(2) by simp
-qed
 
 lemma check_fv_cong:
   assumes "\<forall>x \<in> fv \<phi>. v x = v' x"
@@ -1463,13 +1395,24 @@ lemma v_check_fun_upd_notin[simp]:
 lemma SubsVals_nonempty: "(X, t) \<in> SubsVals part \<Longrightarrow> X \<noteq> {}"
   by transfer (auto simp: partition_on_def image_iff)
 
-lemma ball_swap: "(\<forall>x \<in> A. \<forall>y \<in> B. P x y) = (\<forall>y \<in> B. \<forall>x \<in> A. P x y)"
-  by auto
-
 lemma compatible_vals_nonemptyI: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> compatible_vals A vs \<noteq> {}"
   by (auto simp: compatible_vals_def intro!: bchoice)
 
-lemma ball_triv_nonempty: "A \<noteq> {} \<Longrightarrow> (\<forall>x \<in> A. P) = P"
+lemma compatible_vals_fun_upd: "compatible_vals A (vs(x := X)) =
+  (if x \<in> A then {v \<in> compatible_vals (A - {x}) vs. v x \<in> X} else compatible_vals A vs)"
+  unfolding compatible_vals_def
+  by auto
+
+lemma fun_upd_in_compatible_vals: "v \<in> compatible_vals (A - {x}) vs \<Longrightarrow> v(x := t) \<in> compatible_vals (A - {x}) vs"
+  unfolding compatible_vals_def
+  by auto
+
+lemma fun_upd_in_compatible_vals_in: "v \<in> compatible_vals (A - {x}) vs \<Longrightarrow> t \<in> vs x \<Longrightarrow> v(x := t) \<in> compatible_vals A vs"
+  unfolding compatible_vals_def
+  by auto
+
+lemma fun_upd_in_compatible_vals_notin: "x \<notin> A \<Longrightarrow> v \<in> compatible_vals A vs \<Longrightarrow> v(x := t) \<in> compatible_vals A vs"
+  unfolding compatible_vals_def
   by auto
 
 lemma check_exec_check:
@@ -1986,6 +1929,100 @@ lemma v_check_code[code]: "v_check v \<phi> vp = v_check_exec (\<lambda>x. {v x}
   by (subst check_exec_check)
     (auto simp: compatible_vals_def elim: check_fv_cong[THEN iffD2, rotated])
 
+subsection \<open>Latest Relevant Time-Point\<close>
+
+fun LRTP :: "('n, 'd) formula \<Rightarrow> nat \<Rightarrow> nat option" where
+  "LRTP \<top> i = Some i"
+| "LRTP \<bottom> i = Some i"
+| "LRTP (_ \<dagger> _) i = Some i"
+| "LRTP (_ \<^bold>\<approx> _) i = Some i"
+| "LRTP (\<not>\<^sub>F \<phi>) i = LRTP \<phi> i"
+| "LRTP (\<phi> \<or>\<^sub>F \<psi>) i = max_opt (LRTP \<phi> i) (LRTP \<psi> i)"
+| "LRTP (\<phi> \<and>\<^sub>F \<psi>) i = max_opt (LRTP \<phi> i) (LRTP \<psi> i)"
+| "LRTP (\<phi> \<longrightarrow>\<^sub>F \<psi>) i = max_opt (LRTP \<phi> i) (LRTP \<psi> i)"
+| "LRTP (\<phi> \<longleftrightarrow>\<^sub>F \<psi>) i = max_opt (LRTP \<phi> i) (LRTP \<psi> i)"
+| "LRTP (\<exists>\<^sub>F_. \<phi>) i = LRTP \<phi> i"
+| "LRTP (\<forall>\<^sub>F_. \<phi>) i = LRTP \<phi> i"
+| "LRTP (\<^bold>Y I \<phi>) i = LRTP \<phi> (i-1)"
+| "LRTP (\<^bold>X I \<phi>) i = LRTP \<phi> (i+1)"
+| "LRTP (\<^bold>P I \<phi>) i = LRTP \<phi> (LTP_p_safe \<sigma> i I)"
+| "LRTP (\<^bold>H I \<phi>) i = LRTP \<phi> (LTP_p_safe \<sigma> i I)"
+| "LRTP (\<^bold>F I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<phi> (LTP_f \<sigma> i b))"
+| "LRTP (\<^bold>G I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<phi> (LTP_f \<sigma> i b))" 
+| "LRTP (\<phi> \<^bold>S I \<psi>) i = max_opt (LRTP \<phi> i) (LRTP \<psi> (LTP_p_safe \<sigma> i I))"
+| "LRTP (\<phi> \<^bold>U I \<psi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> max_opt (LRTP \<phi> ((LTP_f \<sigma> i b)-1)) (LRTP \<psi> (LTP_f \<sigma> i b)))"
+
+lemma fb_LRTP: 
+  assumes "future_bounded \<phi>"
+  shows "\<not> Option.is_none (LRTP \<phi> i)"
+  using assms
+  by (induction \<phi> i rule: LRTP.induct) 
+    (auto simp add: max_opt_def Option.is_none_def)
+
+lemma not_none_fb_LRTP:
+  assumes "future_bounded \<phi>"
+  shows "LRTP \<phi> i \<noteq> None"
+  using assms fb_LRTP by (auto simp add: Option.is_none_def)
+
+lemma is_some_fb_LRTP:
+  assumes "future_bounded \<phi>"
+  shows "\<exists>j. LRTP \<phi> i = Some j"
+  using assms fb_LRTP by (auto simp add: Option.is_none_def)
+
+lemma enat_trans[simp]: "enat i \<le> enat j \<and> enat j \<le> enat k \<Longrightarrow> enat i \<le> enat k"
+  by auto
+
+subsection \<open>Active Domain\<close>
+
+definition AD :: "('n, 'd) formula \<Rightarrow> nat \<Rightarrow> 'd set"
+  where "AD \<phi> i = consts \<phi> \<union> (\<Union> k \<le> the (LRTP \<phi> i). \<Union> (set ` snd ` \<Gamma> \<sigma> k))"
+
+lemma val_in_AD_iff:
+  "x \<in> fv \<phi> \<Longrightarrow> v x \<in> AD \<phi> i \<longleftrightarrow> v x \<in> consts \<phi> \<or>
+  (\<exists>r ts k. k \<le> the (LRTP \<phi> i) \<and> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<in> \<Gamma> \<sigma> k \<and> x \<in> \<Union> (set (map fv_trm ts)))"
+  unfolding AD_def Un_iff UN_iff Bex_def atMost_iff set_map
+    ex_comm[of "P :: _ \<Rightarrow> nat \<Rightarrow> _" for P] ex_simps image_iff
+proof (safe intro!: arg_cong[of _ _ "\<lambda>x. _ \<or> x"] ex_cong, unfold snd_conv, goal_cases LR RL)
+  case (LR i _ r ds)
+  then show ?case
+    by (intro exI[of _ r] conjI
+        exI[of _ "map (\<lambda>d. if v x = d then (\<^bold>v x) else \<^bold>c d) ds"])
+      (auto simp: eval_trms_def o_def map_idI)
+next
+  case (RL i r ts t)
+  then show ?case
+    by (intro exI[of _ "v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>"] conjI)
+      (auto simp: eval_trms_def image_iff in_fv_trm_conv intro!: bexI[of _ t])
+qed
+
+lemma val_notin_AD_iff:
+  "x \<in> fv \<phi> \<Longrightarrow> v x \<notin> AD \<phi> i \<longleftrightarrow> v x \<notin> consts \<phi> \<and>
+    (\<forall>r ts k. k \<le> the (LRTP \<phi> i) \<and> x \<in> \<Union> (set (map fv_trm ts)) \<longrightarrow> (r, v\<^bold>\<lbrakk>ts\<^bold>\<rbrakk>) \<notin> \<Gamma> \<sigma> k)"
+  using val_in_AD_iff by blast
+
+lemma finite_values: "finite (\<Union> (set ` snd ` \<Gamma> \<sigma> k))"
+  by (transfer, auto simp add: sfinite_def)
+
+lemma finite_tps: "future_bounded \<phi> \<Longrightarrow> finite (\<Union> k < the (LRTP \<phi> i). {k})"
+  using fb_LRTP[of \<phi>] finite_enat_bounded
+  by simp
+
+lemma finite_AD [simp]: "future_bounded \<phi> \<Longrightarrow> finite (AD \<phi> i)"
+  using finite_tps finite_values
+  by (simp add: AD_def enat_def)
+
+lemma finite_AD_UNIV:
+  assumes "future_bounded \<phi>" and "AD \<phi> i = (UNIV:: 'd set)"
+  shows "finite (UNIV::'d set)"
+proof -
+  have "finite (AD \<phi> i)"
+    using finite_AD[of \<phi> i, OF assms(1)] by simp
+  then show ?thesis
+    using assms(2) by simp
+qed
+
+subsection \<open>Congruence Modulo Active Domain\<close>
+
 lemma AD_simps[simp]:
   "AD (\<not>\<^sub>F \<phi>) i = AD \<phi> i"
   "future_bounded (\<phi> \<or>\<^sub>F \<psi>) \<Longrightarrow> AD (\<phi> \<or>\<^sub>F \<psi>) i = AD \<phi> i \<union> AD \<psi> i"
@@ -2019,7 +2056,7 @@ proof (rule Max_mono)
     by (metis i_le_LTPi_add le_Suc_ex mem_Collect_eq)
 qed (auto simp: assms intro!: exI[of _ i] elim: order_trans)
 
-lemma LRTP_mono: "future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> the (LRTP \<sigma> \<phi> i) \<le> the (LRTP \<sigma> \<phi> j)"
+lemma LRTP_mono: "future_bounded \<phi> \<Longrightarrow> i \<le> j \<Longrightarrow> the (LRTP \<phi> i) \<le> the (LRTP \<phi> j)"
 proof (induct \<phi> arbitrary: i j)
   case (Or \<phi>1 \<phi>2)
   from Or(1,2)[of i j] Or(3-) show ?case
@@ -2161,7 +2198,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
     then show ?thesis
     proof (cases f)
       case (Historically I \<phi>)
-      { fix sp :: "'d sproof"
+      { fix sp :: "('n, 'd) sproof"
         define l and u where "l = s_at sp" and "u = LTP_p \<sigma> i I"
         assume *: "sp \<in> set sps" "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
         then have u_def: "u = LTP_p_safe \<sigma> i I"
@@ -2206,7 +2243,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
     then show ?thesis
     proof (cases f)
       case (Always I \<phi>)
-      { fix sp :: "'d sproof"
+      { fix sp :: "('n, 'd) sproof"
         define l and u where "l = s_at sp" and "u = LTP_f \<sigma> i (the_enat (right I))"
         assume *: "sp \<in> set sps"
         then obtain j where j: "sp = sps ! j" "j < length sps"
@@ -2229,7 +2266,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
     then show ?thesis
     proof (cases f)
       case (Since \<phi> I \<psi>)
-      { fix sp :: "'d sproof"
+      { fix sp :: "('n, 'd) sproof"
         define l where "l = s_at sp"
         assume *: "sp \<in> set sps"
         from *(1) obtain j where j: "sp = sps ! j" "j < length sps"
@@ -2266,7 +2303,7 @@ proof (induction v \<phi> sp and v \<phi> vp arbitrary: i v' and i v' rule: s_ch
     then show ?thesis
     proof (cases f)
       case (Until \<phi> I \<psi>)
-      { fix sp :: "'d sproof"
+      { fix sp :: "('n, 'd) sproof"
         define l where "l = s_at sp"
         assume *: "sp \<in> set sps"
         from *(1) obtain j where j: "sp = sps ! j" "j < length sps"
@@ -2378,7 +2415,7 @@ next
     then show ?thesis
     proof (cases f)
       case (Once I \<phi>)
-      { fix vp :: "'d vproof"
+      { fix vp :: "('n, 'd) vproof"
         define l and u where "l = v_at vp" and "u = LTP_p \<sigma> i I"
         assume *: "vp \<in> set vps" "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
         then have u_def: "u = LTP_p_safe \<sigma> i I"
@@ -2425,7 +2462,7 @@ next
     then show ?thesis
     proof (cases f)
       case (Eventually I \<phi>)
-      { fix vp :: "'d vproof"
+      { fix vp :: "('n, 'd) vproof"
         define l and u where "l = v_at vp" and "u = LTP_f \<sigma> i (the_enat (right I))"
         assume *: "vp \<in> set vps"
         then obtain j where j: "vp = vps ! j" "j < length vps"
@@ -2464,7 +2501,7 @@ next
     then show ?thesis
     proof (cases f)
       case (Since \<phi> I \<psi>)
-      { fix sp :: "'d vproof"
+      { fix sp :: "('n, 'd) vproof"
         define l and u where "l = v_at sp" and "u = LTP_p \<sigma> i I"
         assume *: "sp \<in> set vps" "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
         then have u_def: "u = LTP_p_safe \<sigma> i I"
@@ -2499,7 +2536,7 @@ next
     then show ?thesis
     proof (cases f)
       case (Since \<phi> I \<psi>)
-      { fix vp :: "'d vproof"
+      { fix vp :: "('n, 'd) vproof"
         define l and u where "l = v_at vp" and "u = LTP_p \<sigma> i I"
         assume *: "vp \<in> set vps" "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i"
         then have u_def: "u = LTP_p_safe \<sigma> i I"
@@ -2528,7 +2565,7 @@ next
     then show ?thesis
     proof (cases f)
       case (Until \<phi> I \<psi>)
-      { fix sp :: "'d vproof"
+      { fix sp :: "('n, 'd) vproof"
         define l and u where "l = v_at sp" and "u = v_at vp'"
         assume *: "sp \<in> set vps" "v_at vp' \<le> LTP_f \<sigma> i (the_enat (right I))"
         from *(1) obtain j where j: "sp = vps ! j" "j < length vps"
@@ -2560,7 +2597,7 @@ next
     then show ?thesis
     proof (cases f)
       case (Until \<phi> I \<psi>)
-      { fix vp :: "'d vproof"
+      { fix vp :: "('n, 'd) vproof"
         define l and u where "l = v_at vp" and "u = LTP_f \<sigma> i (the_enat (right I))"
         assume *: "vp \<in> set vps"
         then obtain j where j: "vp = vps ! j" "j < length vps"
@@ -2580,6 +2617,8 @@ next
     qed auto
   qed (cases f; simp_all)+
 qed
+
+subsection \<open>Checker Completeness\<close>
 
 lemma part_hd_tabulate: "distinct xs \<Longrightarrow> part_hd (tabulate xs f z) = (case xs of [] \<Rightarrow> z | (x # _) \<Rightarrow> (if set xs = UNIV then f x else z))"
   by (transfer, auto split: list.splits)
@@ -3096,7 +3135,7 @@ lemmas check_completeness =
 definition "p_check v \<phi> p = (case p of Inl sp \<Rightarrow> s_check v \<phi> sp | Inr vp \<Rightarrow> v_check v \<phi> vp)"
 definition "p_check_exec vs \<phi> p = (case p of Inl sp \<Rightarrow> s_check_exec vs \<phi> sp | Inr vp \<Rightarrow> v_check_exec vs \<phi> vp)"
 
-definition valid :: "'d envset \<Rightarrow> nat \<Rightarrow> 'd formula \<Rightarrow> 'd proof \<Rightarrow> bool" where
+definition valid :: "('n, 'd) envset \<Rightarrow> nat \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) proof \<Rightarrow> bool" where
   "valid vs i \<phi> p =
     (case p of
       Inl p \<Rightarrow> s_check_exec vs \<phi> p \<and> s_at p = i
@@ -3104,6 +3143,178 @@ definition valid :: "'d envset \<Rightarrow> nat \<Rightarrow> 'd formula \<Righ
 
 end
 
+subsection \<open>Lifting the Checker to PDTs\<close>
+
+fun check_one where
+  "check_one \<sigma> v \<phi> (Leaf p) = p_check \<sigma> v \<phi> p"
+| "check_one \<sigma> v \<phi> (Node x part) = check_one \<sigma> v \<phi> (lookup_part part (v x))"
+
+fun check_all_aux where
+  "check_all_aux \<sigma> vs \<phi> (Leaf p) = p_check_exec \<sigma> vs \<phi> p"
+| "check_all_aux \<sigma> vs \<phi> (Node x part) = (\<forall>(D, e) \<in> set (subsvals part). check_all_aux \<sigma> (vs(x := D)) \<phi> e)"
+
+fun collect_paths_aux where
+  "collect_paths_aux DS \<sigma> vs \<phi> (Leaf p) = (if p_check_exec \<sigma> vs \<phi> p then {} else rev ` DS)"
+| "collect_paths_aux DS \<sigma> vs \<phi> (Node x part) = (\<Union>(D, e) \<in> set (subsvals part). collect_paths_aux (Cons D ` DS) \<sigma> (vs(x := D)) \<phi> e)"
+
+lemma check_one_cong: "\<forall>x\<in>fv \<phi> \<union> vars e. v x = v' x \<Longrightarrow> check_one \<sigma> v \<phi> e = check_one \<sigma> v' \<phi> e"
+proof (induct e arbitrary: v v')
+  case (Leaf x)
+  then show ?case
+    by (auto simp: p_check_def check_fv_cong split: sum.splits)
+next
+  case (Node x part)
+  from Node(2) have *: "v x = v' x"
+    by simp
+  from Node(2) show ?case
+    unfolding check_one.simps *
+    by (intro Node(1)) auto
+qed
+
+lemma check_all_aux_check_one: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> distinct_paths e \<Longrightarrow> (\<forall>x \<in> vars e. vs x = UNIV) \<Longrightarrow>
+  check_all_aux \<sigma> vs \<phi> e \<longleftrightarrow> (\<forall>v \<in> compatible_vals (fv \<phi>) vs. check_one \<sigma> v \<phi> e)"
+proof (induct e arbitrary: vs)
+  case (Node x part)
+  show ?case
+    unfolding check_all_aux.simps check_one.simps split_beta
+  proof (safe, unfold fst_conv snd_conv, goal_cases LR RL)
+    case (LR v)
+    from Node(2-) fst_lookup[of "v x" part] LR(1)[rule_format, OF lookup_subsvals[of _ "v x"]] LR(2) show ?case
+      by (subst (asm) Node(1))
+         (auto 0 3 simp: compatible_vals_fun_upd dest!: bspec[of _ _ v]
+            elim!: compatible_vals_antimono[THEN set_mp, rotated])
+  next
+    case (RL D e)
+    from RL(2) obtain d where "d \<in> D"
+      by transfer (force simp: partition_on_def image_iff)
+    with RL show ?case
+      using Node(2-) lookup_subsvals[of part d] lookup_part_Vals[of part d]
+        lookup_part_from_subvals[of D e part d]
+    proof (intro Node(1)[THEN iffD2, OF _ _ _ _ ballI], goal_cases _ _ _ _ compatible)
+      case (compatible v)
+      from compatible(2-) compatible(1)[THEN bspec, of "v(x := d)"] compatible(1)[THEN bspec, of v]
+      show ?case
+        using lookup_part_from_subvals[of D e part "v x"]
+          fun_upd_in_compatible_vals_in[of v "fv \<phi>" x vs "v x"]
+          check_one_cong[THEN iffD1, rotated -1, of \<sigma> "v(x := d)" \<phi> e v, simplified]
+        by (auto simp: compatible_vals_fun_upd fun_upd_apply[of _ _ _ x]
+          fun_upd_in_compatible_vals_notin split: if_splits
+          simp del: fun_upd_apply)
+    qed auto
+  qed
+qed (auto simp: p_check_exec_def p_check_def check_exec_check split: sum.splits)
+
+definition check_all :: "('n, 'd :: {default, linorder}) trace \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) expl \<Rightarrow> bool" where
+  "check_all \<sigma> \<phi> e = (distinct_paths e \<and> check_all_aux \<sigma> (\<lambda>_. UNIV) \<phi> e)"
+
+lemma check_one_alt: "check_one \<sigma> v \<phi> e = p_check \<sigma> v \<phi> (eval_pdt v e)"
+  by (induct e) auto
+
+lemma check_all_alt: "check_all \<sigma> \<phi> e = (distinct_paths e \<and> (\<forall>v. p_check \<sigma> v \<phi> (eval_pdt v e)))"
+  unfolding check_all_def
+  by (rule conj_cong[OF refl], subst check_all_aux_check_one)
+    (auto simp: compatible_vals_def check_one_alt)
+
+fun pdt_at where
+  "pdt_at i (Leaf l) = (p_at l = i)"
+| "pdt_at i (Node x part) = (\<forall>pdt \<in> Vals part. pdt_at i pdt)"
+
+lemma pdt_at_p_at_eval_pdt: "pdt_at i e \<Longrightarrow> p_at (eval_pdt v e) = i"
+  by (induct e) auto
+
+lemma check_all_completeness_aux:
+  fixes \<phi> :: "('n, 'd :: {default, linorder}) formula"
+  shows "set vs \<subseteq> fv \<phi> \<Longrightarrow> future_bounded \<phi> \<Longrightarrow> distinct vs \<Longrightarrow>
+  \<exists>e. pdt_at i e \<and> vars_order vs e \<and> (\<forall>v. (\<forall>x. x \<notin> set vs \<longrightarrow> v x = w x) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v e))"
+proof (induct vs arbitrary: w)
+  case Nil
+  then show ?case
+  proof (cases "sat \<sigma> w i \<phi>")
+    case True
+    then have "SAT \<sigma> w i \<phi>" by (rule completeness)
+    with Nil obtain sp where "s_at sp = i" "s_check \<sigma> w \<phi> sp" by (blast dest: check_completeness)
+    then show ?thesis
+      by (intro exI[of _ "Leaf (Inl sp)"]) (auto simp: vars_order.intros p_check_def p_at_def)
+  next
+    case False
+    then have "VIO \<sigma> w i \<phi>" by (rule completeness)
+    with Nil obtain vp where "v_at vp = i" "v_check \<sigma> w \<phi> vp" by (blast dest: check_completeness)
+    then show ?thesis
+      by (intro exI[of _ "Leaf (Inr vp)"]) (auto simp: vars_order.intros p_check_def p_at_def)
+  qed
+next
+  case (Cons x vs)
+  define eq :: "('n \<Rightarrow> 'd) \<Rightarrow> ('n \<Rightarrow> 'd) \<Rightarrow> bool" where "eq = rel_fun (eq_onp (\<lambda>x. x \<notin> set vs)) (=)"
+  from Cons have "\<forall>w. \<exists>e. pdt_at i e \<and> vars_order vs e \<and>
+    (\<forall>v. (\<forall>x. x \<notin> set vs \<longrightarrow> v x = w x) \<longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v e))" by simp
+  then obtain pick :: "'d \<Rightarrow> ('n, 'd) expl" where pick: "pdt_at i (pick a)" "vars_order vs (pick a)" and
+    eq_pick: "\<And>v. eq v (w(x := a)) \<Longrightarrow> p_check \<sigma> v \<phi> (eval_pdt v (pick a))" for a
+    unfolding eq_def rel_fun_def eq_onp_def choice_iff
+  proof (atomize_elim, elim exE, goal_cases pick_val)
+    case (pick_val f)
+    then show ?case
+      by (auto intro!: exI[of _ "\<lambda>a. f (w(x := a))"])
+  qed
+  let ?a = "SOME z. z \<notin> AD \<sigma> \<phi> i"
+  let ?AD = "sorted_list_of_set (AD \<sigma> \<phi> i)"
+  show ?case
+  proof (intro exI[of _ "Node x (tabulate ?AD pick (pick ?a))"] conjI allI impI,
+    goal_cases pdt_at vars_order p_check)
+    case (p_check w')
+    have "w' x \<notin> AD \<sigma> \<phi> i \<Longrightarrow> ?a \<notin> AD \<sigma> \<phi> i"
+      by (metis some_eq_imp)
+    moreover have "eq (w'(x := ?a)) (w(x := ?a))"
+      using p_check by (auto simp: eq_def rel_fun_def eq_onp_def)
+    moreover have "eq w' (w(x := w' x))"
+      using p_check by (auto simp: eq_def rel_fun_def eq_onp_def)
+    ultimately show ?case
+      using pick Cons(2-) eq_pick[of w' "w' x"] eq_pick[of "w'(x := ?a)" ?a]
+        pdt_at_p_at_eval_pdt[of "i" "pick ?a" w'] eval_pdt_fun_upd[of vs "pick ?a" x w' ?a]
+      by (auto simp: p_check_def p_at_def
+        elim!: check_AD_cong[THEN iffD1, rotated -1, of _ _ _ _ _ i]
+        split: if_splits sum.splits sum.splits)
+  qed (use Cons(2-) pick in \<open>simp_all add: vars_order.intros\<close>)
+qed
+
+lemma check_all_completeness:
+  fixes \<phi> :: "('n, 'd :: {default, linorder}) formula"
+  assumes "future_bounded \<phi>"
+  shows "\<exists>e. pdt_at i e \<and> check_all \<sigma> \<phi> e"
+proof -
+  obtain vs where vs[simp]: "distinct vs" "set vs = fv \<phi>"
+    by (meson finite_distinct_list finite_fv)
+  have s: "s_check \<sigma> v \<phi> sp"
+    if "vars_order vs e"
+    and "\<forall>v. (\<forall>sp. eval_pdt v e = Inl sp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> s_check \<sigma> v \<phi> sp) \<and>
+             (\<forall>vp. eval_pdt v e = Inr vp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> v_check \<sigma> v \<phi> vp)"
+    and "eval_pdt v e = Inl sp" for e v sp
+    using that eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+      check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+    by (auto dest!: spec[of _ sp] vars_order_vars simp: subset_eq)
+  have v: "v_check \<sigma> v \<phi> vp"
+    if "vars_order vs e"
+    and "\<forall>v. (\<forall>sp. eval_pdt v e = Inl sp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> s_check \<sigma> v \<phi> sp) \<and>
+             (\<forall>vp. eval_pdt v e = Inr vp \<longrightarrow> (\<exists>x. x \<notin> fv \<phi> \<and> v x \<noteq> undefined) \<or> v_check \<sigma> v \<phi> vp)"
+    and "eval_pdt v e = Inr vp" for e v vp
+    using that eval_pdt_cong[of e v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+      check_fv_cong[of \<phi> v "\<lambda>x. if x \<in> fv \<phi> then v x else undefined"]
+    by (auto dest!: spec[of _ vp] vars_order_vars simp: subset_eq)
+  show ?thesis
+    using check_all_completeness_aux[of vs \<phi> i "\<lambda>_. undefined" \<sigma>] assms
+    unfolding check_all_alt p_check_def
+    by (auto elim!: exI [where P = "\<lambda>x. _ x \<and> _ x" , OF conjI] simp: vars_order_distinct_paths split: sum.splits intro: s v)
+qed
+
+lemma check_all_soundness_aux: "check_all \<sigma> \<phi> e \<Longrightarrow> p = eval_pdt v e \<Longrightarrow> isl p \<longleftrightarrow> sat \<sigma> v (p_at p) \<phi>"
+  unfolding check_all_alt
+  by (auto simp: isl_def p_check_def p_at_def dest!: spec[of _ v]
+    dest: check_soundness soundness split: sum.splits)
+
+lemma check_all_soundness: "check_all \<sigma> \<phi> e \<Longrightarrow> pdt_at i e \<Longrightarrow> isl (eval_pdt v e) \<longleftrightarrow> sat \<sigma> v i \<phi>"
+  by (drule check_all_soundness_aux[OF _ refl, of _ _ _ v]) (auto simp: pdt_at_p_at_eval_pdt)
+
 unbundle MFOTL_no_notation \<comment> \<open> disable notation \<close>
 
+(*<*)
 end
+(*>*)

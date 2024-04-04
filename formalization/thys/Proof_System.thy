@@ -4,274 +4,13 @@ theory Proof_System
 begin
 (*>*)
 
+section \<open>Proof System\<close>
+
 unbundle MFOTL_notation
 
 context begin
 
-section \<open>Proof System\<close>
-
-text \<open>latest relevant time-point\<close>
-
-fun LRTP :: "'a trace \<Rightarrow> 'a formula \<Rightarrow> nat \<Rightarrow> nat option" where
-  "LRTP \<sigma> \<top> i = Some i"
-| "LRTP \<sigma> \<bottom> i = Some i"
-| "LRTP \<sigma> (_ \<dagger> _) i = Some i"
-| "LRTP \<sigma> (_ \<^bold>\<approx> _) i = Some i"
-| "LRTP \<sigma> (\<not>\<^sub>F \<phi>) i = LRTP \<sigma> \<phi> i"
-| "LRTP \<sigma> (\<phi> \<or>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (\<phi> \<and>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (\<phi> \<longrightarrow>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (\<phi> \<longleftrightarrow>\<^sub>F \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> i)"
-| "LRTP \<sigma> (\<exists>\<^sub>F_. \<phi>) i = LRTP \<sigma> \<phi> i"
-| "LRTP \<sigma> (\<forall>\<^sub>F_. \<phi>) i = LRTP \<sigma> \<phi> i"
-| "LRTP \<sigma> (\<^bold>Y I \<phi>) i = LRTP \<sigma> \<phi> (i-1)"
-| "LRTP \<sigma> (\<^bold>X I \<phi>) i = LRTP \<sigma> \<phi> (i+1)"
-| "LRTP \<sigma> (\<^bold>P I \<phi>) i = LRTP \<sigma> \<phi> (LTP_p_safe \<sigma> i I)"
-| "LRTP \<sigma> (\<^bold>H I \<phi>) i = LRTP \<sigma> \<phi> (LTP_p_safe \<sigma> i I)"
-| "LRTP \<sigma> (\<^bold>F I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<sigma> \<phi> (LTP_f \<sigma> i b))"
-| "LRTP \<sigma> (\<^bold>G I \<phi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> LRTP \<sigma> \<phi> (LTP_f \<sigma> i b))" 
-| "LRTP \<sigma> (\<phi> \<^bold>S I \<psi>) i = max_opt (LRTP \<sigma> \<phi> i) (LRTP \<sigma> \<psi> (LTP_p_safe \<sigma> i I))"
-| "LRTP \<sigma> (\<phi> \<^bold>U I \<psi>) i = (case right I of \<infinity> \<Rightarrow> None | enat b \<Rightarrow> max_opt (LRTP \<sigma> \<phi> ((LTP_f \<sigma> i b)-1)) (LRTP \<sigma> \<psi> (LTP_f \<sigma> i b)))"
-
-lemma fb_LRTP: 
-  assumes "future_bounded \<phi>"
-  shows "\<not> Option.is_none (LRTP \<sigma> \<phi> i)"
-  using assms
-  by (induction \<sigma> \<phi> i rule: LRTP.induct) 
-    (auto simp add: max_opt_def Option.is_none_def)
-
-lemma not_none_fb_LRTP:
-  assumes "future_bounded \<phi>"
-  shows "LRTP \<sigma> \<phi> i \<noteq> None"
-  using assms fb_LRTP by (auto simp add: Option.is_none_def)
-
-lemma is_some_fb_LRTP:
-  assumes "future_bounded \<phi>"
-  shows "\<exists>j. LRTP \<sigma> \<phi> i = Some j"
-  using assms fb_LRTP by (auto simp add: Option.is_none_def)
-
-lemma i_ETP_tau: "i \<ge> ETP \<sigma> n \<longleftrightarrow> \<tau> \<sigma> i \<ge> n"
-proof
-  assume P: "i \<ge> ETP \<sigma> n"
-  define j where j_def: "j \<equiv> ETP \<sigma> n"
-  then have i_j: "\<tau> \<sigma> i \<ge> \<tau> \<sigma> j" using P by auto
-  from j_def have "\<tau> \<sigma> j \<ge> n"
-    unfolding ETP_def using LeastI_ex ex_le_\<tau> by force
-  then show "\<tau> \<sigma> i \<ge> n" using i_j by auto
-next
-  assume Q: "\<tau> \<sigma> i \<ge> n"
-  then show "ETP \<sigma> n \<le> i" unfolding ETP_def
-    by (auto simp add: Least_le)
-qed
-
-lemma tau_LTP_k: 
-  assumes "\<tau> \<sigma> 0 \<le> n" "LTP \<sigma> n < k"
-  shows "\<tau> \<sigma> k > n"
-proof -
-  have "finite {i. \<tau> \<sigma> i \<le> n}"
-    by (rule ccontr, unfold infinite_nat_iff_unbounded_le mem_Collect_eq)
-      (metis Suc_le_eq i_ETP_tau  leD)
-  thm Suc_le_eq i_ETP_tau infinite_nat_iff_unbounded_le leD mem_Collect_eq
-  then show ?thesis
-    using assms(2) Max.coboundedI linorder_not_less
-    unfolding LTP_def by auto
-qed
-
-lemma i_LTP_tau:
-  assumes n_asm: "n \<ge> \<tau> \<sigma> 0"
-  shows "(i \<le> LTP \<sigma> n \<longleftrightarrow> \<tau> \<sigma> i \<le> n)"
-proof
-  define A and j where A_def: "A \<equiv> {i. \<tau> \<sigma> i \<le> n}" and j_def: "j \<equiv> LTP \<sigma> n"
-  assume P: "i \<le> LTP \<sigma> n"
-  from n_asm A_def have A_ne: "A \<noteq> {}" by auto
-  from j_def have i_j: "\<tau> \<sigma> i \<le> \<tau> \<sigma> j" using P by auto
-  have not_in: "k \<notin> A" if "j < k" for k
-    using n_asm that tau_LTP_k leD
-    unfolding A_def j_def by blast
-  then have "A \<subseteq> {0..<Suc j}"
-    using assms not_less_eq
-    unfolding A_def j_def 
-    by fastforce
-  then have fin_A: "finite A"
-    using subset_eq_atLeast0_lessThan_finite[of A "Suc j"]
-    by simp
-  from A_ne j_def have "\<tau> \<sigma> j \<le> n"
-    using Max_in[of A] A_def fin_A 
-    unfolding LTP_def 
-    by simp
-  then show "\<tau> \<sigma> i \<le> n" using i_j by auto
-next
-  define A and j where A_def: "A \<equiv> {i. \<tau> \<sigma> i \<le> n}" and j_def: "j \<equiv> LTP \<sigma> n"
-  assume Q: "\<tau> \<sigma> i \<le> n" 
-  have not_in: "k \<notin> A" if "j < k" for k
-    using n_asm that tau_LTP_k leD
-    unfolding A_def j_def by blast
-  then have "A \<subseteq> {0..<Suc j}"
-    using assms not_less_eq
-    unfolding A_def j_def 
-    by fastforce
-  then have fin_A: "finite A"
-    using subset_eq_atLeast0_lessThan_finite[of A "Suc j"]
-    by simp
-  moreover have "i \<in> A" using Q A_def by auto
-  ultimately show "i \<le> LTP \<sigma> n" 
-    using Max_ge[of A] A_def 
-    unfolding LTP_def
-    by auto
-qed
-
-lemma ETP_\<delta>: "i \<ge> ETP \<sigma> (\<tau> \<sigma> l + n) \<Longrightarrow> \<delta> \<sigma> i l \<ge> n"
-proof -
-  assume P: "i \<ge> ETP \<sigma> (\<tau> \<sigma> l + n)"
-  then have "\<tau> \<sigma> i \<ge> \<tau> \<sigma> l + n" by (auto simp add: i_ETP_tau)
-  then show ?thesis by auto
-qed
-
-lemma ETP_ge: "ETP \<sigma> (\<tau> \<sigma> l + n + 1) > l"
-proof -
-  define j where j_def: "j \<equiv> \<tau> \<sigma> l + n + 1"
-  then have etp_j: "\<tau> \<sigma> (ETP \<sigma> j) \<ge> j" unfolding ETP_def
-    using LeastI_ex ex_le_\<tau> by force
-  then have "\<tau> \<sigma> (ETP \<sigma> j) > \<tau> \<sigma> l" using j_def by auto
-  then show ?thesis using j_def less_\<tau>D by blast
-qed
-
-lemma i_le_LTPi: "i \<le> LTP \<sigma> (\<tau> \<sigma> i)"
-  using \<tau>_mono i_LTP_tau[of \<sigma> "\<tau> \<sigma> i" i]
-  by auto
-
-lemma i_le_LTPi_add: "i \<le> LTP \<sigma> (\<tau> \<sigma> i + n)"
-  using i_le_LTPi
-  by (simp add: add_increasing2 i_LTP_tau)
-
-lemma i_le_LTPi_minus:
-  assumes "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i" "i > 0" "n > 0"
-  shows "LTP \<sigma> (\<tau> \<sigma> i - n) < i"
-  unfolding LTP_def
-proof (subst Max_less_iff; (intro ballI; elim CollectE)?)
-  show "finite {j. \<tau> \<sigma> j \<le> \<tau> \<sigma> i - n}"
-    unfolding finite_nat_set_iff_bounded_le
-  proof (intro exI[of _ i], safe)
-    fix j
-    assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i - n"
-    with assms(1,3) show "j \<le> i"
-      by (metis add_leD2 add_strict_increasing le_add_diff_inverse less_\<tau>D less_or_eq_imp_le)
-  qed
-next
-  from assms(1) show "{j. \<tau> \<sigma> j \<le> \<tau> \<sigma> i - n} \<noteq> {}"
-    by (auto simp: le_diff_conv2)
-next
-  fix j
-  assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i - n"
-  with assms(1,3) show "j < i"
-    by (metis add_leD2 add_strict_increasing le_add_diff_inverse less_\<tau>D)
-qed
-
-lemma i_ge_etpi: "ETP \<sigma> (\<tau> \<sigma> i) \<le> i"
-  using i_ETP_tau by auto
-
-lemma enat_trans[simp]: "enat i \<le> enat j \<and> enat j \<le> enat k \<Longrightarrow> enat i \<le> enat k"
-  by auto
-
-lemma not_sat_SinceD:
-  assumes unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>S I \<psi>" and
-    witness: "\<exists>j \<le> i. mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
-  shows "\<exists>j \<le> i. ETP \<sigma> (case right I of \<infinity> \<Rightarrow> 0 | enat n \<Rightarrow> \<tau> \<sigma> i - n) \<le> j \<and> \<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>
-  \<and> (\<forall>k \<in> {j .. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}. \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
-proof -
-  define A and j where A_def: "A \<equiv> {j. j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>}"
-    and j_def: "j \<equiv> Max A"
-  from witness have j: "j \<le> i" "\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>" "mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I"
-    using Max_in[of A] unfolding j_def[symmetric] unfolding A_def
-    by auto
-  moreover
-  from j(3) have "ETP \<sigma> (case right I of enat n \<Rightarrow> \<tau> \<sigma> i - n | \<infinity> \<Rightarrow> 0) \<le> j"
-    unfolding ETP_def by (intro Least_le) (auto split: enat.splits)
-  moreover
-  { fix j
-    assume j: "\<tau> \<sigma> j \<le> \<tau> \<sigma> i"
-    then obtain k where k: "\<tau> \<sigma> i < \<tau> \<sigma> k"
-      by (meson ex_le_\<tau> gt_ex less_le_trans)
-    have "j \<le> ETP \<sigma> (Suc (\<tau> \<sigma> i))"
-      unfolding ETP_def
-    proof (intro LeastI2[of _ k "\<lambda>i. j \<le> i"])
-      fix l
-      assume "Suc (\<tau> \<sigma> i) \<le> \<tau> \<sigma> l"
-      with j show "j \<le> l"
-        by (metis lessI less_\<tau>D nless_le order_less_le_trans)
-    qed (auto simp: Suc_le_eq k(1))
-  } note * = this
-  { fix k
-    assume "k \<in> {j <.. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}"
-    with j(3) have k: "j < k" "k \<le> i" "k \<le> Max {j. left I + \<tau> \<sigma> j \<le> \<tau> \<sigma> i}"
-      by (auto simp: LTP_def le_diff_conv2 add.commute)
-    with j(3) obtain l where "left I + \<tau> \<sigma> l \<le> \<tau> \<sigma> i" "k \<le> l"
-      by (subst (asm) Max_ge_iff) (auto simp: le_diff_conv2 *
-          intro!: finite_subset[of _ "{0 .. ETP \<sigma> (\<tau> \<sigma> i + 1)}"])
-    then have "mem (\<tau> \<sigma> i - \<tau> \<sigma> k) I"
-      using k(1,2) j(3)
-      by (cases "right I") (auto simp: le_diff_conv le_diff_conv2 add.commute dest: \<tau>_mono
-         elim: order_trans[rotated] order_trans)
-    with Max_ge[of A k] k have "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>"
-      unfolding j_def[symmetric] unfolding A_def
-      by auto
-  }
-  ultimately show ?thesis using unsat
-    by (auto dest!: spec[of _ j])
-qed
-
-lemma min_not_in: "finite A \<Longrightarrow> A \<noteq> {} \<Longrightarrow> x < Min A \<Longrightarrow> x \<notin> A"
-  by auto
-
-lemma not_sat_UntilD:
-  assumes unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>U I \<psi>"
-    and witness: "\<exists>j \<ge> i. mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
-  shows "\<exists>j \<ge> i. (case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> j < LTP \<sigma> (\<tau> \<sigma> i + n))
-  \<and> \<not> (\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>) \<and> (\<forall>k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) .. j}.
-   \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
-proof -
-  from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
-  from witness obtain jmax where jmax: "jmax \<ge> i" "\<langle>\<sigma>, v, jmax\<rangle> \<Turnstile> \<psi>"
-    "mem (\<delta> \<sigma> jmax i) I" by blast
-  define A and j where A_def: "A \<equiv> {j. j \<ge> i \<and> j \<le> jmax
-  \<and> mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>}" and j_def: "j \<equiv> Min A"
-  have j: "j \<ge> i" "\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>" "mem (\<delta> \<sigma> j i) I"
-    using A_def j_def jmax Min_in[of A]
-    unfolding j_def[symmetric] unfolding A_def
-    by fastforce+
-  moreover have "case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> j \<le> LTP \<sigma> (\<tau> \<sigma> i + n)"
-    using i0 j(1,3)
-    by (auto simp: i_LTP_tau trans_le_add1 split: enat.splits)
-  moreover
-  { fix k
-    assume k_def: "k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) ..< j}"
-    then have ki: "\<tau> \<sigma> k \<ge> \<tau> \<sigma> i + left I" using i_ETP_tau by auto
-    with k_def have kj: "k < j" by auto
-    then have "\<tau> \<sigma> k \<le> \<tau> \<sigma> j" by auto
-    then have "\<delta> \<sigma> k i \<le> \<delta> \<sigma> j i" by auto
-    with this j(3) have "enat (\<delta> \<sigma> k i) \<le> right I"
-      by (meson enat_ord_simps(1) order_subst2)
-    with this ki j(3) have mem_k: "mem (\<delta> \<sigma> k i) I"
-      unfolding ETP_def by (auto simp: Least_le)
-
-    with j_def have "j \<le> jmax" using Min_in[of A]
-      using jmax A_def
-      by (metis (mono_tags, lifting) Collect_empty_eq
-          finite_nat_set_iff_bounded_le mem_Collect_eq order_refl)
-    with this k_def have kjm: "k \<le> jmax" by auto
-
-    with this mem_k ki Min_le[of A k] min_not_in[of A k] k_def have "k \<notin> A"
-      unfolding j_def[symmetric] unfolding A_def unfolding ETP_def
-      using finite_nat_set_iff_bounded_le kj by blast
-    with this mem_k k_def kjm have "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>"
-      by (simp add: A_def) }
-  ultimately show ?thesis using unsat
-    by (auto split: enat.splits dest!: spec[of _ j])
-qed
-
-subsection \<open>Soundness and Completeness\<close>
-
-inductive SAT and VIO :: "'a trace \<Rightarrow> 'a env \<Rightarrow> nat \<Rightarrow> 'a formula \<Rightarrow> bool" for \<sigma> where
+inductive SAT and VIO :: "('n, 'd) trace \<Rightarrow> ('n, 'd) env \<Rightarrow> nat \<Rightarrow> ('n, 'd) formula \<Rightarrow> bool" for \<sigma> where
   STT: "SAT \<sigma> v i TT"
 | VFF: "VIO \<sigma> v i FF"
 | SPred: "(r, eval_trms v ts) \<in> \<Gamma> \<sigma> i \<Longrightarrow> SAT \<sigma> v i (Pred r ts)"
@@ -346,6 +85,101 @@ inductive SAT and VIO :: "'a trace \<Rightarrow> 'a env \<Rightarrow> nat \<Righ
 | VUntilInf: "(\<And>k. k \<in> (case right I of \<infinity> \<Rightarrow> {ETP_f \<sigma> i I ..} 
                          | enat b \<Rightarrow> {ETP_f \<sigma> i I .. LTP_f \<sigma> i b}) \<Longrightarrow> VIO \<sigma> v k \<psi>) \<Longrightarrow>
               VIO \<sigma> v i (\<phi> \<^bold>U I \<psi>)"
+
+subsection \<open>Soundness and Completeness\<close>
+
+lemma not_sat_SinceD:
+  assumes unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>S I \<psi>" and
+    witness: "\<exists>j \<le> i. mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
+  shows "\<exists>j \<le> i. ETP \<sigma> (case right I of \<infinity> \<Rightarrow> 0 | enat n \<Rightarrow> \<tau> \<sigma> i - n) \<le> j \<and> \<not> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>
+  \<and> (\<forall>k \<in> {j .. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}. \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
+proof -
+  define A and j where A_def: "A \<equiv> {j. j \<le> i \<and> mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>}"
+    and j_def: "j \<equiv> Max A"
+  from witness have j: "j \<le> i" "\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>" "mem (\<tau> \<sigma> i - \<tau> \<sigma> j) I"
+    using Max_in[of A] unfolding j_def[symmetric] unfolding A_def
+    by auto
+  moreover
+  from j(3) have "ETP \<sigma> (case right I of enat n \<Rightarrow> \<tau> \<sigma> i - n | \<infinity> \<Rightarrow> 0) \<le> j"
+    unfolding ETP_def by (intro Least_le) (auto split: enat.splits)
+  moreover
+  { fix j
+    assume j: "\<tau> \<sigma> j \<le> \<tau> \<sigma> i"
+    then obtain k where k: "\<tau> \<sigma> i < \<tau> \<sigma> k"
+      by (meson ex_le_\<tau> gt_ex less_le_trans)
+    have "j \<le> ETP \<sigma> (Suc (\<tau> \<sigma> i))"
+      unfolding ETP_def
+    proof (intro LeastI2[of _ k "\<lambda>i. j \<le> i"])
+      fix l
+      assume "Suc (\<tau> \<sigma> i) \<le> \<tau> \<sigma> l"
+      with j show "j \<le> l"
+        by (metis lessI less_\<tau>D nless_le order_less_le_trans)
+    qed (auto simp: Suc_le_eq k(1))
+  } note * = this
+  { fix k
+    assume "k \<in> {j <.. (min i (LTP \<sigma> (\<tau> \<sigma> i - left I)))}"
+    with j(3) have k: "j < k" "k \<le> i" "k \<le> Max {j. left I + \<tau> \<sigma> j \<le> \<tau> \<sigma> i}"
+      by (auto simp: LTP_def le_diff_conv2 add.commute)
+    with j(3) obtain l where "left I + \<tau> \<sigma> l \<le> \<tau> \<sigma> i" "k \<le> l"
+      by (subst (asm) Max_ge_iff) (auto simp: le_diff_conv2 *
+          intro!: finite_subset[of _ "{0 .. ETP \<sigma> (\<tau> \<sigma> i + 1)}"])
+    then have "mem (\<tau> \<sigma> i - \<tau> \<sigma> k) I"
+      using k(1,2) j(3)
+      by (cases "right I") (auto simp: le_diff_conv le_diff_conv2 add.commute dest: \<tau>_mono
+         elim: order_trans[rotated] order_trans)
+    with Max_ge[of A k] k have "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>"
+      unfolding j_def[symmetric] unfolding A_def
+      by auto
+  }
+  ultimately show ?thesis using unsat
+    by (auto dest!: spec[of _ j])
+qed
+
+lemma not_sat_UntilD:
+  assumes unsat: "\<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi> \<^bold>U I \<psi>"
+    and witness: "\<exists>j \<ge> i. mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>"
+  shows "\<exists>j \<ge> i. (case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> j < LTP \<sigma> (\<tau> \<sigma> i + n))
+  \<and> \<not> (\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<phi>) \<and> (\<forall>k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) .. j}.
+   \<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>)"
+proof -
+  from \<tau>_mono have i0: "\<tau> \<sigma> 0 \<le> \<tau> \<sigma> i" by auto
+  from witness obtain jmax where jmax: "jmax \<ge> i" "\<langle>\<sigma>, v, jmax\<rangle> \<Turnstile> \<psi>"
+    "mem (\<delta> \<sigma> jmax i) I" by blast
+  define A and j where A_def: "A \<equiv> {j. j \<ge> i \<and> j \<le> jmax
+  \<and> mem (\<delta> \<sigma> j i) I \<and> \<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>}" and j_def: "j \<equiv> Min A"
+  have j: "j \<ge> i" "\<langle>\<sigma>, v, j\<rangle> \<Turnstile> \<psi>" "mem (\<delta> \<sigma> j i) I"
+    using A_def j_def jmax Min_in[of A]
+    unfolding j_def[symmetric] unfolding A_def
+    by fastforce+
+  moreover have "case right I of \<infinity> \<Rightarrow> True | enat n \<Rightarrow> j \<le> LTP \<sigma> (\<tau> \<sigma> i + n)"
+    using i0 j(1,3)
+    by (auto simp: i_LTP_tau trans_le_add1 split: enat.splits)
+  moreover
+  { fix k
+    assume k_def: "k \<in> {(max i (ETP \<sigma> (\<tau> \<sigma> i + left I))) ..< j}"
+    then have ki: "\<tau> \<sigma> k \<ge> \<tau> \<sigma> i + left I" using i_ETP_tau by auto
+    with k_def have kj: "k < j" by auto
+    then have "\<tau> \<sigma> k \<le> \<tau> \<sigma> j" by auto
+    then have "\<delta> \<sigma> k i \<le> \<delta> \<sigma> j i" by auto
+    with this j(3) have "enat (\<delta> \<sigma> k i) \<le> right I"
+      by (meson enat_ord_simps(1) order_subst2)
+    with this ki j(3) have mem_k: "mem (\<delta> \<sigma> k i) I"
+      unfolding ETP_def by (auto simp: Least_le)
+
+    with j_def have "j \<le> jmax" using Min_in[of A]
+      using jmax A_def
+      by (metis (mono_tags, lifting) Collect_empty_eq
+          finite_nat_set_iff_bounded_le mem_Collect_eq order_refl)
+    with this k_def have kjm: "k \<le> jmax" by auto
+
+    with this mem_k ki Min_le[of A k] k_def have "k \<notin> A"
+      unfolding j_def[symmetric] unfolding A_def unfolding ETP_def
+      using finite_nat_set_iff_bounded_le kj leD by blast
+    with this mem_k k_def kjm have "\<not> \<langle>\<sigma>, v, k\<rangle> \<Turnstile> \<psi>"
+      by (simp add: A_def) }
+  ultimately show ?thesis using unsat
+    by (auto split: enat.splits dest!: spec[of _ j])
+qed
 
 lemma soundness_raw: "(SAT \<sigma> v i \<phi> \<longrightarrow> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi>) \<and> (VIO \<sigma> v i \<phi> \<longrightarrow> \<not> \<langle>\<sigma>, v, i\<rangle> \<Turnstile> \<phi>)"
 proof (induct v i \<phi> rule: SAT_VIO.induct)
@@ -688,7 +522,6 @@ qed (auto intro: SAT_VIO.intros)
 
 lemmas completeness = completeness_raw[THEN conjunct1, THEN mp] completeness_raw[THEN conjunct2, THEN mp]
 
-
 lemma SAT_or_VIO: "SAT \<sigma> v i \<phi> \<or> VIO \<sigma> v i \<phi>"
   using completeness[of \<sigma> v i \<phi>] by auto
 
@@ -696,4 +529,6 @@ end
 
 unbundle MFOTL_no_notation
 
+(*<*)
 end
+(*>*)

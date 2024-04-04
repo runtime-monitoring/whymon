@@ -4,9 +4,9 @@ theory Trace
 begin
 (*>*)
 
-section \<open>Traces and trace prefixes\<close>
+section \<open>Traces and Trace Prefixes\<close>
 
-subsection \<open>Infinite traces\<close>
+subsection \<open>Infinite Traces\<close>
 
 coinductive ssorted :: "'a :: linorder stream \<Rightarrow> bool" where
   "shd s \<le> shd (stl s) \<Longrightarrow> ssorted (stl s) \<Longrightarrow> ssorted s"
@@ -128,7 +128,7 @@ lemma less_\<tau>D: "\<tau> \<sigma> i < \<tau> \<sigma> j \<Longrightarrow> i <
 
 abbreviation "\<Delta> s i \<equiv> \<tau> s i - \<tau> s (i - 1)"
 
-subsection \<open>Finite trace prefixes\<close>
+subsection \<open>Finite Trace Prefixes\<close>
 
 typedef 'a prefix = "{p :: ('a set \<times> nat) list. sorted (map snd p)}"
   by (auto intro!: exI[of _ "[]"])
@@ -305,7 +305,7 @@ lift_definition pts :: "'a prefix \<Rightarrow> nat list" is "map snd" .
 lemma pts_pmap_\<Gamma>[simp]: "pts (pmap_\<Gamma> f \<pi>) = pts \<pi>"
   by (transfer fixing: f) (simp add: split_beta)
 
-subsection \<open>Time-stamp-time-point Conversion\<close>
+subsection \<open>Earliest and Latest Time-Points\<close>
 
 definition ETP:: "'a trace \<Rightarrow> nat \<Rightarrow> nat"  where
   "ETP \<sigma> t = (LEAST i. \<tau> \<sigma> i \<ge> t)"
@@ -324,6 +324,126 @@ definition max_opt where
   "max_opt a b = (case (a,b) of (Some x, Some y) \<Rightarrow> Some (max x y) | _ \<Rightarrow> None)"
 
 definition "LTP_p_safe \<sigma> i I = (if \<tau> \<sigma> i - left I \<ge> \<tau> \<sigma> 0 then LTP_p \<sigma> i I else 0)"
+
+lemma i_ETP_tau: "i \<ge> ETP \<sigma> n \<longleftrightarrow> \<tau> \<sigma> i \<ge> n"
+proof
+  assume P: "i \<ge> ETP \<sigma> n"
+  define j where j_def: "j \<equiv> ETP \<sigma> n"
+  then have i_j: "\<tau> \<sigma> i \<ge> \<tau> \<sigma> j" using P by auto
+  from j_def have "\<tau> \<sigma> j \<ge> n"
+    unfolding ETP_def using LeastI_ex ex_le_\<tau> by force
+  then show "\<tau> \<sigma> i \<ge> n" using i_j by auto
+next
+  assume Q: "\<tau> \<sigma> i \<ge> n"
+  then show "ETP \<sigma> n \<le> i" unfolding ETP_def
+    by (auto simp add: Least_le)
+qed
+
+lemma tau_LTP_k: 
+  assumes "\<tau> \<sigma> 0 \<le> n" "LTP \<sigma> n < k"
+  shows "\<tau> \<sigma> k > n"
+proof -
+  have "finite {i. \<tau> \<sigma> i \<le> n}"
+    by (rule ccontr, unfold infinite_nat_iff_unbounded_le mem_Collect_eq)
+      (metis Suc_le_eq i_ETP_tau  leD)
+  thm Suc_le_eq i_ETP_tau infinite_nat_iff_unbounded_le leD mem_Collect_eq
+  then show ?thesis
+    using assms(2) Max.coboundedI linorder_not_less
+    unfolding LTP_def by auto
+qed
+
+lemma i_LTP_tau:
+  assumes n_asm: "n \<ge> \<tau> \<sigma> 0"
+  shows "(i \<le> LTP \<sigma> n \<longleftrightarrow> \<tau> \<sigma> i \<le> n)"
+proof
+  define A and j where A_def: "A \<equiv> {i. \<tau> \<sigma> i \<le> n}" and j_def: "j \<equiv> LTP \<sigma> n"
+  assume P: "i \<le> LTP \<sigma> n"
+  from n_asm A_def have A_ne: "A \<noteq> {}" by auto
+  from j_def have i_j: "\<tau> \<sigma> i \<le> \<tau> \<sigma> j" using P by auto
+  have not_in: "k \<notin> A" if "j < k" for k
+    using n_asm that tau_LTP_k leD
+    unfolding A_def j_def by blast
+  then have "A \<subseteq> {0..<Suc j}"
+    using assms not_less_eq
+    unfolding A_def j_def 
+    by fastforce
+  then have fin_A: "finite A"
+    using subset_eq_atLeast0_lessThan_finite[of A "Suc j"]
+    by simp
+  from A_ne j_def have "\<tau> \<sigma> j \<le> n"
+    using Max_in[of A] A_def fin_A 
+    unfolding LTP_def 
+    by simp
+  then show "\<tau> \<sigma> i \<le> n" using i_j by auto
+next
+  define A and j where A_def: "A \<equiv> {i. \<tau> \<sigma> i \<le> n}" and j_def: "j \<equiv> LTP \<sigma> n"
+  assume Q: "\<tau> \<sigma> i \<le> n" 
+  have not_in: "k \<notin> A" if "j < k" for k
+    using n_asm that tau_LTP_k leD
+    unfolding A_def j_def by blast
+  then have "A \<subseteq> {0..<Suc j}"
+    using assms not_less_eq
+    unfolding A_def j_def 
+    by fastforce
+  then have fin_A: "finite A"
+    using subset_eq_atLeast0_lessThan_finite[of A "Suc j"]
+    by simp
+  moreover have "i \<in> A" using Q A_def by auto
+  ultimately show "i \<le> LTP \<sigma> n" 
+    using Max_ge[of A] A_def 
+    unfolding LTP_def
+    by auto
+qed
+
+lemma ETP_\<delta>: "i \<ge> ETP \<sigma> (\<tau> \<sigma> l + n) \<Longrightarrow> \<delta> \<sigma> i l \<ge> n"
+proof -
+  assume P: "i \<ge> ETP \<sigma> (\<tau> \<sigma> l + n)"
+  then have "\<tau> \<sigma> i \<ge> \<tau> \<sigma> l + n" by (auto simp add: i_ETP_tau)
+  then show ?thesis by auto
+qed
+
+lemma ETP_ge: "ETP \<sigma> (\<tau> \<sigma> l + n + 1) > l"
+proof -
+  define j where j_def: "j \<equiv> \<tau> \<sigma> l + n + 1"
+  then have etp_j: "\<tau> \<sigma> (ETP \<sigma> j) \<ge> j" unfolding ETP_def
+    using LeastI_ex ex_le_\<tau> by force
+  then have "\<tau> \<sigma> (ETP \<sigma> j) > \<tau> \<sigma> l" using j_def by auto
+  then show ?thesis using j_def less_\<tau>D by blast
+qed
+
+lemma i_le_LTPi: "i \<le> LTP \<sigma> (\<tau> \<sigma> i)"
+  using \<tau>_mono i_LTP_tau[of \<sigma> "\<tau> \<sigma> i" i]
+  by auto
+
+lemma i_le_LTPi_add: "i \<le> LTP \<sigma> (\<tau> \<sigma> i + n)"
+  using i_le_LTPi
+  by (simp add: add_increasing2 i_LTP_tau)
+
+lemma i_le_LTPi_minus:
+  assumes "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i" "i > 0" "n > 0"
+  shows "LTP \<sigma> (\<tau> \<sigma> i - n) < i"
+  unfolding LTP_def
+proof (subst Max_less_iff; (intro ballI; elim CollectE)?)
+  show "finite {j. \<tau> \<sigma> j \<le> \<tau> \<sigma> i - n}"
+    unfolding finite_nat_set_iff_bounded_le
+  proof (intro exI[of _ i], safe)
+    fix j
+    assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i - n"
+    with assms(1,3) show "j \<le> i"
+      by (metis add_leD2 add_strict_increasing le_add_diff_inverse less_\<tau>D less_or_eq_imp_le)
+  qed
+next
+  from assms(1) show "{j. \<tau> \<sigma> j \<le> \<tau> \<sigma> i - n} \<noteq> {}"
+    by (auto simp: le_diff_conv2)
+next
+  fix j
+  assume "\<tau> \<sigma> j \<le> \<tau> \<sigma> i - n"
+  with assms(1,3) show "j < i"
+    by (metis add_leD2 add_strict_increasing le_add_diff_inverse less_\<tau>D)
+qed
+
+lemma i_ge_etpi: "ETP \<sigma> (\<tau> \<sigma> i) \<le> i"
+  using i_ETP_tau by auto
 
 (*<*)
 end

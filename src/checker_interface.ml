@@ -11,7 +11,7 @@ open Base
 open Etc
 open Expl
 open Formula
-open Checker.Whymon
+open Checker.Checker
 
 module Fdeque = Core.Fdeque
 
@@ -21,7 +21,7 @@ let enat_of_integer i = Enat (nat_of_integer i)
 
 module Checker_interface = struct
 
-  type proof = (event_data sproof, event_data vproof) sum
+  type proof = ((string, event_data) sproof, (string, event_data) vproof) sum
   type trace = (string set * nat) list
   type trace_lst = (timestamp * (Db.Event.t, Db.Event.comparator_witness) Set.t) list
 
@@ -61,7 +61,7 @@ module Checker_interface = struct
     let part_lst = List.map part ~f:(fun (coset, vp) ->
                        (to_fset coset, convert_vp vp)) in
     abs_part (part_lst)
-  and convert_sp (sp: Proof.sp) : (event_data sproof) = match sp with
+  and convert_sp (sp: Proof.sp) : ((string, event_data) sproof) = match sp with
     | STT tp -> STT (nat_of_int tp)
     | SEqConst (tp, x, c) -> SEq_Const (nat_of_int tp, x, to_event_data c)
     | SPred (tp, s, trms) -> SPred (nat_of_int tp, s, List.map trms ~f:convert_term)
@@ -92,7 +92,7 @@ module Checker_interface = struct
     | SUntil (sp2, sp1s) ->
        let sp1s' = List.rev(Fdeque.fold sp1s ~init:[] ~f:(fun acc sp1 -> (convert_sp sp1)::acc)) in
        SUntil (sp1s', convert_sp sp2)
-  and convert_vp (vp: Proof.vp) : (event_data vproof) = match vp with
+  and convert_vp (vp: Proof.vp) : ((string, event_data) vproof) = match vp with
     | VFF tp -> VFF (nat_of_int tp)
     | VEqConst (tp, x, c) -> VEq_Const (nat_of_int tp, x, to_event_data c)
     | VPred (tp, s, trms) -> VPred (nat_of_int tp, s, List.map trms ~f:convert_term)
@@ -407,7 +407,7 @@ end
 
 module Checker_pdt = struct
 
-  type t = (event_data, (event_data sproof, event_data vproof) sum) pdt
+  type t = (event_data, ((string, event_data) sproof, (string, event_data) vproof) sum, string) pdt
 
   let rec to_string indent = function
     | Leaf pt -> Printf.sprintf "%s Leaf (%s)\n%s" indent (Checker_proof.to_string "" pt) indent

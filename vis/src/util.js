@@ -408,8 +408,9 @@ export function monospacedStringWidth(str) {
 
   let specialOccurrences = (str.match(/[,[\]().]/g) || []).length;
   let regularOccurrences = (str.match(/[^,[\]().]/g) || []).length;
+  let offset = str.length < 6 ? 7 : 0;
 
-  return (7 * specialOccurrences) + (10 * regularOccurrences);
+  return (7 * specialOccurrences) + (10 * regularOccurrences) + offset;
 
 }
 

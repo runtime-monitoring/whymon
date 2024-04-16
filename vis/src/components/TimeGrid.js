@@ -92,11 +92,13 @@ function TimeGrid ({ columns,
     Math.max(acc, (11.5*(pred.length))), 50
   );
 
+  const predsWidthOffset = predsWidth < 100 ? 6 : 0;
+
   const predsGridColumns = columns.preds.slice(0).map((p, i) =>
     ({
       field: i.toString(),
       headerName: p,
-      width: predsWidth,
+      width: predsWidth + predsWidthOffset,
       sortable: false,
       renderHeader: () => <PresentFormula formula={p}
                                           predsWidth={monospacedStringWidth(p)}
@@ -166,6 +168,8 @@ function TimeGrid ({ columns,
     Math.max(acc, (12*(subf.length))), 50
   );
 
+  const subfsWidthOffset = subfsWidth < 100 ? 6 : 0;
+
   const subfsWidthArray = columns.subfs.map(subf => {
     if (subf.length === 1) {
       return 14;
@@ -199,7 +203,7 @@ function TimeGrid ({ columns,
           }
         }
       },
-      width: subfsWidth,
+      width: subfsWidth + subfsWidthOffset,
       sortable: false,
       renderHeader: () => {
         let backgroundColorClass;

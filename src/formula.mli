@@ -8,6 +8,7 @@
 (*  Leonardo Lima (UCPH)                                           *)
 (*******************************************************************)
 
+open Base
 open Pred
 
 type t =
@@ -67,6 +68,6 @@ val preds: t -> t list
 val pred_names: t -> (string, Base.String.comparator_witness) Base.Set.t
 
 val op_to_string: t -> string
-val to_string: t -> string
+val to_string: bool -> t -> string
 val to_json: t -> string
 val to_latex: t -> string

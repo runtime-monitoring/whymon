@@ -56,6 +56,7 @@ export default function ExampleSelect ({ setFormState }) {
             <MenuItem value={"data-race"}>Data Race</MenuItem>
             <MenuItem value={"nokia-del-2-3"}>Database Deletion Propagation</MenuItem>
             <MenuItem value={"three-attempts"}>Three Login Attempts</MenuItem>
+            <MenuItem value={"canonical"}>Canonical</MenuItem>
           </Select>
         </FormControl>
       </div>

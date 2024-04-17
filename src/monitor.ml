@@ -1578,12 +1578,6 @@ let mstep mode vars ts db (ms: MState.t) =
    ; tsdbs = tsdbs })
 
 let exec mode measure f inc =
-  let bar ~total =
-    let open Progress.Line in
-    list [ spinner (); bar total; count_to total ] in
-  let total = match mode with
-    | Out.Plain.LIGHT -> Etc.compute_lines !Etc.inc_prog_ref
-    | _ -> 0 in
   let vars = Set.elements (Formula.fv f) in
   let out tstp_expls (ms: MState.t) =
     match mode with
@@ -1606,22 +1600,9 @@ let exec mode measure f inc =
     | Processed pb -> let (tstp_expls, ms) = mstep mode vars pb.ts pb.db ms in
                       out tstp_expls ms;
                       step (Some(pb)) ms in
-  let rec step_progress pb_opt ms report =
-    match Other_parser.Trace.parse_from_channel inc pb_opt with
-    | Finished -> ()
-    | Skipped (pb, msg) -> Stdio.printf "The parser skipped an event because %s" msg;
-                           report 1;
-                           step_progress (Some(pb)) ms report
-    | Processed pb -> let (tstp_expls, ms) = mstep mode vars pb.ts pb.db ms in
-                      report 1;
-                      out tstp_expls ms;
-                      step_progress (Some(pb)) ms report in
   let mf = init f in
   let ms = MState.init mf in
-  (match mode with
-   | Out.Plain.LIGHT -> (Progress.with_reporter (bar total)
-                           (fun report -> step_progress None ms report))
-   | _ -> step None ms)
+  step None ms
 
 let exec_vis (ms_opt: MState.t option) f log =
   let vars = Set.elements (Formula.fv f) in

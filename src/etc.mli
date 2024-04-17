@@ -14,7 +14,6 @@ type timestamp = int
 
 val debug: bool ref
 val inc_ref: Stdio.In_channel.t ref
-val inc_prog_ref: Stdio.In_channel.t ref
 val outc_ref: Stdio.Out_channel.t ref
 
 val eat: string -> string -> string
@@ -46,5 +45,3 @@ val unquote: string -> string
 val escape_underscores: string -> string
 
 val fdeque_for_all2_exn: 'a Fdeque.t -> 'b Fdeque.t -> f:('a -> 'b -> bool) -> bool
-
-val compute_lines: Stdio.In_channel.t -> int

@@ -16,6 +16,7 @@ type timestamp = int
 
 let debug = ref false
 let inc_ref = ref Stdio.In_channel.stdin
+let inc_prog_ref = ref Stdio.In_channel.stdin
 let outc_ref = ref Stdio.Out_channel.stdout
 
 let eat s t = s ^ (String.strip t)
@@ -88,3 +89,10 @@ let rec fdeque_for_all2_exn d1 d2 ~f:((f : _ -> _ -> _)) =
   | None, None -> true
   | Some(a1, d1), Some(a2, d2) -> f a1 a2 && fdeque_for_all2_exn d1 d2 ~f
   | _, _ -> raise (Invalid_argument (Printf.sprintf "length mismatch in fdeque_for_all2_exn: %d <> %d" (Fdeque.length d1) (Fdeque.length d2)))
+
+let compute_lines inc =
+  let rec compute_lines_rec i =
+    match Stdio.In_channel.input_line inc with
+    | None -> i
+    | Some _ -> compute_lines_rec (i+1) in
+  compute_lines_rec 0

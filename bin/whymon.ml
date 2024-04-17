@@ -73,6 +73,7 @@ module Whymon = struct
          process_args_rec args
       | ("-log" :: logf :: args) ->
          Etc.inc_ref := In_channel.create logf;
+         Etc.inc_prog_ref := In_channel.create logf;
          process_args_rec args
       | ("-logstr" :: logs :: args) ->
          logstr_ref := logs;

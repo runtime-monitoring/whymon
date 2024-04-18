@@ -1,6 +1,0 @@
-∃usr1. ∃usr2. ∃usr3. three_attempts(usr1,usr2,usr3,ip,ip,ip,"False") ↔
-  ∃usr1. ∃usr2. ∃usr3. attempt(usr1,ip,"False") ∧ ● ⧫ [0,300000] (
-    attempt(usr2,ip,"False") ∧ ● ⧫ [0,300000] (
-      attempt(usr3,ip,"False")
-    )
-  )

@@ -19,6 +19,10 @@ test/tmp/gen_fmla_full
 # example
 examples/all/nokia/all.log
 
+# tools
+tools/*.csv
+tools/*.log
+
 # misc
 *#*#
 *.bc*

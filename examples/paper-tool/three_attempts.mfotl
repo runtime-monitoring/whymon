@@ -1,3 +1,3 @@
-¬(∃usr. attempt(usr,ip1,"True") ∧
-   ● ⧫[0,30000] (attempt(usr,ip2,"False") ∧
-   ● ⧫[0,30000] attempt(usr,ip3,"False")))
+∃u. attempt(u,c1) ∧
+  ● ⧫[0,30] (attempt(u,c2) ∧
+    ● ⧫[0,30] attempt(u,c3))

@@ -1,1 +1,1 @@
-attempt(id:string, ip:string, logged:string, takeover:string)
+attempt(id:string, ip:string, logged:string)

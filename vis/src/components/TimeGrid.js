@@ -168,7 +168,7 @@ function TimeGrid ({ columns,
     Math.max(acc, (12*(subf.length))), 50
   );
 
-  const subfsWidthOffset = subfsWidth < 100 ? 6 : 0;
+  const subfsWidthOffset = subfsWidth < 100 ? (subfsWidth < 60 ? 12 : 6) : 0;
 
   const subfsWidthArray = columns.subfs.map(subf => {
     if (subf.length === 1) {
@@ -342,7 +342,7 @@ function TimeGrid ({ columns,
            '& .row--Highlighted': {
              bgcolor: amber[50],
              '&:hover': {
-               bgcolor: amber[50],
+               bgcolor: "#FFF8E0",
              },
            },
            '& .row--Plain': {
@@ -400,6 +400,7 @@ function TimeGrid ({ columns,
         disableSelectionOnClick
       />
       <Popover
+        /* elevation={0} */
         sx={{
           pointerEvents: 'none',
         }}

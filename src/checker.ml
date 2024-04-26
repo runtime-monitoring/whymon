@@ -1,113 +1,69 @@
-module Uint32 : sig
-  val less : int32 -> int32 -> bool
-  val less_eq : int32 -> int32 -> bool
-  val set_bit : int32 -> Z.t -> bool -> int32
-  val shiftl : int32 -> Z.t -> int32
-  val shiftr : int32 -> Z.t -> int32
-  val shiftr_signed : int32 -> Z.t -> int32
-  val test_bit : int32 -> Z.t -> bool
-end = struct
-
-(* negative numbers have their highest bit set, 
-   so they are greater than positive ones *)
-let less x y =
-  if Int32.compare x Int32.zero < 0 then
-    Int32.compare y Int32.zero < 0 && Int32.compare x y < 0
-  else Int32.compare y Int32.zero < 0 || Int32.compare x y < 0;;
-
-let less_eq x y =
-  if Int32.compare x Int32.zero < 0 then
-    Int32.compare y Int32.zero < 0 && Int32.compare x y <= 0
-  else Int32.compare y Int32.zero < 0 || Int32.compare x y <= 0;;
-
-let set_bit x n b =
-  let mask = Int32.shift_left Int32.one (Z.to_int n)
-  in if b then Int32.logor x mask
-     else Int32.logand x (Int32.lognot mask);;
-
-let shiftl x n = Int32.shift_left x (Z.to_int n);;
-
-let shiftr x n = Int32.shift_right_logical x (Z.to_int n);;
-
-let shiftr_signed x n = Int32.shift_right x (Z.to_int n);;
-
-let test_bit x n =
-  Int32.compare 
-    (Int32.logand x (Int32.shift_left Int32.one (Z.to_int n)))
-    Int32.zero
-  <> 0;;
-
-end;; (*struct Uint32*)
-
-module Integer_Bit : sig
-  val test_bit : Z.t -> Z.t -> bool
-  val shiftl : Z.t -> Z.t -> Z.t
-  val shiftr : Z.t -> Z.t -> Z.t
-end = struct
-
-(* We do not need an explicit range checks here,
-   because Big_int.int_of_big_int raises Failure
-   if the argument does not fit into an int. *)
-let test_bit x n =  Z.testbit x (Z.to_int n);;
-
-let shiftl x n = Z.shift_left x (Z.to_int n);;
-
-let shiftr x n = Z.shift_right x (Z.to_int n);;
-
-end;; (*struct Integer_Bit*)
-
-module Whymon : sig
+module Checker : sig
   type nat
   val integer_of_nat : nat -> Z.t
   type 'a set = Set of 'a list | Coset of 'a list
-  type 'a trm = Var of string | Const of 'a
+  type ('a, 'b) trm = Var of 'a | Const of 'b
   type event_data = EInt of Z.t | EString of string
   type 'a trace
   type ('a, 'b) sum = Inl of 'a | Inr of 'b
   type enat = Enat of nat | Infinity_enat
   type i
-  type 'a formula = TT | FF | Eq_Const of string * 'a |
-    Pred of string * 'a trm list | Neg of 'a formula |
-    Or of 'a formula * 'a formula | And of 'a formula * 'a formula |
-    Imp of 'a formula * 'a formula | Iff of 'a formula * 'a formula |
-    Exists of string * 'a formula | Forall of string * 'a formula |
-    Prev of i * 'a formula | Next of i * 'a formula | Once of i * 'a formula |
-    Historically of i * 'a formula | Eventually of i * 'a formula |
-    Always of i * 'a formula | Since of 'a formula * i * 'a formula |
-    Until of 'a formula * i * 'a formula
   type ('b, 'a) part
-  type ('a, 'b) pdt = Leaf of 'b | Node of string * ('a, ('a, 'b) pdt) part
-  type 'a sproof = STT of nat | SPred of nat * string * 'a trm list |
-    SEq_Const of nat * string * 'a | SNeg of 'a vproof | SOrL of 'a sproof |
-    SOrR of 'a sproof | SAnd of 'a sproof * 'a sproof | SImpL of 'a vproof |
-    SImpR of 'a sproof | SIffSS of 'a sproof * 'a sproof |
-    SIffVV of 'a vproof * 'a vproof | SExists of string * 'a * 'a sproof |
-    SForall of string * ('a, 'a sproof) part | SPrev of 'a sproof |
-    SNext of 'a sproof | SOnce of nat * 'a sproof |
-    SEventually of nat * 'a sproof | SHistorically of nat * nat * 'a sproof list
-    | SHistoricallyOut of nat | SAlways of nat * nat * 'a sproof list |
-    SSince of 'a sproof * 'a sproof list | SUntil of 'a sproof list * 'a sproof
-  and 'a vproof = VFF of nat | VPred of nat * string * 'a trm list |
-    VEq_Const of nat * string * 'a | VNeg of 'a sproof |
-    VOr of 'a vproof * 'a vproof | VAndL of 'a vproof | VAndR of 'a vproof |
-    VImp of 'a sproof * 'a vproof | VIffSV of 'a sproof * 'a vproof |
-    VIffVS of 'a vproof * 'a sproof | VExists of string * ('a, 'a vproof) part |
-    VForall of string * 'a * 'a vproof | VPrev of 'a vproof | VPrevZ |
-    VPrevOutL of nat | VPrevOutR of nat | VNext of 'a vproof | VNextOutL of nat
-    | VNextOutR of nat | VOnceOut of nat | VOnce of nat * nat * 'a vproof list |
-    VEventually of nat * nat * 'a vproof list | VHistorically of nat * 'a vproof
-    | VAlways of nat * 'a vproof | VSinceOut of nat |
-    VSince of nat * 'a vproof * 'a vproof list |
-    VSinceInf of nat * nat * 'a vproof list |
-    VUntil of nat * 'a vproof list * 'a vproof |
-    VUntilInf of nat * nat * 'a vproof list
-  val interval : nat -> enat -> i
+  type ('a, 'b, 'c) pdt = Leaf of 'b | Node of 'c * ('a, ('a, 'b, 'c) pdt) part
+  type ('a, 'b) formula = TT | FF | Eq_Const of 'a * 'b |
+    Pred of 'a * ('a, 'b) trm list | Neg of ('a, 'b) formula |
+    Or of ('a, 'b) formula * ('a, 'b) formula |
+    And of ('a, 'b) formula * ('a, 'b) formula |
+    Imp of ('a, 'b) formula * ('a, 'b) formula |
+    Iff of ('a, 'b) formula * ('a, 'b) formula | Exists of 'a * ('a, 'b) formula
+    | Forall of 'a * ('a, 'b) formula | Prev of i * ('a, 'b) formula |
+    Next of i * ('a, 'b) formula | Once of i * ('a, 'b) formula |
+    Historically of i * ('a, 'b) formula | Eventually of i * ('a, 'b) formula |
+    Always of i * ('a, 'b) formula |
+    Since of ('a, 'b) formula * i * ('a, 'b) formula |
+    Until of ('a, 'b) formula * i * ('a, 'b) formula
+  type ('a, 'b) sproof = STT of nat | SPred of nat * 'a * ('a, 'b) trm list |
+    SEq_Const of nat * 'a * 'b | SNeg of ('a, 'b) vproof |
+    SOrL of ('a, 'b) sproof | SOrR of ('a, 'b) sproof |
+    SAnd of ('a, 'b) sproof * ('a, 'b) sproof | SImpL of ('a, 'b) vproof |
+    SImpR of ('a, 'b) sproof | SIffSS of ('a, 'b) sproof * ('a, 'b) sproof |
+    SIffVV of ('a, 'b) vproof * ('a, 'b) vproof |
+    SExists of 'a * 'b * ('a, 'b) sproof |
+    SForall of 'a * ('b, ('a, 'b) sproof) part | SPrev of ('a, 'b) sproof |
+    SNext of ('a, 'b) sproof | SOnce of nat * ('a, 'b) sproof |
+    SEventually of nat * ('a, 'b) sproof |
+    SHistorically of nat * nat * ('a, 'b) sproof list | SHistoricallyOut of nat
+    | SAlways of nat * nat * ('a, 'b) sproof list |
+    SSince of ('a, 'b) sproof * ('a, 'b) sproof list |
+    SUntil of ('a, 'b) sproof list * ('a, 'b) sproof
+  and ('a, 'b) vproof = VFF of nat | VPred of nat * 'a * ('a, 'b) trm list |
+    VEq_Const of nat * 'a * 'b | VNeg of ('a, 'b) sproof |
+    VOr of ('a, 'b) vproof * ('a, 'b) vproof | VAndL of ('a, 'b) vproof |
+    VAndR of ('a, 'b) vproof | VImp of ('a, 'b) sproof * ('a, 'b) vproof |
+    VIffSV of ('a, 'b) sproof * ('a, 'b) vproof |
+    VIffVS of ('a, 'b) vproof * ('a, 'b) sproof |
+    VExists of 'a * ('b, ('a, 'b) vproof) part |
+    VForall of 'a * 'b * ('a, 'b) vproof | VPrev of ('a, 'b) vproof | VPrevZ |
+    VPrevOutL of nat | VPrevOutR of nat | VNext of ('a, 'b) vproof |
+    VNextOutL of nat | VNextOutR of nat | VOnceOut of nat |
+    VOnce of nat * nat * ('a, 'b) vproof list |
+    VEventually of nat * nat * ('a, 'b) vproof list |
+    VHistorically of nat * ('a, 'b) vproof | VAlways of nat * ('a, 'b) vproof |
+    VSinceOut of nat | VSince of nat * ('a, 'b) vproof * ('a, 'b) vproof list |
+    VSinceInf of nat * nat * ('a, 'b) vproof list |
+    VUntil of nat * ('a, 'b) vproof list * ('a, 'b) vproof |
+    VUntilInf of nat * nat * ('a, 'b) vproof list
   val part_hd : ('a, 'b) part -> 'b
   val subsvals : ('a, 'b) part -> ('a set * 'b) list
+  val interval : nat -> enat -> i
   val check :
     (string * event_data list) trace ->
-      event_data formula ->
-        (event_data, (event_data sproof, event_data vproof) sum) pdt -> bool
+      (string, event_data) formula ->
+        (event_data,
+          ((string, event_data) sproof, (string, event_data) vproof) sum,
+          string)
+          pdt ->
+          bool
   val ed_set : event_data list -> event_data set
   val sub_nat : nat -> nat -> nat
   val sum_nat : nat -> nat -> nat
@@ -117,8 +73,11 @@ module Whymon : sig
     (string * event_data list) list -> (string * event_data list) set
   val collect_paths_specialized :
     (string * event_data list) trace ->
-      event_data formula ->
-        (event_data, (event_data sproof, event_data vproof) sum) pdt ->
+      (string, event_data) formula ->
+        (event_data,
+          ((string, event_data) sproof, (string, event_data) vproof) sum,
+          string)
+          pdt ->
           (event_data set list) set option
   val trace_of_list_specialized :
     ((string * event_data list) set * nat) list ->
@@ -158,6 +117,9 @@ type 'a linorder = {order_linorder : 'a order};;
 
 let linorder_nat = ({order_linorder = order_nat} : nat linorder);;
 
+type 'a universe = {universe : ('a list) option};;
+let universe _A = _A.universe;;
+
 let rec list_all p x1 = match p, x1 with p, [] -> true
                    | p, x :: xs -> p x && list_all p xs;;
 
@@ -172,12 +134,11 @@ let rec member _A
   x xa1 = match x, xa1 with x, Coset xs -> not (membera _A xs x)
     | x, Set xs -> membera _A xs x;;
 
-type 'a nonunit = unit;;
-
-type 'a infinite = {nonunit_infinite : 'a nonunit};;
-
 let rec less_eq_set (_A1, _A2)
-  a b = match a, b with Coset xs, Set ys -> false
+  a b = match a, b with
+    Coset xs, Set ys ->
+      (match universe _A1 with None -> false
+        | Some a -> list_all (fun z -> membera _A2 xs z || membera _A2 ys z) a)
     | a, Coset ys -> list_all (fun y -> not (member _A2 y a)) ys
     | Set xs, b -> list_all (fun x -> member _A2 x b) xs;;
 
@@ -195,30 +156,41 @@ let rec equal_lista _A
 
 let rec equal_list _A = ({equal = equal_lista _A} : ('a list) equal);;
 
-let rec nonunit_list _A = (() : ('a list) nonunit);;
+let universe_lista : (('a list) list) option = None;;
 
-let rec infinite_list _A =
-  ({nonunit_infinite = (nonunit_list _A)} : ('a list) infinite);;
+let universe_list = ({universe = universe_lista} : ('a list) universe);;
 
-type 'a trm = Var of string | Const of 'a;;
+type ('a, 'b) trm = Var of 'a | Const of 'b;;
 
-let rec equal_trma _A x0 x1 = match x0, x1 with Var x1, Const x2 -> false
-                        | Const x2, Var x1 -> false
-                        | Const x2, Const y2 -> eq _A x2 y2
-                        | Var x1, Var y1 -> Stdlib.(=) x1 y1;;
+let rec equal_trma _A _B x0 x1 = match x0, x1 with Var x1, Const x2 -> false
+                           | Const x2, Var x1 -> false
+                           | Const x2, Const y2 -> eq _B x2 y2
+                           | Var x1, Var y1 -> eq _A x1 y1;;
 
-let rec equal_trm _A = ({equal = equal_trma _A} : 'a trm equal);;
+let rec equal_trm _A _B = ({equal = equal_trma _A _B} : ('a, 'b) trm equal);;
 
 let rec equal_proda _A _B (x1, x2) (y1, y2) = eq _A x1 y1 && eq _B x2 y2;;
 
 let rec equal_prod _A _B = ({equal = equal_proda _A _B} : ('a * 'b) equal);;
 
-let rec nonunit_prod _B = (() : ('a * 'b) nonunit);;
+let rec map f x1 = match f, x1 with f, [] -> []
+              | f, x21 :: x22 -> f x21 :: map f x22;;
 
-let rec infinite_prod _B =
-  ({nonunit_infinite = (nonunit_prod _B)} : ('a * 'b) infinite);;
+let rec product x0 uu = match x0, uu with [], uu -> []
+                  | x :: xs, ys -> map (fun a -> (x, a)) ys @ product xs ys;;
+
+let rec universe_proda _A _B
+  = (match (universe _A, universe _B) with (None, _) -> None
+      | (Some _, None) -> None | (Some xs, Some ys) -> Some (product xs ys));;
+
+let rec universe_prod _A _B =
+  ({universe = universe_proda _A _B} : ('a * 'b) universe);;
 
 let equal_string8 = ({equal = Stdlib.(=)} : string equal);;
+
+let universe_string8a : (string list) option = None;;
+
+let universe_string8 = ({universe = universe_string8a} : string universe);;
 
 let ord_integer = ({less_eq = Z.leq; less = Z.lt} : Z.t ord);;
 
@@ -261,19 +233,19 @@ let order_event_data =
 let linorder_event_data =
   ({order_linorder = order_event_data} : event_data linorder);;
 
-let nonunit_event_data = (() : event_data nonunit);;
+let universe_event_dataa : (event_data list) option = None;;
 
-let infinite_event_data =
-  ({nonunit_infinite = nonunit_event_data} : event_data infinite);;
+let universe_event_data =
+  ({universe = universe_event_dataa} : event_data universe);;
 
 type num = One | Bit0 of num | Bit1 of num;;
 
 type ('a, 'b) mapping = Mapping of ('a * 'b) list;;
 
-type 'a trace_rbt =
-  Abs_trace_rbt of (nat * (nat * (nat, ('a set * nat)) mapping));;
+type 'a trace_mapping =
+  Abs_trace_mapping of (nat * (nat * (nat, ('a set * nat)) mapping));;
 
-type 'a trace = Trace_RBT of 'a trace_rbt;;
+type 'a trace = Trace_Mapping of 'a trace_mapping;;
 
 type ('a, 'b) sum = Inl of 'a | Inr of 'b;;
 
@@ -281,44 +253,54 @@ type enat = Enat of nat | Infinity_enat;;
 
 type i = Abs_I of (nat * enat);;
 
-type 'a formula = TT | FF | Eq_Const of string * 'a |
-  Pred of string * 'a trm list | Neg of 'a formula |
-  Or of 'a formula * 'a formula | And of 'a formula * 'a formula |
-  Imp of 'a formula * 'a formula | Iff of 'a formula * 'a formula |
-  Exists of string * 'a formula | Forall of string * 'a formula |
-  Prev of i * 'a formula | Next of i * 'a formula | Once of i * 'a formula |
-  Historically of i * 'a formula | Eventually of i * 'a formula |
-  Always of i * 'a formula | Since of 'a formula * i * 'a formula |
-  Until of 'a formula * i * 'a formula;;
-
 type ('b, 'a) part = Abs_part of ('b set * 'a) list;;
 
-type ('a, 'b) pdt = Leaf of 'b | Node of string * ('a, ('a, 'b) pdt) part;;
+type ('a, 'b, 'c) pdt = Leaf of 'b | Node of 'c * ('a, ('a, 'b, 'c) pdt) part;;
 
-type 'a sproof = STT of nat | SPred of nat * string * 'a trm list |
-  SEq_Const of nat * string * 'a | SNeg of 'a vproof | SOrL of 'a sproof |
-  SOrR of 'a sproof | SAnd of 'a sproof * 'a sproof | SImpL of 'a vproof |
-  SImpR of 'a sproof | SIffSS of 'a sproof * 'a sproof |
-  SIffVV of 'a vproof * 'a vproof | SExists of string * 'a * 'a sproof |
-  SForall of string * ('a, 'a sproof) part | SPrev of 'a sproof |
-  SNext of 'a sproof | SOnce of nat * 'a sproof | SEventually of nat * 'a sproof
-  | SHistorically of nat * nat * 'a sproof list | SHistoricallyOut of nat |
-  SAlways of nat * nat * 'a sproof list | SSince of 'a sproof * 'a sproof list |
-  SUntil of 'a sproof list * 'a sproof
-and 'a vproof = VFF of nat | VPred of nat * string * 'a trm list |
-  VEq_Const of nat * string * 'a | VNeg of 'a sproof |
-  VOr of 'a vproof * 'a vproof | VAndL of 'a vproof | VAndR of 'a vproof |
-  VImp of 'a sproof * 'a vproof | VIffSV of 'a sproof * 'a vproof |
-  VIffVS of 'a vproof * 'a sproof | VExists of string * ('a, 'a vproof) part |
-  VForall of string * 'a * 'a vproof | VPrev of 'a vproof | VPrevZ |
-  VPrevOutL of nat | VPrevOutR of nat | VNext of 'a vproof | VNextOutL of nat |
-  VNextOutR of nat | VOnceOut of nat | VOnce of nat * nat * 'a vproof list |
-  VEventually of nat * nat * 'a vproof list | VHistorically of nat * 'a vproof |
-  VAlways of nat * 'a vproof | VSinceOut of nat |
-  VSince of nat * 'a vproof * 'a vproof list |
-  VSinceInf of nat * nat * 'a vproof list |
-  VUntil of nat * 'a vproof list * 'a vproof |
-  VUntilInf of nat * nat * 'a vproof list;;
+type ('a, 'b) formula = TT | FF | Eq_Const of 'a * 'b |
+  Pred of 'a * ('a, 'b) trm list | Neg of ('a, 'b) formula |
+  Or of ('a, 'b) formula * ('a, 'b) formula |
+  And of ('a, 'b) formula * ('a, 'b) formula |
+  Imp of ('a, 'b) formula * ('a, 'b) formula |
+  Iff of ('a, 'b) formula * ('a, 'b) formula | Exists of 'a * ('a, 'b) formula |
+  Forall of 'a * ('a, 'b) formula | Prev of i * ('a, 'b) formula |
+  Next of i * ('a, 'b) formula | Once of i * ('a, 'b) formula |
+  Historically of i * ('a, 'b) formula | Eventually of i * ('a, 'b) formula |
+  Always of i * ('a, 'b) formula |
+  Since of ('a, 'b) formula * i * ('a, 'b) formula |
+  Until of ('a, 'b) formula * i * ('a, 'b) formula;;
+
+type ('a, 'b) sproof = STT of nat | SPred of nat * 'a * ('a, 'b) trm list |
+  SEq_Const of nat * 'a * 'b | SNeg of ('a, 'b) vproof | SOrL of ('a, 'b) sproof
+  | SOrR of ('a, 'b) sproof | SAnd of ('a, 'b) sproof * ('a, 'b) sproof |
+  SImpL of ('a, 'b) vproof | SImpR of ('a, 'b) sproof |
+  SIffSS of ('a, 'b) sproof * ('a, 'b) sproof |
+  SIffVV of ('a, 'b) vproof * ('a, 'b) vproof |
+  SExists of 'a * 'b * ('a, 'b) sproof |
+  SForall of 'a * ('b, ('a, 'b) sproof) part | SPrev of ('a, 'b) sproof |
+  SNext of ('a, 'b) sproof | SOnce of nat * ('a, 'b) sproof |
+  SEventually of nat * ('a, 'b) sproof |
+  SHistorically of nat * nat * ('a, 'b) sproof list | SHistoricallyOut of nat |
+  SAlways of nat * nat * ('a, 'b) sproof list |
+  SSince of ('a, 'b) sproof * ('a, 'b) sproof list |
+  SUntil of ('a, 'b) sproof list * ('a, 'b) sproof
+and ('a, 'b) vproof = VFF of nat | VPred of nat * 'a * ('a, 'b) trm list |
+  VEq_Const of nat * 'a * 'b | VNeg of ('a, 'b) sproof |
+  VOr of ('a, 'b) vproof * ('a, 'b) vproof | VAndL of ('a, 'b) vproof |
+  VAndR of ('a, 'b) vproof | VImp of ('a, 'b) sproof * ('a, 'b) vproof |
+  VIffSV of ('a, 'b) sproof * ('a, 'b) vproof |
+  VIffVS of ('a, 'b) vproof * ('a, 'b) sproof |
+  VExists of 'a * ('b, ('a, 'b) vproof) part |
+  VForall of 'a * 'b * ('a, 'b) vproof | VPrev of ('a, 'b) vproof | VPrevZ |
+  VPrevOutL of nat | VPrevOutR of nat | VNext of ('a, 'b) vproof |
+  VNextOutL of nat | VNextOutR of nat | VOnceOut of nat |
+  VOnce of nat * nat * ('a, 'b) vproof list |
+  VEventually of nat * nat * ('a, 'b) vproof list |
+  VHistorically of nat * ('a, 'b) vproof | VAlways of nat * ('a, 'b) vproof |
+  VSinceOut of nat | VSince of nat * ('a, 'b) vproof * ('a, 'b) vproof list |
+  VSinceInf of nat * nat * ('a, 'b) vproof list |
+  VUntil of nat * ('a, 'b) vproof list * ('a, 'b) vproof |
+  VUntilInf of nat * nat * ('a, 'b) vproof list;;
 
 let rec plus_nat m n = Nat (Z.add (integer_of_nat m) (integer_of_nat n));;
 
@@ -355,15 +337,41 @@ let rec last (x :: xs) = (if null xs then x else last xs);;
 let rec maps f x1 = match f, x1 with f, [] -> []
                | f, x :: xs -> f x @ maps f xs;;
 
-let rec map f x1 = match f, x1 with f, [] -> []
-              | f, x21 :: x22 -> f x21 :: map f x22;;
-
 let rec image f (Set xs) = Set (map f xs);;
+
+let rec rep_trace_mapping (Abs_trace_mapping x) = x;;
+
+let bot_set : 'a set = Set [];;
+
+let rec the (Some x2) = x2;;
 
 let rec map_of _A
   x0 k = match x0, k with
     (l, v) :: ps, k -> (if eq _A l k then Some v else map_of _A ps k)
     | [], k -> None;;
+
+let rec lookup _A (Mapping xs) = map_of _A xs;;
+
+let rec trace_mapping_nth
+  xa = (let (n, (m, t)) = rep_trace_mapping xa in
+         (fun i ->
+           (if less_nat i n then the (lookup equal_nat t i)
+             else (bot_set, plus_nat (minus_nat i n) m))));;
+
+let rec snd (x1, x2) = x2;;
+
+let rec tau (Trace_Mapping t) i = snd (trace_mapping_nth t i);;
+
+let rec lTP_rec
+  sigma t i =
+    (if less_eq_nat (tau sigma (suc i)) t
+      then lTP_rec sigma t (plus_nat i one_nat) else i);;
+
+let rec ltp
+  sigma t =
+    (if less_nat t (tau sigma zero_nat)
+      then failwith "LTP: undefined" (fun _ -> ltp sigma t)
+      else lTP_rec sigma t zero_nat);;
 
 let rec removeAll _A
   x xa1 = match x, xa1 with x, [] -> []
@@ -391,24 +399,6 @@ let rec hd (x21 :: x22) = x21;;
 let rec list_ex p x1 = match p, x1 with p, [] -> false
                   | p, x :: xs -> p x || list_ex p xs;;
 
-let rec rep_trace_rbt (Abs_trace_rbt x) = x;;
-
-let bot_set : 'a set = Set [];;
-
-let rec the (Some x2) = x2;;
-
-let rec lookup _A (Mapping xs) = map_of _A xs;;
-
-let rec trace_rbt_nth
-  xa = (let (n, (m, t)) = rep_trace_rbt xa in
-         (fun i ->
-           (if less_nat i n then the (lookup equal_nat t i)
-             else (bot_set, plus_nat (minus_nat i n) m))));;
-
-let rec snd (x1, x2) = x2;;
-
-let rec tau (Trace_RBT t) i = snd (trace_rbt_nth t i);;
-
 let rec rep_I (Abs_I x) = x;;
 
 let rec fst (x1, x2) = x1;;
@@ -424,13 +414,13 @@ let rec inf_set _A
   a x1 = match a, x1 with a, Coset xs -> fold (remove _A) xs a
     | a, Set xs -> Set (filter (fun x -> member _A x a) xs);;
 
-let rec product
+let rec producta
   (Set xs) (Set ys) = Set (maps (fun x -> map (fun a -> (x, a)) ys) xs);;
 
 let rec set_Cons _A
   a xs =
     image (fun (aa, b) -> aa :: b)
-      (product (inf_set _A (image (fun x -> x) a) top_set)
+      (producta (inf_set _A (image (fun x -> x) a) top_set)
         (inf_set (equal_list _A) top_set (image (fun xsa -> xsa) xs)));;
 
 let empty : ('a, 'b) mapping = Mapping [];;
@@ -446,7 +436,7 @@ let rec partition
 let rec is_none = function Some x -> false
                   | None -> true;;
 
-let rec gamma (Trace_RBT t) i = fst (trace_rbt_nth t i);;
+let rec gamma (Trace_Mapping t) i = fst (trace_mapping_nth t i);;
 
 let rec gen_length n x1 = match n, x1 with n, x :: xs -> gen_length (suc n) xs
                      | n, [] -> n;;
@@ -459,36 +449,15 @@ let rec size_list x = gen_length zero_nat x;;
 let rec bulkload
   vs = Mapping (map (fun n -> (n, nth vs n)) (upt zero_nat (size_list vs)));;
 
-let rec lTP_rec
-  sigma t i =
-    (if less_eq_nat (tau sigma (suc i)) t
-      then lTP_rec sigma t (plus_nat i one_nat) else i);;
-
-let rec ltp
-  sigma t =
-    (if less_nat t (tau sigma zero_nat)
-      then failwith "LTP: undefined" (fun _ -> ltp sigma t)
-      else lTP_rec sigma t zero_nat);;
-
 let rec positions _A
   xa0 x = match xa0, x with [], x -> []
     | y :: ys, x ->
         (if eq _A x y then zero_nat :: map suc (positions _A ys x)
           else map suc (positions _A ys x));;
 
-let rec mk_values _A _B
-  = function [] -> insert (equal_list _B) [] bot_set
-    | t :: ts ->
-        (match t
-          with (Var xa, x) ->
-            (let terms = map fst ts in
-              (if membera (equal_trm _A) terms (Var xa)
-                then (let fst_pos = hd (positions (equal_trm _A) terms (Var xa))
-                        in
-                       image (fun xs -> nth xs fst_pos :: xs)
-                         (mk_values _A _B ts))
-                else set_Cons _B x (mk_values _A _B ts)))
-          | (Const _, x) -> set_Cons _B x (mk_values _A _B ts));;
+let rec rep_part (Abs_part x) = x;;
+
+let rec vals x = Set (map snd (rep_part x));;
 
 let rec sup_set _A
   x0 a = match x0, a with
@@ -497,89 +466,20 @@ let rec sup_set _A
 
 let rec sup_seta _A (Set xs) = fold (sup_set _A) xs bot_set;;
 
-let rec rep_part (Abs_part x) = x;;
+let rec vars _C
+  = function Leaf x1 -> bot_set
+    | Node (x21, x22) ->
+        insert _C x21 (sup_seta _C (image (vars _C) (vals x22)));;
 
-let rec vals x = Set (map snd (rep_part x));;
-
-let rec vars
-  = function Leaf uu -> bot_set
+let rec distinct_paths _C
+  = function Leaf uu -> true
     | Node (x, part) ->
-        sup_set equal_string8 (insert equal_string8 x bot_set)
-          (sup_seta equal_string8 (image vars (vals part)));;
-
-let rec finite _A = function Coset xs -> false
-                    | Set xs -> true;;
+        ball (vals part)
+          (fun e -> not (member _C x (vars _C e)) && distinct_paths _C e);;
 
 let rec less_eq_enat q x1 = match q, x1 with Infinity_enat, Enat n -> false
                        | q, Infinity_enat -> true
                        | Enat m, Enat n -> less_eq_nat m n;;
-
-let rec interval
-  l r = Abs_I (if less_eq_enat (Enat l) r then (l, r)
-                else rep_I (failwith "undefined"));;
-
-let rec part_hd xa = snd (hd (rep_part xa));;
-
-let rec s_at
-  = function STT i -> i
-    | SPred (i, uu, uv) -> i
-    | SEq_Const (i, uw, ux) -> i
-    | SNeg vp -> v_at vp
-    | SOrL sp1 -> s_at sp1
-    | SOrR sp2 -> s_at sp2
-    | SAnd (sp1, uy) -> s_at sp1
-    | SImpL vp1 -> v_at vp1
-    | SImpR sp2 -> s_at sp2
-    | SIffSS (sp1, uz) -> s_at sp1
-    | SIffVV (vp1, va) -> v_at vp1
-    | SExists (vb, vc, sp) -> s_at sp
-    | SForall (vd, part) -> s_at (part_hd part)
-    | SPrev sp -> plus_nat (s_at sp) one_nat
-    | SNext sp -> minus_nat (s_at sp) one_nat
-    | SOnce (i, ve) -> i
-    | SEventually (i, vf) -> i
-    | SHistorically (i, vg, vh) -> i
-    | SHistoricallyOut i -> i
-    | SAlways (i, vi, vj) -> i
-    | SSince (sp2, sp1s) ->
-        (match sp1s with [] -> s_at sp2 | _ :: _ -> s_at (last sp1s))
-    | SUntil (sp1s, sp2) ->
-        (match sp1s with [] -> s_at sp2 | sp1 :: _ -> s_at sp1)
-and v_at = function VFF i -> i
-           | VPred (i, vk, vl) -> i
-           | VEq_Const (i, vm, vn) -> i
-           | VNeg sp -> s_at sp
-           | VOr (vp1, vo) -> v_at vp1
-           | VAndL vp1 -> v_at vp1
-           | VAndR vp2 -> v_at vp2
-           | VImp (sp1, vq) -> s_at sp1
-           | VIffSV (sp1, vr) -> s_at sp1
-           | VIffVS (vp1, vs) -> v_at vp1
-           | VExists (vt, part) -> v_at (part_hd part)
-           | VForall (vu, vv, vp1) -> v_at vp1
-           | VPrev vp -> plus_nat (v_at vp) one_nat
-           | VPrevZ -> zero_nat
-           | VPrevOutL i -> i
-           | VPrevOutR i -> i
-           | VNext vp -> minus_nat (v_at vp) one_nat
-           | VNextOutL i -> i
-           | VNextOutR i -> i
-           | VOnceOut i -> i
-           | VOnce (i, vw, vx) -> i
-           | VEventually (i, vy, vz) -> i
-           | VHistorically (i, wa) -> i
-           | VAlways (i, wb) -> i
-           | VSinceOut i -> i
-           | VSince (i, wc, wd) -> i
-           | VSinceInf (i, we, wf) -> i
-           | VUntil (i, wg, wh) -> i
-           | VUntilInf (i, wi, wj) -> i;;
-
-let rec distinct_paths
-  = function Leaf uu -> true
-    | Node (x, part) ->
-        ball (vals part)
-          (fun e -> not (member equal_string8 x (vars e)) && distinct_paths e);;
 
 let rec less_enat x0 q = match x0, q with Infinity_enat, q -> false
                     | Enat m, Infinity_enat -> true
@@ -590,27 +490,26 @@ let rec equal_option _A x0 x1 = match x0, x1 with None, Some x2 -> false
                           | Some x2, Some y2 -> eq _A x2 y2
                           | None, None -> true;;
 
-let rec check_values _A
+let rec check_values _A _B
   uu uv uw x3 = match uu, uv, uw, x3 with uu, uv, uw, None -> None
     | vs, Const c :: ts, u :: us, Some v ->
-        (if eq _A c u then check_values _A vs ts us (Some v) else None)
+        (if eq _B c u then check_values _A _B vs ts us (Some v) else None)
     | vs, Var x :: ts, u :: us, Some v ->
-        (if member _A u (vs x) &&
-              (equal_option _A (v x) (Some u) || is_none (v x))
-          then check_values _A vs ts us
-                 (Some (fun_upd equal_string8 v x (Some u)))
+        (if member _B u (vs x) &&
+              (equal_option _B (v x) (Some u) || is_none (v x))
+          then check_values _A _B vs ts us (Some (fun_upd _A v x (Some u)))
           else None)
     | vs, [], [], Some v -> Some v
     | ux, [], va :: vb, Some v -> None
     | ux, Var vc :: vb, [], Some v -> None
     | ux, va :: vb, [], Some v -> None;;
 
-let rec mk_values_subset_Compl (_A1, _A2, _A3)
+let rec mk_values_subset_Compl _A (_B1, _B2, _B3)
   sigma r vs ts i =
     ball (gamma sigma i)
       (fun (q, us) ->
-        not (Stdlib.(=) q r) ||
-          is_none (check_values _A2 vs ts us (Some (fun _ -> None))));;
+        not (eq _A q r) ||
+          is_none (check_values _A _B2 vs ts us (Some (fun _ -> None))));;
 
 let rec check_upt_LTP_p
   sigma ia li xs i =
@@ -655,77 +554,145 @@ let rec check_upt_ETP_f
                 less_eq_nat (left ia)
                   (minus_nat (tau sigma j) (tau sigma i))))));;
 
-let rec subsVals xa = Set (rep_part xa);;
-
 let rec maxa _A
   (Set (x :: xs)) =
     fold (max _A.order_linorder.preorder_order.ord_preorder) xs x;;
 
-let rec mk_values_subset _A _B (_C1, _C2)
+let rec finite _A
+  = function Coset xs -> (match universe _A with None -> false | Some _ -> true)
+    | Set xs -> true;;
+
+let rec mk_values _A (_B1, _B2, _B3) _C
+  = function [] -> insert (equal_list _C) [] bot_set
+    | t :: ts ->
+        (match t
+          with (Var xa, x) ->
+            (let terms = map fst ts in
+              (if membera (equal_trm _A _B2) terms (Var xa)
+                then (let fst_pos =
+                        hd (positions (equal_trm _A _B2) terms (Var xa)) in
+                       image (fun xs -> nth xs fst_pos :: xs)
+                         (mk_values _A (_B1, _B2, _B3) _C ts))
+                else set_Cons _C x (mk_values _A (_B1, _B2, _B3) _C ts)))
+          | (Const _, x) ->
+            set_Cons _C x (mk_values _A (_B1, _B2, _B3) _C ts));;
+
+let rec mk_values_subset (_A1, _A2) _B (_C1, _C2, _C3) (_D1, _D2)
   p tXs x =
-    (let (fintXs, inftXs) = partition (fun tX -> finite _C1 (snd tX)) tXs in
+    (let (fintXs, inftXs) = partition (fun tX -> finite _D1 (snd tX)) tXs in
       (if null inftXs
         then less_eq_set
-               ((infinite_prod (infinite_list _C1.nonunit_infinite)),
-                 (equal_prod _A (equal_list _C2)))
-               (product (insert _A p bot_set) (mk_values _B _C2 tXs)) x
+               ((universe_prod _A1 universe_list),
+                 (equal_prod _A2 (equal_list _D2)))
+               (producta (insert _A2 p bot_set)
+                 (mk_values _B (_C1, _C2, _C3) _D2 tXs))
+               x
         else (let inf_dups =
                 filter
-                  (fun tX -> membera (equal_trm _B) (map fst fintXs) (fst tX))
+                  (fun tX ->
+                    membera (equal_trm _B _C2) (map fst fintXs) (fst tX))
                   inftXs
                 in
                (if null inf_dups
-                 then (if finite
-                            (infinite_prod (infinite_list _C1.nonunit_infinite))
-                            x
-                        then false
+                 then (if finite (universe_prod _A1 universe_list) x then false
                         else failwith "subset on infinite subset"
                                (fun _ ->
                                  less_eq_set
-                                   ((infinite_prod
-                                      (infinite_list _C1.nonunit_infinite)),
-                                     (equal_prod _A (equal_list _C2)))
-                                   (product (insert _A p bot_set)
-                                     (mk_values _B _C2 tXs))
+                                   ((universe_prod _A1 universe_list),
+                                     (equal_prod _A2 (equal_list _D2)))
+                                   (producta (insert _A2 p bot_set)
+                                     (mk_values _B (_C1, _C2, _C3) _D2 tXs))
                                    x))
                  else (if list_all
                             (fun tX ->
                               less_nat
                                 (maxa linorder_nat
                                   (Set (positions
- (equal_prod (equal_trm _B) (equal_set (_C1, _C2))) tXs tX)))
+ (equal_prod (equal_trm _B _C2) (equal_set (_D1, _D2))) tXs tX)))
                                 (maxa linorder_nat
-                                  (Set (positions (equal_trm _B) (map fst tXs)
- (fst tX)))))
+                                  (Set (positions (equal_trm _B _C2)
+ (map fst tXs) (fst tX)))))
                             inf_dups
                         then less_eq_set
-                               ((infinite_prod
-                                  (infinite_list _C1.nonunit_infinite)),
-                                 (equal_prod _A (equal_list _C2)))
-                               (product (insert _A p bot_set)
-                                 (mk_values _B _C2 tXs))
+                               ((universe_prod _A1 universe_list),
+                                 (equal_prod _A2 (equal_list _D2)))
+                               (producta (insert _A2 p bot_set)
+                                 (mk_values _B (_C1, _C2, _C3) _D2 tXs))
                                x
-                        else (if finite
-                                   (infinite_prod
-                                     (infinite_list _C1.nonunit_infinite))
-                                   x
+                        else (if finite (universe_prod _A1 universe_list) x
                                then false
                                else failwith "subset on infinite subset"
                                       (fun _ ->
 less_eq_set
-  ((infinite_prod (infinite_list _C1.nonunit_infinite)),
-    (equal_prod _A (equal_list _C2)))
-  (product (insert _A p bot_set) (mk_values _B _C2 tXs)) x)))))));;
+  ((universe_prod _A1 universe_list), (equal_prod _A2 (equal_list _D2)))
+  (producta (insert _A2 p bot_set) (mk_values _B (_C1, _C2, _C3) _D2 tXs))
+  x)))))));;
 
-let rec eval_trm_set _A vs x1 = match vs, x1 with vs, Var x -> (Var x, vs x)
-                          | vs, Const x -> (Const x, insert _A x bot_set);;
+let rec eval_trm_set _B vs x1 = match vs, x1 with vs, Var x -> (Var x, vs x)
+                          | vs, Const x -> (Const x, insert _B x bot_set);;
 
-let rec eval_trms_set _A vs ts = map (eval_trm_set _A vs) ts;;
+let rec eval_trms_set _B vs ts = map (eval_trm_set _B vs) ts;;
 
-let rec set_eq (_A1, _A2)
-  a b = less_eq_set (_A1, _A2) a b && less_eq_set (_A1, _A2) b a;;
+let rec subsVals xa = Set (rep_part xa);;
 
-let rec v_check_exec (_A1, _A2, _A3, _A4)
+let rec part_hd xa = snd (hd (rep_part xa));;
+
+let rec v_at = function VFF i -> i
+               | VPred (i, vk, vl) -> i
+               | VEq_Const (i, vm, vn) -> i
+               | VNeg sp -> s_at sp
+               | VOr (vp1, vo) -> v_at vp1
+               | VAndL vp1 -> v_at vp1
+               | VAndR vp2 -> v_at vp2
+               | VImp (sp1, vq) -> s_at sp1
+               | VIffSV (sp1, vr) -> s_at sp1
+               | VIffVS (vp1, vs) -> v_at vp1
+               | VExists (vt, part) -> v_at (part_hd part)
+               | VForall (vu, vv, vp1) -> v_at vp1
+               | VPrev vp -> plus_nat (v_at vp) one_nat
+               | VPrevZ -> zero_nat
+               | VPrevOutL i -> i
+               | VPrevOutR i -> i
+               | VNext vp -> minus_nat (v_at vp) one_nat
+               | VNextOutL i -> i
+               | VNextOutR i -> i
+               | VOnceOut i -> i
+               | VOnce (i, vw, vx) -> i
+               | VEventually (i, vy, vz) -> i
+               | VHistorically (i, wa) -> i
+               | VAlways (i, wb) -> i
+               | VSinceOut i -> i
+               | VSince (i, wc, wd) -> i
+               | VSinceInf (i, we, wf) -> i
+               | VUntil (i, wg, wh) -> i
+               | VUntilInf (i, wi, wj) -> i
+and s_at
+  = function STT i -> i
+    | SPred (i, uu, uv) -> i
+    | SEq_Const (i, uw, ux) -> i
+    | SNeg vp -> v_at vp
+    | SOrL sp1 -> s_at sp1
+    | SOrR sp2 -> s_at sp2
+    | SAnd (sp1, uy) -> s_at sp1
+    | SImpL vp1 -> v_at vp1
+    | SImpR sp2 -> s_at sp2
+    | SIffSS (sp1, uz) -> s_at sp1
+    | SIffVV (vp1, va) -> v_at vp1
+    | SExists (vb, vc, sp) -> s_at sp
+    | SForall (vd, part) -> s_at (part_hd part)
+    | SPrev sp -> plus_nat (s_at sp) one_nat
+    | SNext sp -> minus_nat (s_at sp) one_nat
+    | SOnce (i, ve) -> i
+    | SEventually (i, vf) -> i
+    | SHistorically (i, vg, vh) -> i
+    | SHistoricallyOut i -> i
+    | SAlways (i, vi, vj) -> i
+    | SSince (sp2, sp1s) ->
+        (match sp1s with [] -> s_at sp2 | _ :: _ -> s_at (last sp1s))
+    | SUntil (sp1s, sp2) ->
+        (match sp1s with [] -> s_at sp2 | sp1 :: _ -> s_at sp1);;
+
+let rec v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4)
   sigma vs x2 vp = match sigma, vs, x2, vp with
     sigma, vs, Until (phi, i, psi), vp ->
       (match vp with VFF _ -> false | VPred (_, _, _) -> false
@@ -746,8 +713,11 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
               | Infinity_enat -> true) &&
               (less_eq_nat ia j &&
                 (check_upt_ETP_f sigma i ia (map v_at vp2s) j &&
-                  (v_check_exec (_A1, _A2, _A3, _A4) sigma vs phi vp1 &&
-                    list_all (v_check_exec (_A1, _A2, _A3, _A4) sigma vs psi)
+                  (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi
+                     vp1 &&
+                    list_all
+                      (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs
+                        psi)
                       vp2s))))
         | VUntilInf (ia, hi, vp2s) ->
           (match right i
@@ -756,7 +726,9 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
                 less_nat b (minus_nat (tau sigma (suc hi)) (tau sigma ia))
             | Infinity_enat -> false) &&
             (check_upt_ETP_f sigma i ia (map v_at vp2s) hi &&
-              list_all (v_check_exec (_A1, _A2, _A3, _A4) sigma vs psi) vp2s))
+              list_all
+                (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs psi)
+                vp2s))
     | sigma, vs, Eventually (i, phi), vp ->
         (match vp with VFF _ -> false | VPred (_, _, _) -> false
           | VEq_Const (_, _, _) -> false | VNeg _ -> false | VOr (_, _) -> false
@@ -774,7 +746,9 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
                   less_nat b (minus_nat (tau sigma (suc hi)) (tau sigma ia))
               | Infinity_enat -> false) &&
               (check_upt_ETP_f sigma i ia (map v_at vps) hi &&
-                list_all (v_check_exec (_A1, _A2, _A3, _A4) sigma vs phi) vps)
+                list_all
+                  (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi)
+                  vps)
           | VHistorically (_, _) -> false | VAlways (_, _) -> false
           | VSinceOut _ -> false | VSince (_, _, _) -> false
           | VSinceInf (_, _, _) -> false | VUntil (_, _, _) -> false
@@ -802,9 +776,11 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
                   (less_eq_nat (plus_nat (tau sigma zero_nat) (left i))
                      (tau sigma ia) &&
                     (check_upt_LTP_p sigma i j (map v_at vp2s) ia &&
-                      (v_check_exec (_A1, _A2, _A3, _A4) sigma vs phi vp1 &&
+                      (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi
+                         vp1 &&
                         list_all
-                          (v_check_exec (_A1, _A2, _A3, _A4) sigma vs psi)
+                          (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs
+                            psi)
                           vp2s)))))
           | VSinceInf (ia, li, vp2s) ->
             (match right i
@@ -818,7 +794,8 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
               (less_eq_nat (plus_nat (tau sigma zero_nat) (left i))
                  (tau sigma ia) &&
                 (check_upt_LTP_p sigma i li (map v_at vp2s) ia &&
-                  list_all (v_check_exec (_A1, _A2, _A3, _A4) sigma vs psi)
+                  list_all
+                    (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs psi)
                     vp2s))
           | VUntil (_, _, _) -> false | VUntilInf (_, _, _) -> false)
     | sigma, vs, Once (i, phi), vp ->
@@ -844,7 +821,8 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
               (less_eq_nat (plus_nat (tau sigma zero_nat) (left i))
                  (tau sigma ia) &&
                 (check_upt_LTP_p sigma i li (map v_at vps) ia &&
-                  list_all (v_check_exec (_A1, _A2, _A3, _A4) sigma vs phi)
+                  list_all
+                    (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi)
                     vps))
           | VEventually (_, _, _) -> false | VHistorically (_, _) -> false
           | VAlways (_, _) -> false | VSinceOut _ -> false
@@ -861,7 +839,7 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
             (less_eq_nat (left xb) (minus_nat (tau sigma j) (tau sigma xa)) &&
                less_eq_enat (Enat (minus_nat (tau sigma j) (tau sigma xa)))
                  (right xb) &&
-              v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x))
+              v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x))
     | sigma, vs, Always (xb, xaa), VHistorically (xa, x) -> false
     | sigma, vs, Always (xc, xaa), VEventually (xb, xa, x) -> false
     | sigma, vs, Always (xc, xaa), VOnce (xb, xa, x) -> false
@@ -897,7 +875,7 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
             (less_eq_nat (left xb) (minus_nat (tau sigma xa) (tau sigma j)) &&
                less_eq_enat (Enat (minus_nat (tau sigma xa) (tau sigma j)))
                  (right xb) &&
-              v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x))
+              v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x))
     | sigma, vs, Historically (xc, xaa), VEventually (xb, xa, x) -> false
     | sigma, vs, Historically (xc, xaa), VOnce (xb, xa, x) -> false
     | sigma, vs, Historically (xa, xaa), VOnceOut x -> false
@@ -943,7 +921,7 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
         (let j = v_at x in
          let i = v_at (VNext x) in
           equal_nata j (plus_nat i one_nat) &&
-            v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x)
+            v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x)
     | sigma, vs, Next (xa, xaa), VPrevOutR x -> false
     | sigma, vs, Next (xa, xaa), VPrevOutL x -> false
     | sigma, vs, Next (x, xa), VPrevZ -> false
@@ -981,12 +959,12 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
         less_nat zero_nat x &&
           less_nat (minus_nat (tau sigma x) (tau sigma (minus_nat x one_nat)))
             (left xa)
-    | sigma, vs, Prev (x, xa), VPrevZ -> equal_nata (v_at VPrevZ) zero_nat
+    | sigma, vs, Prev (x, xa), VPrevZ -> true
     | sigma, vs, Prev (xa, xaa), VPrev x ->
         (let j = v_at x in
          let i = v_at (VPrev x) in
           equal_nata i (plus_nat j one_nat) &&
-            v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x)
+            v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x)
     | sigma, vs, Prev (xc, xaa), VForall (xb, xa, x) -> false
     | sigma, vs, Prev (xb, xaa), VExists (xa, x) -> false
     | sigma, vs, Prev (xb, xaa), VIffVS (xa, x) -> false
@@ -1017,9 +995,9 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Forall (x, xa), VPrevZ -> false
     | sigma, vs, Forall (xa, xaa), VPrev x -> false
     | sigma, vs, Forall (xc, xaa), VForall (xb, xa, x) ->
-        Stdlib.(=) xc xb &&
-          v_check_exec (_A1, _A2, _A3, _A4) sigma
-            (fun_upd equal_string8 vs xc (insert _A3 xa bot_set)) xaa x
+        eq _A2 xc xb &&
+          v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma
+            (fun_upd _A2 vs xc (insert _B3 xa bot_set)) xaa x
     | sigma, vs, Forall (xb, xaa), VExists (xa, x) -> false
     | sigma, vs, Forall (xb, xaa), VIffVS (xa, x) -> false
     | sigma, vs, Forall (xb, xaa), VIffSV (xa, x) -> false
@@ -1051,12 +1029,12 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Exists (xc, xaa), VForall (xb, xa, x) -> false
     | sigma, vs, Exists (xb, xaa), VExists (xa, x) ->
         (let i = v_at (part_hd x) in
-          Stdlib.(=) xb xa &&
+          eq _A2 xb xa &&
             ball (subsVals x)
               (fun (sub, vp) ->
                 equal_nata (v_at vp) i &&
-                  v_check_exec (_A1, _A2, _A3, _A4) sigma
-                    (fun_upd equal_string8 vs xb sub) xaa vp))
+                  v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma
+                    (fun_upd _A2 vs xb sub) xaa vp))
     | sigma, vs, Exists (xb, xaa), VIffVS (xa, x) -> false
     | sigma, vs, Exists (xb, xaa), VIffSV (xa, x) -> false
     | sigma, vs, Exists (xb, xaa), VImp (xa, x) -> false
@@ -1087,12 +1065,12 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Iff (xc, xaa), VForall (xb, xa, x) -> false
     | sigma, vs, Iff (xb, xaa), VExists (xa, x) -> false
     | sigma, vs, Iff (xb, xaa), VIffVS (xa, x) ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (v_at xa) (s_at x))
     | sigma, vs, Iff (xb, xaa), VIffSV (xa, x) ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (s_at xa) (v_at x))
     | sigma, vs, Iff (xb, xaa), VImp (xa, x) -> false
     | sigma, vs, Iff (xa, xaa), VAndR x -> false
@@ -1124,8 +1102,8 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Imp (xb, xaa), VIffVS (xa, x) -> false
     | sigma, vs, Imp (xb, xaa), VIffSV (xa, x) -> false
     | sigma, vs, Imp (xb, xaa), VImp (xa, x) ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (s_at xa) (v_at x))
     | sigma, vs, Imp (xa, xaa), VAndR x -> false
     | sigma, vs, Imp (xa, xaa), VAndL x -> false
@@ -1157,9 +1135,9 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, And (xb, xaa), VIffSV (xa, x) -> false
     | sigma, vs, And (xb, xaa), VImp (xa, x) -> false
     | sigma, vs, And (xa, xaa), VAndR x ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x
     | sigma, vs, And (xa, xaa), VAndL x ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xa x
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xa x
     | sigma, vs, And (xb, xaa), VOr (xa, x) -> false
     | sigma, vs, And (xa, xaa), VNeg x -> false
     | sigma, vs, And (xc, xaa), VEq_Const (xb, xa, x) -> false
@@ -1190,8 +1168,8 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Or (xa, xaa), VAndR x -> false
     | sigma, vs, Or (xa, xaa), VAndL x -> false
     | sigma, vs, Or (xb, xaa), VOr (xa, x) ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (v_at xa) (v_at x))
     | sigma, vs, Or (xa, xaa), VNeg x -> false
     | sigma, vs, Or (xc, xaa), VEq_Const (xb, xa, x) -> false
@@ -1223,7 +1201,7 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Neg xa, VAndL x -> false
     | sigma, vs, Neg xb, VOr (xa, x) -> false
     | sigma, vs, Neg xa, VNeg x ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xa x
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xa x
     | sigma, vs, Neg xc, VEq_Const (xb, xa, x) -> false
     | sigma, vs, Neg xc, VPred (xb, xa, x) -> false
     | sigma, vs, Neg xa, VFF x -> false
@@ -1255,9 +1233,9 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Pred (xa, xaa), VNeg x -> false
     | sigma, vs, Pred (xc, xaa), VEq_Const (xb, xa, x) -> false
     | sigma, vs, Pred (xc, xaa), VPred (xb, xa, x) ->
-        Stdlib.(=) xc xa &&
-          (equal_lista (equal_trm _A3) xaa x &&
-            mk_values_subset_Compl (_A2, _A3, _A4) sigma xc vs xaa xb)
+        eq _A2 xc xa &&
+          (equal_lista (equal_trm _A2 _B3) xaa x &&
+            mk_values_subset_Compl _A2 (_B2, _B3, _B4) sigma xc vs xaa xb)
     | sigma, vs, Pred (xa, xaa), VFF x -> false
     | sigma, vs, Eq_Const (xc, xaa), VUntilInf (xb, xa, x) -> false
     | sigma, vs, Eq_Const (xc, xaa), VUntil (xb, xa, x) -> false
@@ -1286,7 +1264,7 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Eq_Const (xb, xaa), VOr (xa, x) -> false
     | sigma, vs, Eq_Const (xa, xaa), VNeg x -> false
     | sigma, vs, Eq_Const (xc, xaa), VEq_Const (xb, xa, x) ->
-        eq _A3 xaa x && (Stdlib.(=) xc xa && not (member _A3 xaa (vs xc)))
+        eq _B3 xaa x && (eq _A2 xc xa && not (member _B3 xaa (vs xc)))
     | sigma, vs, Eq_Const (xc, xaa), VPred (xb, xa, x) -> false
     | sigma, vs, Eq_Const (xa, xaa), VFF x -> false
     | sigma, vs, FF, VUntilInf (xb, xa, x) -> false
@@ -1319,7 +1297,7 @@ let rec v_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, FF, VPred (xb, xa, x) -> false
     | sigma, vs, FF, VFF x -> true
     | sigma, vs, TT, p -> false
-and s_check_exec (_A1, _A2, _A3, _A4)
+and s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4)
   sigma vs x2 sp = match sigma, vs, x2, sp with
     sigma, vs, Always (i, phi), sp ->
       (match sp with STT _ -> false | SPred (_, _, _) -> false
@@ -1337,7 +1315,8 @@ and s_check_exec (_A1, _A2, _A3, _A4)
                 less_nat b (minus_nat (tau sigma (suc hi)) (tau sigma ia))
             | Infinity_enat -> false) &&
             (check_upt_ETP_f sigma i ia (map s_at sps) hi &&
-              list_all (s_check_exec (_A1, _A2, _A3, _A4) sigma vs phi) sps)
+              list_all
+                (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi) sps)
         | SSince (_, _) -> false | SUntil (_, _) -> false)
     | sigma, vs, Historically (i, phi), vp ->
         (match vp with STT _ -> false | SPred (_, _, _) -> false
@@ -1359,7 +1338,8 @@ and s_check_exec (_A1, _A2, _A3, _A4)
               (less_eq_nat (plus_nat (tau sigma zero_nat) (left i))
                  (tau sigma ia) &&
                 (check_upt_LTP_p sigma i li (map s_at vps) ia &&
-                  list_all (s_check_exec (_A1, _A2, _A3, _A4) sigma vs phi)
+                  list_all
+                    (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi)
                     vps))
           | SHistoricallyOut ia ->
             less_nat (tau sigma ia) (plus_nat (tau sigma zero_nat) (left i))
@@ -1373,8 +1353,9 @@ and s_check_exec (_A1, _A2, _A3, _A4)
                less_eq_enat (Enat (minus_nat (tau sigma j) (tau sigma i)))
                  (right xaa) &&
               (equal_lista equal_nat (map s_at xa) (upt i j) &&
-                (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xba x &&
-                  list_all (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xb)
+                (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xba x &&
+                  list_all
+                    (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb)
                     xa))))
     | sigma, vs, Until (xb, xaa, xba), SSince (xa, x) -> false
     | sigma, vs, Until (xc, xaa, xba), SAlways (xb, xa, x) -> false
@@ -1407,8 +1388,10 @@ and s_check_exec (_A1, _A2, _A3, _A4)
                  (right xaa) &&
               (equal_lista equal_nat (map s_at x)
                  (upt (plus_nat j one_nat) (plus_nat i one_nat)) &&
-                (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xba xa &&
-                  list_all (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xb) x))))
+                (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xba xa &&
+                  list_all
+                    (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb)
+                    x))))
     | sigma, vs, Since (xc, xaa, xba), SAlways (xb, xa, x) -> false
     | sigma, vs, Since (xa, xaa, xb), SHistoricallyOut x -> false
     | sigma, vs, Since (xc, xaa, xba), SHistorically (xb, xa, x) -> false
@@ -1440,7 +1423,7 @@ and s_check_exec (_A1, _A2, _A3, _A4)
             (less_eq_nat (left xb) (minus_nat (tau sigma j) (tau sigma xa)) &&
                less_eq_enat (Enat (minus_nat (tau sigma j) (tau sigma xa)))
                  (right xb) &&
-              s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x))
+              s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x))
     | sigma, vs, Eventually (xb, xaa), SOnce (xa, x) -> false
     | sigma, vs, Eventually (xa, xaa), SNext x -> false
     | sigma, vs, Eventually (xa, xaa), SPrev x -> false
@@ -1469,7 +1452,7 @@ and s_check_exec (_A1, _A2, _A3, _A4)
             (less_eq_nat (left xb) (minus_nat (tau sigma xa) (tau sigma j)) &&
                less_eq_enat (Enat (minus_nat (tau sigma xa) (tau sigma j)))
                  (right xb) &&
-              s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x))
+              s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x))
     | sigma, vs, Once (xa, xaa), SNext x -> false
     | sigma, vs, Once (xa, xaa), SPrev x -> false
     | sigma, vs, Once (xb, xaa), SForall (xa, x) -> false
@@ -1502,7 +1485,7 @@ and s_check_exec (_A1, _A2, _A3, _A4)
                  (Enat (minus_nat (tau sigma j)
                          (tau sigma (minus_nat j one_nat))))
                  (right xa) &&
-              s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x))
+              s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x))
     | sigma, vs, Next (xa, xaa), SPrev x -> false
     | sigma, vs, Next (xb, xaa), SForall (xa, x) -> false
     | sigma, vs, Next (xc, xaa), SExists (xb, xa, x) -> false
@@ -1535,7 +1518,7 @@ and s_check_exec (_A1, _A2, _A3, _A4)
                  (Enat (minus_nat (tau sigma i)
                          (tau sigma (minus_nat i one_nat))))
                  (right xa) &&
-              s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x))
+              s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x))
     | sigma, vs, Prev (xb, xaa), SForall (xa, x) -> false
     | sigma, vs, Prev (xc, xaa), SExists (xb, xa, x) -> false
     | sigma, vs, Prev (xb, xaa), SIffVV (xa, x) -> false
@@ -1560,12 +1543,12 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Forall (xa, xaa), SPrev x -> false
     | sigma, vs, Forall (xb, xaa), SForall (xa, x) ->
         (let i = s_at (part_hd x) in
-          Stdlib.(=) xb xa &&
+          eq _A2 xb xa &&
             ball (subsVals x)
               (fun (sub, sp) ->
                 equal_nata (s_at sp) i &&
-                  s_check_exec (_A1, _A2, _A3, _A4) sigma
-                    (fun_upd equal_string8 vs xb sub) xaa sp))
+                  s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma
+                    (fun_upd _A2 vs xb sub) xaa sp))
     | sigma, vs, Forall (xc, xaa), SExists (xb, xa, x) -> false
     | sigma, vs, Forall (xb, xaa), SIffVV (xa, x) -> false
     | sigma, vs, Forall (xb, xaa), SIffSS (xa, x) -> false
@@ -1589,9 +1572,9 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Exists (xa, xaa), SPrev x -> false
     | sigma, vs, Exists (xb, xaa), SForall (xa, x) -> false
     | sigma, vs, Exists (xc, xaa), SExists (xb, xa, x) ->
-        Stdlib.(=) xc xb &&
-          s_check_exec (_A1, _A2, _A3, _A4) sigma
-            (fun_upd equal_string8 vs xc (insert _A3 xa bot_set)) xaa x
+        eq _A2 xc xb &&
+          s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma
+            (fun_upd _A2 vs xc (insert _B3 xa bot_set)) xaa x
     | sigma, vs, Exists (xb, xaa), SIffVV (xa, x) -> false
     | sigma, vs, Exists (xb, xaa), SIffSS (xa, x) -> false
     | sigma, vs, Exists (xa, xaa), SImpR x -> false
@@ -1615,12 +1598,12 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Iff (xb, xaa), SForall (xa, x) -> false
     | sigma, vs, Iff (xc, xaa), SExists (xb, xa, x) -> false
     | sigma, vs, Iff (xb, xaa), SIffVV (xa, x) ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (v_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (v_at xa) (v_at x))
     | sigma, vs, Iff (xb, xaa), SIffSS (xa, x) ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (s_at xa) (s_at x))
     | sigma, vs, Iff (xa, xaa), SImpR x -> false
     | sigma, vs, Iff (xa, xaa), SImpL x -> false
@@ -1645,9 +1628,9 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Imp (xb, xaa), SIffVV (xa, x) -> false
     | sigma, vs, Imp (xb, xaa), SIffSS (xa, x) -> false
     | sigma, vs, Imp (xa, xaa), SImpR x ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x
     | sigma, vs, Imp (xa, xaa), SImpL x ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xa x
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xa x
     | sigma, vs, Imp (xb, xaa), SAnd (xa, x) -> false
     | sigma, vs, Imp (xa, xaa), SOrR x -> false
     | sigma, vs, Imp (xa, xaa), SOrL x -> false
@@ -1671,8 +1654,8 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, And (xa, xaa), SImpR x -> false
     | sigma, vs, And (xa, xaa), SImpL x -> false
     | sigma, vs, And (xb, xaa), SAnd (xa, x) ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xb xa &&
-          (s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x &&
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xb xa &&
+          (s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x &&
             equal_nata (s_at xa) (s_at x))
     | sigma, vs, And (xa, xaa), SOrR x -> false
     | sigma, vs, And (xa, xaa), SOrL x -> false
@@ -1697,9 +1680,9 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Or (xa, xaa), SImpL x -> false
     | sigma, vs, Or (xb, xaa), SAnd (xa, x) -> false
     | sigma, vs, Or (xa, xaa), SOrR x ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xaa x
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xaa x
     | sigma, vs, Or (xa, xaa), SOrL x ->
-        s_check_exec (_A1, _A2, _A3, _A4) sigma vs xa x
+        s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xa x
     | sigma, vs, Or (xa, xaa), SNeg x -> false
     | sigma, vs, Or (xc, xaa), SEq_Const (xb, xa, x) -> false
     | sigma, vs, Or (xc, xaa), SPred (xb, xa, x) -> false
@@ -1723,7 +1706,7 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Neg xa, SOrR x -> false
     | sigma, vs, Neg xa, SOrL x -> false
     | sigma, vs, Neg xa, SNeg x ->
-        v_check_exec (_A1, _A2, _A3, _A4) sigma vs xa x
+        v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs xa x
     | sigma, vs, Neg xc, SEq_Const (xb, xa, x) -> false
     | sigma, vs, Neg xc, SPred (xb, xa, x) -> false
     | sigma, vs, Neg xa, STT x -> false
@@ -1748,10 +1731,10 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Pred (xa, xaa), SNeg x -> false
     | sigma, vs, Pred (xc, xaa), SEq_Const (xb, xa, x) -> false
     | sigma, vs, Pred (xc, xaa), SPred (xb, xa, x) ->
-        Stdlib.(=) xc xa &&
-          (equal_lista (equal_trm _A3) xaa x &&
-            mk_values_subset equal_string8 _A3 (_A1, _A3) xc
-              (eval_trms_set _A3 vs xaa) (gamma sigma xb))
+        eq _A2 xc xa &&
+          (equal_lista (equal_trm _A2 _B3) xaa x &&
+            mk_values_subset (_A1, _A2) _A2 (_B2, _B3, _B4) (_B1, _B3) xc
+              (eval_trms_set _B3 vs xaa) (gamma sigma xb))
     | sigma, vs, Pred (xa, xaa), STT x -> false
     | sigma, vs, Eq_Const (xb, xaa), SUntil (xa, x) -> false
     | sigma, vs, Eq_Const (xb, xaa), SSince (xa, x) -> false
@@ -1773,9 +1756,9 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, Eq_Const (xa, xaa), SOrL x -> false
     | sigma, vs, Eq_Const (xa, xaa), SNeg x -> false
     | sigma, vs, Eq_Const (xc, xaa), SEq_Const (xb, xa, x) ->
-        eq _A3 xaa x &&
-          (Stdlib.(=) xc xa &&
-            set_eq (_A1, _A3) (vs xc) (insert _A3 xaa bot_set))
+        eq _B3 xaa x &&
+          (eq _A2 xc xa &&
+            eq (equal_set (_B1, _B3)) (vs xc) (insert _B3 xaa bot_set))
     | sigma, vs, Eq_Const (xc, xaa), SPred (xb, xa, x) -> false
     | sigma, vs, Eq_Const (xa, xaa), STT x -> false
     | sigma, vs, FF, p -> false
@@ -1802,31 +1785,38 @@ and s_check_exec (_A1, _A2, _A3, _A4)
     | sigma, vs, TT, SPred (xb, xa, x) -> false
     | sigma, vs, TT, STT x -> true;;
 
-let rec check_exec_p (_A1, _A2, _A3, _A4)
+let rec p_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4)
   sigma vs phi p =
-    (match p with Inl a -> s_check_exec (_A1, _A2, _A3, _A4) sigma vs phi a
-      | Inr a -> v_check_exec (_A1, _A2, _A3, _A4) sigma vs phi a);;
+    (match p
+      with Inl a -> s_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi a
+      | Inr a -> v_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi a);;
 
 let rec subsvals xa = rep_part xa;;
 
-let rec check_all_aux (_A1, _A2, _A3, _A4)
+let rec check_all_aux (_A1, _A2) (_B1, _B2, _B3, _B4)
   sigma vs phi x3 = match sigma, vs, phi, x3 with
-    sigma, vs, phi, Leaf p -> check_exec_p (_A1, _A2, _A3, _A4) sigma vs phi p
+    sigma, vs, phi, Leaf p ->
+      p_check_exec (_A1, _A2) (_B1, _B2, _B3, _B4) sigma vs phi p
     | sigma, vs, phi, Node (x, part) ->
         list_all
           (fun (d, a) ->
-            check_all_aux (_A1, _A2, _A3, _A4) sigma
-              (fun_upd equal_string8 vs x d) phi a)
+            check_all_aux (_A1, _A2) (_B1, _B2, _B3, _B4) sigma
+              (fun_upd _A2 vs x d) phi a)
           (subsvals part);;
 
-let rec check_all_generic (_A1, _A2, _A3, _A4)
+let rec check_all (_A1, _A2) (_B1, _B2, _B3, _B4)
   sigma phi e =
-    distinct_paths e &&
-      check_all_aux (_A1, _A2, _A3, _A4) sigma (fun _ -> top_set) phi e;;
+    distinct_paths _A2 e &&
+      check_all_aux (_A1, _A2) (_B1, _B2, _B3, _B4) sigma (fun _ -> top_set) phi
+        e;;
+
+let rec interval
+  l r = Abs_I (if less_eq_enat (Enat l) r then (l, r)
+                else rep_I (failwith "undefined"));;
 
 let rec check
-  x = check_all_generic
-        (infinite_event_data, default_event_data, equal_event_data,
+  x = check_all (universe_string8, equal_string8)
+        (universe_event_data, default_event_data, equal_event_data,
           linorder_event_data)
         x;;
 
@@ -1839,72 +1829,72 @@ let rec sum_nat m n = plus_nat m n;;
 let rec abs_part
   xa = Abs_part
          (let ds = map fst xa in
-           (if membera (equal_set (infinite_event_data, equal_event_data)) ds
+           (if membera (equal_set (universe_event_data, equal_event_data)) ds
                  bot_set ||
                  (list_ex
                     (fun d ->
                       list_ex
                         (fun e ->
-                          not (set_eq (infinite_event_data, equal_event_data) d
-                                e) &&
-                            not (set_eq (infinite_event_data, equal_event_data)
+                          not (equal_seta
+                                (universe_event_data, equal_event_data) d e) &&
+                            not (equal_seta
+                                  (universe_event_data, equal_event_data)
                                   (inf_set equal_event_data d e) bot_set))
                         ds)
                     ds ||
                    (not (distinct
-                          (equal_set (infinite_event_data, equal_event_data))
+                          (equal_set (universe_event_data, equal_event_data))
                           ds) ||
-                     not (set_eq (infinite_event_data, equal_event_data)
+                     not (equal_seta (universe_event_data, equal_event_data)
                            (sup_seta equal_event_data
                              (image (fun d -> d) (Set ds)))
                            top_set)))
              then [(top_set, failwith "undefined")] else xa));;
 
-let rec fstfinite _A xs = list_all (finite _A) xs;;
-
-let rec collect_paths_aux (_A1, _A2, _A3, _A4)
+let rec collect_paths_aux (_A1, _A2, _A3, _A4) (_B1, _B2)
   ds sigma vs phi x4 = match ds, sigma, vs, phi, x4 with
     ds, sigma, vs, phi, Leaf p ->
-      (if check_exec_p (_A1, _A2, _A3, _A4) sigma vs phi p then bot_set
-        else image rev ds)
+      (if p_check_exec (_B1, _B2) (_A1, _A2, _A3, _A4) sigma vs phi p
+        then bot_set else image rev ds)
     | ds, sigma, vs, phi, Node (x, part) ->
         sup_seta (equal_list (equal_set (_A1, _A3)))
           (image
             (fun (d, a) ->
-              collect_paths_aux (_A1, _A2, _A3, _A4)
-                (image (fun aa -> d :: aa) ds) sigma
-                (fun_upd equal_string8 vs x d) phi a)
+              collect_paths_aux (_A1, _A2, _A3, _A4) (_B1, _B2)
+                (image (fun aa -> d :: aa) ds) sigma (fun_upd _B2 vs x d) phi a)
             (Set (subsvals part)));;
 
-let rec collect_paths (_A1, _A2, _A3, _A4)
+let rec collect_paths (_A1, _A2) (_B1, _B2, _B3, _B4)
   sigma phi e =
-    (if distinct_paths e &&
-          check_all_aux (_A1, _A2, _A3, _A4) sigma (fun _ -> top_set) phi e
+    (if distinct_paths _A2 e &&
+          check_all_aux (_A1, _A2) (_B1, _B2, _B3, _B4) sigma (fun _ -> top_set)
+            phi e
       then None
-      else Some (collect_paths_aux (_A1, _A2, _A3, _A4)
-                  (insert (equal_list (equal_set (_A1, _A3))) [] bot_set) sigma
+      else Some (collect_paths_aux (_B1, _B2, _B3, _B4) (_A1, _A2)
+                  (insert (equal_list (equal_set (_B1, _B3))) [] bot_set) sigma
                   (fun _ -> top_set) phi e));;
 
-let rec trace_rbt_of_list _A
-  xa = Abs_trace_rbt
-         (if sorted_wrt less_eq_nat (map snd xa) && fstfinite _A (map fst xa)
+let rec trace_mapping_of_list _A
+  xa = Abs_trace_mapping
+         (if sorted_wrt less_eq_nat (map snd xa) &&
+               list_all (fun x -> finite _A (fst x)) xa
            then (if null xa then (zero_nat, (zero_nat, empty))
                   else (size_list xa, (snd (last xa), bulkload xa)))
            else (zero_nat, (zero_nat, empty)));;
 
-let rec trace_of_list _A xs = Trace_RBT (trace_rbt_of_list _A xs);;
+let rec trace_of_list _A xs = Trace_Mapping (trace_mapping_of_list _A xs);;
 
 let rec nat_of_integer k = Nat (max ord_integer Z.zero k);;
 
 let rec specialized_set x = Set x;;
 
 let rec collect_paths_specialized
-  x = collect_paths
-        (infinite_event_data, default_event_data, equal_event_data,
+  x = collect_paths (universe_string8, equal_string8)
+        (universe_event_data, default_event_data, equal_event_data,
           linorder_event_data)
         x;;
 
 let rec trace_of_list_specialized
-  xs = trace_of_list (infinite_prod (infinite_list nonunit_event_data)) xs;;
+  xs = trace_of_list (universe_prod universe_string8 universe_list) xs;;
 
-end;; (*struct Whymon*)
+end;; (*struct Checker*)

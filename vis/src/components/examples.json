@@ -4,6 +4,16 @@
   "sig": "publish(x:int)\napprove(x:int)",
   "trace": "@1307532861 approve(152)\n@1307955600 approve(163) publish(160)\n@1308477599 approve(187) publish(163) (152)\n"
 }, {
+  "name": "canonical",
+  "formula": "p(x)",
+  "sig": "p(x:int)\nq(y:int)",
+  "trace": "@0 p(1)\n"
+}, {
+  "name": "three-attempts",
+  "formula": "¬(∃usr. attempt(usr,ip1,\"True\") ∧ ● ⧫[0,300000]\n   (∃usr. attempt(usr,ip2,\"False\") ∧ ● ⧫[0,300000]\n     (∃usr. attempt(usr,ip3,\"False\"))\n   )\n )",
+  "sig": "attempt(id:string, ip:string, successful:string)",
+  "trace": "@0 attempt(0, \"10.0.65.171\", \"False\")\n@12777 attempt(0, \"194.87.207.6\", \"False\")\n@25101 attempt(1, \"81.167.144.58\", \"True\")\n@25408 attempt(0, \"170.39.78.152\", \"False\")\n"
+}, {
   "name": "publish-approve-manager",
   "formula": "publish(a,f) → (⧫[0,7] (∃ m. (¬ mgr_F(m,a) S mgr_S(m,a)) ∧ approve(m,f)))",
   "sig": "publish(a:string, f:int)\napprove(m:string, f:int)\nmgr_S(m:string, a:string)\nmgr_F(m:string, a:string)",

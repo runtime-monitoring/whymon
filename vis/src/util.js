@@ -357,6 +357,8 @@ export function getHeaderHighlights(curCol, subfsScopes, subfsGridColumnsLength)
 
 export function translateError(error) {
 
+  console.log(error);
+
   let message;
 
   if (typeof error === "string") {
@@ -406,7 +408,22 @@ export function monospacedStringWidth(str) {
 
   let specialOccurrences = (str.match(/[,[\]().]/g) || []).length;
   let regularOccurrences = (str.match(/[^,[\]().]/g) || []).length;
+  let offset = str.length < 6 ? 7 : 0;
 
-  return (7 * specialOccurrences) + (10 * regularOccurrences);
+  return (7 * specialOccurrences) + (10 * regularOccurrences) + offset;
+
+}
+
+export function removeAngleBrackets(columns) {
+
+  for (let i = 0; i < columns.subformulas.length; ++i) {
+    columns.subformulas[i] = columns.subformulas[i].replaceAll("<", "\"").replaceAll(">", "\"");
+  }
+
+  for (let i = 0; i < columns.subfsColumns.length; ++i) {
+    columns.subfsColumns[i] = columns.subfsColumns[i].replaceAll("<", "\"").replaceAll(">", "\"");
+  }
+
+  return columns;
 
 }

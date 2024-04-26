@@ -9,7 +9,7 @@
 
 open Base
 open Etc
-open Checker.Whymon
+open Checker.Checker
 
 module Checker_trace : sig
 
@@ -21,14 +21,19 @@ end
 
 module Checker_pdt : sig
 
-  type t = (event_data, (event_data sproof, event_data vproof) sum) pdt
+  type t = (event_data, ((string, event_data) sproof, (string, event_data) vproof) sum, string) pdt
 
   val to_string: string -> t -> string
 
 end
 
-val check: (timestamp * (string * Domain.t list, 'a) Base.Set.t) list -> Formula.t -> Expl.Proof.t Expl.Pdt.t list ->
-           (bool * (event_data, (event_data sproof, event_data vproof) sum) pdt * Checker_trace.t) list
+val check: (timestamp * (string * Domain.t list, 'a) Base.Set.t) list ->
+           Formula.t ->
+           Expl.Proof.t Expl.Pdt.t list ->
+           (bool * (event_data, ((string, event_data) sproof, (string, event_data) vproof) sum, string) pdt
+            * Checker_trace.t) list
 
-val false_paths: (timestamp * (string * Domain.t list, 'a) Base.Set.t) list -> Formula.t -> Expl.Proof.t Expl.Pdt.t list ->
+val false_paths: (timestamp * (string * Domain.t list, 'a) Base.Set.t) list ->
+                 Formula.t ->
+                 Expl.Proof.t Expl.Pdt.t list ->
                  (Domain.t, Domain.comparator_witness) Setc.t list list option list

@@ -270,7 +270,7 @@ let op_to_string = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
   | EqConst (x, c) -> Printf.sprintf "="
-  | Predicate (r, trms) -> Printf.sprintf "%s(%s)" r (Term.list_to_string trms)
+  | Predicate (r, trms) -> Printf.sprintf "%s(%s)" r (Term.list_to_json_string trms)
   | Neg _ -> Printf.sprintf "¬"
   | And (_, _) -> Printf.sprintf "∧"
   | Or (_, _) -> Printf.sprintf "∨"
@@ -287,29 +287,30 @@ let op_to_string = function
   | Since (i, _, _) -> Printf.sprintf "S%s" (Interval.to_string i)
   | Until (i, _, _) -> Printf.sprintf "U%s" (Interval.to_string i)
 
-let rec to_string_rec l = function
+let rec to_string_rec l json = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
   | EqConst (x, c) -> Printf.sprintf "%s = %s" x (Domain.to_string c)
-  | Predicate (r, trms) -> Printf.sprintf "%s(%s)" r (Term.list_to_string trms)
-  | Neg f -> Printf.sprintf "¬%a" (fun x -> to_string_rec 5) f
-  | And (f, g) -> Printf.sprintf (Etc.paren l 4 "%a ∧ %a") (fun x -> to_string_rec 4) f (fun x -> to_string_rec 4) g
-  | Or (f, g) -> Printf.sprintf (Etc.paren l 3 "%a ∨ %a") (fun x -> to_string_rec 3) f (fun x -> to_string_rec 4) g
-  | Imp (f, g) -> Printf.sprintf (Etc.paren l 5 "%a → %a") (fun x -> to_string_rec 5) f (fun x -> to_string_rec 5) g
-  | Iff (f, g) -> Printf.sprintf (Etc.paren l 5 "%a ↔ %a") (fun x -> to_string_rec 5) f (fun x -> to_string_rec 5) g
-  | Exists (x, f) -> Printf.sprintf (Etc.paren l 5 "∃%s. %a") x (fun x -> to_string_rec 5) f
-  | Forall (x, f) -> Printf.sprintf (Etc.paren l 5 "∀%s. %a") x (fun x -> to_string_rec 5) f
-  | Prev (i, f) -> Printf.sprintf (Etc.paren l 5 "●%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-  | Next (i, f) -> Printf.sprintf (Etc.paren l 5 "○%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-  | Once (i, f) -> Printf.sprintf (Etc.paren l 5 "⧫%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-  | Eventually (i, f) -> Printf.sprintf (Etc.paren l 5 "◊%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-  | Historically (i, f) -> Printf.sprintf (Etc.paren l 5 "■%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-  | Always (i, f) -> Printf.sprintf (Etc.paren l 5 "□%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-  | Since (i, f, g) -> Printf.sprintf (Etc.paren l 0 "%a S%a %a") (fun x -> to_string_rec 5) f
-                         (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) g
-  | Until (i, f, g) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f
-                         (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) g
-let to_string = to_string_rec 0
+  | Predicate (r, trms) -> if json then Printf.sprintf "%s(%s)" r (Term.list_to_json_string trms)
+                           else Printf.sprintf "%s(%s)" r (Term.list_to_string trms)
+  | Neg f -> Printf.sprintf "¬%a" (fun x -> to_string_rec 5 json) f
+  | And (f, g) -> Printf.sprintf (Etc.paren l 4 "%a ∧ %a") (fun x -> to_string_rec 4 json) f (fun x -> to_string_rec 4 json) g
+  | Or (f, g) -> Printf.sprintf (Etc.paren l 3 "%a ∨ %a") (fun x -> to_string_rec 3 json) f (fun x -> to_string_rec 4 json) g
+  | Imp (f, g) -> Printf.sprintf (Etc.paren l 5 "%a → %a") (fun x -> to_string_rec 5 json) f (fun x -> to_string_rec 5 json) g
+  | Iff (f, g) -> Printf.sprintf (Etc.paren l 5 "%a ↔ %a") (fun x -> to_string_rec 5 json) f (fun x -> to_string_rec 5 json) g
+  | Exists (x, f) -> Printf.sprintf (Etc.paren l 5 "∃%s. %a") x (fun x -> to_string_rec 5 json) f
+  | Forall (x, f) -> Printf.sprintf (Etc.paren l 5 "∀%s. %a") x (fun x -> to_string_rec 5 json) f
+  | Prev (i, f) -> Printf.sprintf (Etc.paren l 5 "●%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) f
+  | Next (i, f) -> Printf.sprintf (Etc.paren l 5 "○%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) f
+  | Once (i, f) -> Printf.sprintf (Etc.paren l 5 "⧫%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) f
+  | Eventually (i, f) -> Printf.sprintf (Etc.paren l 5 "◊%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) f
+  | Historically (i, f) -> Printf.sprintf (Etc.paren l 5 "■%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) f
+  | Always (i, f) -> Printf.sprintf (Etc.paren l 5 "□%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) f
+  | Since (i, f, g) -> Printf.sprintf (Etc.paren l 0 "%a S%a %a") (fun x -> to_string_rec 5 json) f
+                         (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) g
+  | Until (i, f, g) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5 json) f
+                         (fun x -> Interval.to_string) i (fun x -> to_string_rec 5 json) g
+let to_string json = to_string_rec 0 json
 
 let rec to_json_rec indent pos f =
   let indent' = "  " ^ indent in

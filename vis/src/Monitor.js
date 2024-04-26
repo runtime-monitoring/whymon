@@ -21,7 +21,7 @@ import AlertDialog from './components/AlertDialog';
 import CheckmarkOptions from './components/CheckmarkOptions';
 import SyntaxCheckBar from './components/SyntaxCheckBar';
 import HelpCard from './components/HelpCard';
-import { computeDbsTable, initRhsTable, initHovers, translateError } from './util';
+import { computeDbsTable, initRhsTable, initHovers, translateError, removeAngleBrackets } from './util';
 
 function initMonitorState () {
   return { columns: { preds: [], subfs: [], subfsScopes: [] },
@@ -41,7 +41,8 @@ function initMonitor(monitorState, action) {
     const sig = action.sig.replace(/\n/g, " ");
     const formula = action.formula;
 
-    const columns = JSON.parse(window.getColumns(action.formula));
+    const columns = removeAngleBrackets(JSON.parse(window.getColumns(action.formula)));
+    // const columns = JSON.parse(window.getColumns(action.formula));
 
     const monitorOutput = JSON.parse(window.monitorInit(trace, sig, formula));
     const dbsObjs = monitorOutput.dbs_objs;

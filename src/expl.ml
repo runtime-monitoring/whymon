@@ -668,9 +668,9 @@ module Proof = struct
     | S p -> s_to_latex indent [] 0 p fmla
     | V p -> v_to_latex indent [] 0 p fmla
 
-  let to_bool indent = function
+  let to_light indent = function
     | S _ -> "true\n"
-    | V _ -> "false\n"
+    | V vp -> v_to_string indent vp
 
   module Size = struct
 
@@ -928,4 +928,4 @@ let to_string expl = Pdt.to_string (Proof.to_string "") "" expl
 
 let to_latex fmla expl = Pdt.to_latex (Proof.to_latex "" fmla) "" expl
 
-let to_light_string expl = Pdt.to_light_string (Proof.to_bool "") "" expl
+let to_light_string expl = Pdt.to_light_string (Proof.to_light "") "" expl

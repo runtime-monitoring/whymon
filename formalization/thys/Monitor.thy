@@ -34,10 +34,13 @@ lemma wf_part_list_filter_inter:
     distinct (map fst (inP1 P1 f v1 part2))"
 proof (rule partition_onI)
   show "\<Union> (set (map fst (inP1 P1 f v1 part2))) = P1"
-    using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)]
-    apply (auto simp: map_filter_def inP1_def split: if_splits)
-    apply (metis (no_types, lifting) Int_iff UN_iff Un_Int_eq(3) empty_iff prod.collapse)
-    done
+  proof -
+    have "\<exists>P2. (P1 \<inter> P2 \<noteq> {} \<longrightarrow> (\<exists>v2. (P2, v2) \<in> set part2) \<and> x \<in> P2) \<and> P1 \<inter> P2 \<noteq> {}"
+      if "\<Union> (fst ` set part2) = P1 \<union> \<Union> (fst ` set part1)" and "x \<in> P1" for x
+      using that by (metis (no_types, lifting) Int_iff UN_iff Un_Int_eq(3) empty_iff prod.collapse)
+    with partition_onD1[OF assms(2)] partition_onD1[OF assms(3)] show ?thesis
+      by (auto simp: map_filter_def inP1_def split: if_splits)
+  qed
   show "\<And>A1 A2. A1 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow>
     A2 \<in> set (map fst (inP1 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
     using partition_onD2[OF assms(2)] partition_onD2[OF assms(3)]
@@ -47,10 +50,8 @@ proof (rule partition_onI)
     by (auto simp: map_filter_def split: if_splits)
   show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) \<Longrightarrow>
     distinct (map fst (inP1 P1 f v1 part2))"
-    using partition_onD2[OF assms(3), unfolded disjoint_def, simplified, rule_format] distinct_map[of fst part2]
-    apply (auto simp: inP1_def map_filter_def distinct_map inj_on_def Ball_def image_iff split_beta)
-    apply blast+
-    done
+    using partition_onD2[OF assms(3), unfolded disjoint_def, simplified, rule_format]
+    by (clarsimp simp: inP1_def map_filter_def distinct_map inj_on_def Ball_def) blast
 qed
 
 lemma wf_part_list_filter_minus: 
@@ -63,25 +64,24 @@ lemma wf_part_list_filter_minus:
       distinct (map fst (notinP2 P1 f v1 part2))"
 proof (rule partition_onI)
   show "\<Union> (set (map fst (notinP2 P1 f v1 part2))) = X - P1"
-    using partition_onD1[OF assms(2)] partition_onD1[OF assms(3)]
-    apply (auto simp: map_filter_def subset_eq split_beta notinP2_def split: if_splits)
-    apply (metis (no_types, lifting) UN_iff Un_iff fst_conv prod.collapse)
-    done
+  proof -
+    have "\<exists>P2. ((\<exists>x\<in>P2. x \<notin> P1) \<longrightarrow> (\<exists>v2. (P2, v2) \<in> set part2)) \<and> (\<exists>x\<in>P2. x \<notin> P1) \<and> x \<in> P2"
+      if "\<Union> (fst ` set part2) = P1 \<union> \<Union> (fst ` set part1)" "x \<notin> P1" "(P1', v1) \<in> set part1" "x \<in> P1'" for x P1' v1
+      using that by (metis (no_types, lifting) UN_iff Un_iff fst_conv prod.collapse)
+    with partition_onD1[OF assms(2)] partition_onD1[OF assms(3)] show ?thesis
+      by (auto simp: map_filter_def subset_eq split_beta notinP2_def split: if_splits)
+  qed
   show "\<And>A1 A2. A1 \<in> set (map fst (notinP2 P1 f v1 part2)) \<Longrightarrow>
     A2 \<in> set (map fst (notinP2 P1 f v1 part2)) \<Longrightarrow> A1 \<noteq> A2 \<Longrightarrow> disjnt A1 A2" 
-    using partition_onD2[OF assms(2)] partition_onD2[OF assms(3)] notinP2_def
-    apply (clarsimp simp: disjnt_def map_filter_def disjoint_def split: if_splits)
-    apply (smt (verit, ccfv_SIG) Diff_disjoint Int_Diff Int_commute fst_conv)
-    done
+    using partition_onD2[OF assms(3)]
+    by (auto simp: disjnt_def map_filter_def disjoint_def notinP2_def Ball_def Bex_def image_iff split: if_splits)
   show "{} \<notin> set (map fst (notinP2 P1 f v1 part2))" 
     using assms
     by (auto simp: map_filter_def split: if_splits)
   show "distinct (map fst ((P1, v1) # part1)) \<Longrightarrow> distinct (map fst part2) \<Longrightarrow>
     distinct (map fst ((notinP2 P1 f v1 part2)))"
-    using partition_onD2[OF assms(3), unfolded disjoint_def] distinct_map[of fst part2]
-    apply (clarsimp simp: notinP2_def map_filter_def distinct_map inj_on_def split: prod.splits)
-    apply (metis Diff_Diff_Int Diff_empty Diff_iff fst_conv prod.inject)
-    done
+    using partition_onD2[OF assms(3), unfolded disjoint_def]
+    by (clarsimp simp: notinP2_def map_filter_def distinct_map inj_on_def Ball_def Bex_def image_iff) blast
 qed
 
 lemma wf_part_list_tail: 

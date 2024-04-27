@@ -36,7 +36,8 @@ definition phi :: "(string, string) Formula.formula" where
                  (Formula.Pred ''approve'' [Formula.Var ''m'', Formula.Var ''f''])))))"
 
 value "monitor prefix phi"
-value "check prefix phi"
+lemma "check prefix phi"
+  by eval
 
 subsection \<open>Finite Domain\<close>
 
@@ -95,7 +96,8 @@ definition fphi :: "(string, Domain) Formula.formula" where
                  (Formula.Pred ''approve'' [Formula.Var ''m'', Formula.Var ''f''])))))"
 
 value "monitor fprefix fphi"
-value "check fprefix fphi"
+lemma "check fprefix fphi"
+  by eval
 
 (*<*)
 end

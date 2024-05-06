@@ -1,45 +1,130 @@
+(*<*)
 theory Checker_Code
-  imports Whymon.Checker "HOL-Library.Code_Target_Nat" "HOL.String"
+  imports Checker Event_Data "HOL-Library.Code_Target_Nat" "HOL.String"
     "HOL-Library.List_Lexorder" "HOL-Library.AList_Mapping"
+    "HOL-Library.Cardinality"
+begin
+(*>*)
+
+section \<open>Code Generation\<close>
+
+subsection \<open>Type Class Instances\<close>
+
+class universe =
+  fixes universe :: "'a list option"
+  assumes infinite: "universe = None \<Longrightarrow> infinite (UNIV :: 'a set)"
+  and finite: "universe = Some xs \<Longrightarrow> distinct xs \<and> set xs = UNIV"
 begin
 
-class nonunit = assumes two: "\<exists>x y. x \<noteq> (y :: 'a)"
-begin
-
-lemma card_not_Suc0[simp]: "CARD ('a) \<noteq> Suc 0"
-  using two unfolding card_1_singleton_iff set_eq_iff
-  by auto (metis (full_types))
-
-end
-
-class infinite = assumes infinite: "infinite (UNIV :: 'a set)"
-begin
-
-lemma finite_coset: "finite (List.coset (xs :: 'a list)) = False"
-  using infinite
-  by auto
-
-subclass nonunit
-  by standard (metis (full_types) UNIV_eq_I finite.simps insert_iff infinite)
+lemma finite_coset: "finite (List.coset (xs :: 'a list)) = (case universe of None \<Rightarrow> False | _ \<Rightarrow> True)"
+  using infinite finite
+  by (auto split: option.splits dest!: equalityD2 elim!: finite_subset)
 
 end
 
 declare [[code drop: finite]]
 declare finite_set[THEN eqTrueI, code] finite_coset[code]
 
-instance nat :: infinite by standard auto
-instance list :: (nonunit) infinite by standard (auto simp: infinite_UNIV_listI)
-instance option :: (type) nonunit by standard auto
-instance prod :: (type, infinite) infinite by standard (auto simp: finite_prod infinite)
-instance char :: nonunit by (standard, rule exI[of _ "CHR ''a''"], rule exI[of _ "CHR ''b''"]) auto
-instance String.literal :: infinite by standard (simp add: infinite_literal)
-instance "fun" :: (infinite, nonunit) infinite by standard (auto simp: finite_UNIV_fun infinite)
+instantiation bool :: universe begin
+definition universe_bool :: "bool list option" where "universe_bool = Some [True, False]"
+instance by standard (auto simp: universe_bool_def)
+end
+instantiation char :: universe begin
+definition universe_char :: "char list option" where "universe_char = Some (map char_of [0::nat..<256])"
+instance by standard (use UNIV_char_of_nat in \<open>auto simp: universe_char_def distinct_map\<close>)
+end
+instantiation nat :: universe begin
+definition universe_nat :: "nat list option" where "universe_nat = None"
+instance by standard (auto simp: universe_nat_def)
+end
+instantiation list :: (type) universe begin
+definition universe_list :: "'a list list option" where "universe_list = None"
+instance by standard (auto simp: universe_list_def infinite_UNIV_listI)
+end
+instantiation String.literal :: universe begin
+definition universe_literal :: "String.literal list option" where "universe_literal = None"
+instance by standard (auto simp: universe_literal_def infinite_literal)
+end
+instantiation string8 :: universe begin
+definition universe_string8 :: "string8 list option" where "universe_string8 = None"
+lemma UNIV_string8: "UNIV = Abs_string8 ` UNIV"
+  by (auto simp: image_iff intro: Abs_string8_cases)
+instance by standard
+  (auto simp: universe_string8_def UNIV_string8 finite_image_iff Abs_string8_inject inj_on_def infinite_UNIV_listI)
+end
+instantiation prod :: (universe, universe) universe begin
+definition universe_prod :: "('a \<times> 'b) list option" where "universe_prod =
+  (case (universe, universe) of (Some xs, Some ys) \<Rightarrow> Some (List.product xs ys) | _ \<Rightarrow> None)"
+instance by standard
+  (auto simp: universe_prod_def finite_prod distinct_product infinite finite split: option.splits)
+end
+instantiation sum :: (universe, universe) universe begin
+definition universe_sum :: "('a + 'b) list option" where "universe_sum =
+  (case (universe, universe) of (Some xs, Some ys) \<Rightarrow> Some (map Inl xs @ map Inr ys) | _ \<Rightarrow> None)"
+instance by standard
+  (use UNIV_sum in \<open>auto simp: universe_sum_def distinct_map infinite finite split: option.splits\<close>)
+end
+instantiation option :: (universe) universe begin
+definition "universe_option = (case universe of Some xs \<Rightarrow> Some (None # map Some xs) | _ \<Rightarrow> None)"
+instance by standard (auto simp: universe_option_def distinct_map finite infinite image_iff split: option.splits)
+end
+instantiation "fun" :: (universe, universe) universe begin
+definition universe_fun :: "('a \<Rightarrow> 'b) list option" where "universe_fun = 
+  (case (universe, universe) of
+    (Some xs, Some ys) \<Rightarrow> Some (map (\<lambda>zs. the \<circ> map_of (zip xs zs)) (List.n_lists (length xs) ys))
+  | (_, Some [x]) \<Rightarrow> Some [\<lambda>_. x]
+  | _ \<Rightarrow> None)"
+instance
+proof -
+  have 1: False if "infinite (UNIV::'a set)" "CARD('b) = Suc 0" "a \<noteq> b" for a b :: 'b
+    using that by (metis (full_types) UNIV_I card_1_singleton_iff singletonD)
+  have 2: "ys = zs"
+    if "distinct (xs::'a list)" and "length ys = length xs" and "length zs = length xs"
+    and "\<forall>a. the (map_of (zip xs ys) a) = the (map_of (zip xs zs) a)"
+    for xs :: "'a list" and ys zs :: "'b list"
+    using that by (metis map_fst_zip map_of_eqI map_of_zip_inject map_of_zip_is_None option.expand)
+  have 3: "\<exists>zs. length zs = length xs \<and> set zs \<subseteq> set ys \<and> (\<forall>x. f x = the (map_of (zip xs zs) x))"
+    if "\<forall>x. x \<in> set xs" "\<forall>x. x \<in> set ys"
+    for xs ys and f :: "'a \<Rightarrow> 'b"
+    using that by (metis length_map map_of_zip_map option.sel subsetI)
+  show "OFCLASS('a \<Rightarrow> 'b, universe_class)"
+    by standard
+      (auto 0 3 simp: universe_fun_def set_eq_iff fun_eq_iff image_iff set_n_lists distinct_map
+        inj_on_def distinct_n_lists finite_UNIV_fun dest!: infinite finite
+        split: option.splits list.splits intro: 1 2 3)
+qed
+end
+instantiation event_data :: universe begin
+definition universe_event_data :: "event_data list option" where "universe_event_data = None"  
+instance by standard (simp_all add: infinite_UNIV_event_data universe_event_data_def)
+end
 
-section \<open>Code\<close>
+instantiation nat :: default begin
+definition default_nat :: nat where "default_nat = 0"
+instance proof qed
+end
+
+instantiation list :: (type) default begin
+definition default_list :: "'a list" where "default_list = []"
+instance proof qed
+end
+
+instance event_data :: equal by standard
+
+instantiation String.literal :: default begin
+definition default_literal :: String.literal where "default_literal = 0"
+instance proof qed
+end
+
+instantiation event_data :: card_UNIV begin
+definition "finite_UNIV = Phantom(event_data) False"
+definition "card_UNIV = Phantom(event_data) 0"
+instance by intro_classes (simp_all add: finite_UNIV_event_data_def card_UNIV_event_data_def infinite_UNIV_event_data)
+end
 
 subsection \<open>Progress\<close>
 
-primrec progress :: "'a trace \<Rightarrow> 'a Formula.formula \<Rightarrow> nat \<Rightarrow> nat" where
+primrec progress :: "('n, 'd) trace \<Rightarrow> ('n, 'd) Formula.formula \<Rightarrow> nat \<Rightarrow> nat" where
   "progress \<sigma> Formula.TT j = j"
 | "progress \<sigma> Formula.FF j = j"
 | "progress \<sigma> (Formula.Eq_Const _ _) j = j"
@@ -134,7 +219,7 @@ proof -
     by (fastforce simp: P_def intro: arg_cong[where ?f=Min])
 qed
 
-lemmas progress_code[code] = progress.simps(1-14) progress_Eventually_code progress_Always_code progress.simps(18) progress_Until_code
+lemmas progress_code[code] = progress.simps(1-15) progress_Eventually_code progress_Always_code progress.simps(18) progress_Until_code
 
 subsection \<open>Trace\<close>
 
@@ -147,7 +232,7 @@ lemma extend_is_stream:
   and "\<And>x. x \<in> set list \<Longrightarrow> finite (fst x)"
   shows "ssorted (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats)) \<and>
     sincreasing (smap snd (list @- smap (\<lambda>n. ({}, n + m)) nats)) \<and>
-    sfstfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
+    sfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
 proof -
   have A: "\<forall>x\<in>set list. n \<le> snd x \<Longrightarrow> n \<le> m \<Longrightarrow>
     n \<le> (map snd list @- smap (\<lambda>x. x + m) nats) !! i" for n i 
@@ -177,49 +262,47 @@ proof -
       by (simp add: sincreasing_def) 
         (metis snth_Stream)
   qed
-  moreover have "sfstfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
+  moreover have "sfinite (smap fst (list @- smap (\<lambda>n. ({}, n + m)) nats))"
     using assms(3)
   proof (induction list)
     case Nil
-    then show ?case by (simp add: sfstfinite_def)
+    then show ?case by (simp add: sfinite_def)
   next
     case (Cons a as)
     then have fin: "finite (fst a)"
       by simp
     show ?case
       using Cons 
-      by (auto simp add: sfstfinite_def snth_Stream_eq split: nat.splits)
+      by (auto simp add: sfinite_def snth_Stream_eq split: nat.splits)
   qed
   ultimately show ?thesis
     by simp
 qed
 
-typedef 'a trace_rbt = "{(n, m, t) :: (nat \<times> nat \<times> (nat, 'a set \<times> nat) mapping) |
+typedef 'a trace_mapping = "{(n, m, t) :: (nat \<times> nat \<times> (nat, 'a set \<times> nat) mapping) |
   n m t. Mapping.keys t = {..<n} \<and>
   sorted (map (snd \<circ> (the \<circ> Mapping.lookup t)) [0..<n]) \<and>
   (case n of 0 \<Rightarrow> True | Suc n' \<Rightarrow> (case Mapping.lookup t n' of Some (X', t') \<Rightarrow> t' \<le> m | None \<Rightarrow> False)) \<and> 
   (\<forall>n' < n. case Mapping.lookup t n' of Some (X', t') \<Rightarrow> finite X' | None \<Rightarrow> False)}"
   by (rule exI[of _ "(0, 0, Mapping.empty)"]) auto
 
-setup_lifting type_definition_trace_rbt
+setup_lifting type_definition_trace_mapping
 
 lemma lookup_bulkload_Some: "i < length list \<Longrightarrow>
   Mapping.lookup (Mapping.bulkload list) i = Some (list ! i)"
   by transfer auto
 
-definition "fstfinite xs = list_all finite xs"
-
-lift_definition trace_rbt_of_list :: "('a set \<times> nat) list \<Rightarrow> 'a trace_rbt" is
-  "\<lambda>xs. if sorted (map snd xs) \<and> fstfinite (map fst xs) then (if xs = [] then (0, 0, Mapping.empty)
+lift_definition trace_mapping_of_list :: "('a set \<times> nat) list \<Rightarrow> 'a trace_mapping" is
+  "\<lambda>xs. if sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) then (if xs = [] then (0, 0, Mapping.empty)
   else (length xs, snd (last xs), Mapping.bulkload xs))
   else (0, 0, Mapping.empty)"
   by (auto simp: lookup_bulkload_Some sorted_iff_nth_Suc last_conv_nth
-    fstfinite_def list_all_iff in_set_conv_nth Ball_def Bex_def image_iff split: nat.splits)
+    list_all_iff in_set_conv_nth Ball_def Bex_def image_iff split: nat.splits)
 
-lift_definition trace_rbt_nth :: "'a trace_rbt \<Rightarrow> nat \<Rightarrow> ('a set \<times> nat)" is
+lift_definition trace_mapping_nth :: "'a trace_mapping \<Rightarrow> nat \<Rightarrow> ('a set \<times> nat)" is
   "\<lambda>(n, m, t) i. if i < n then the (Mapping.lookup t i) else ({}, (i - n) + m)" .
 
-lift_definition Trace_RBT :: "'a trace_rbt \<Rightarrow> 'a trace" is
+lift_definition Trace_Mapping :: "'a trace_mapping \<Rightarrow> 'a Trace.trace" is
   "\<lambda>(n, m, t). map (the \<circ> Mapping.lookup t) [0..<n] @- smap (\<lambda>n. ({} :: 'a set, n + m)) nats"
 proof (goal_cases)
   case (1 prod)
@@ -241,30 +324,20 @@ proof (goal_cases)
     by (rule extend_is_stream[where ?m=m]) (use props aux aux2 in \<open>auto simp: prod_def\<close>)
 qed
 
-code_datatype Trace_RBT
+code_datatype Trace_Mapping
 
-definition "trace_of_list xs = Trace_RBT (trace_rbt_of_list xs)"
+definition "trace_of_list xs = Trace_Mapping (trace_mapping_of_list xs)"
 
-lemma \<Gamma>_rbt_code[code]: "\<Gamma> (Trace_RBT t) i = fst (trace_rbt_nth t i)"
+lemma \<Gamma>_rbt_code[code]: "\<Gamma> (Trace_Mapping t) i = fst (trace_mapping_nth t i)"
   by transfer (auto split: prod.splits)
 
-lemma \<tau>_rbt_code[code]: "\<tau> (Trace_RBT t) i = snd (trace_rbt_nth t i)"
+lemma \<tau>_rbt_code[code]: "\<tau> (Trace_Mapping t) i = snd (trace_mapping_nth t i)"
   by transfer (auto split: prod.splits)
                                        
-lemma trace_rbt_of_list_sound: "sorted (map snd xs) \<and> fstfinite (map fst xs) \<Longrightarrow> i < length xs \<Longrightarrow>
+lemma trace_mapping_of_list_sound: "sorted (map snd xs) \<and> (\<forall>x \<in> set xs. finite (fst x)) \<Longrightarrow> i < length xs \<Longrightarrow>
   xs ! i = (\<Gamma> (trace_of_list xs) i, \<tau> (trace_of_list xs) i)"
   unfolding trace_of_list_def
   by transfer (auto simp: lookup_bulkload_Some)
-
-
-subsection \<open>Exported functions\<close>
-
-instantiation String.literal :: default begin
-definition default_literal :: String.literal where "default_literal = 0"
-instance proof qed
-end
-
-declare Formula.future_bounded.simps[code]
 
 subsection \<open>Auxiliary results\<close>
 
@@ -288,11 +361,11 @@ lemma sum_proofs_app:
   by (auto simp: sum_proofs_def split: list.splits)
 
 context
-  fixes w :: "Formula.name \<Rightarrow> nat"
+  fixes w :: "'n \<Rightarrow> nat"
 begin
 
-function (sequential) s_pred :: "'d sproof \<Rightarrow> nat" 
-  and v_pred :: "'d vproof \<Rightarrow> nat" where
+function (sequential) s_pred :: "('n, 'd) sproof \<Rightarrow> nat" 
+  and v_pred :: "('n, 'd) vproof \<Rightarrow> nat" where
   "s_pred (STT _) = 1"
 | "s_pred (SEq_Const _ _ _) = 1"
 | "s_pred (SPred _ r _) = w r"
@@ -349,7 +422,7 @@ termination
   by (relation "measure (case_sum size size)")
     (auto simp add: termination_simp)
 
-definition p_pred :: "'d proof \<Rightarrow> nat" where
+definition p_pred :: "('n, 'd) proof \<Rightarrow> nat" where
   "p_pred = case_sum s_pred v_pred"
 
 end
@@ -373,11 +446,11 @@ lemma ETP_minus_eq_iff: "j = ETP \<sigma> (\<tau> \<sigma> i - n) \<longleftrigh
 
 lemma LTP_minus_ge_iff: "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i \<Longrightarrow> j \<le> LTP \<sigma> (\<tau> \<sigma> i - n) \<longleftrightarrow>
   (case n of 0 \<Rightarrow> \<delta> \<sigma> j i = 0 | _ \<Rightarrow> j \<le> i \<and> \<delta> \<sigma> i j \<ge> n)"
-  by (auto simp add: i_LTP_tau split: nat.splits)
-     (smt (z3) add.commute add_Suc_right add_leD2 ETP_ge i_ETP_tau le_diff_conv2 less_le_trans less_or_eq_imp_le plus_1_eq_Suc)
+  using \<tau>_mono[of i j \<sigma>]
+  by (fastforce simp add: i_LTP_tau le_diff_conv2 Suc_le_eq split: nat.splits)
 
 lemma LTP_plus_ge_iff: "j \<le> LTP \<sigma> (\<tau> \<sigma> i + n) \<longleftrightarrow> \<delta> \<sigma> j i \<le> n"
-  by (smt (z3) \<tau>_mono diff_self_eq_0 i_LTP_tau le_diff_conv le_imp_diff_is_add nat_le_iff_add trans_le_add2 add.commute)
+  by (simp add: add.commute i_LTP_tau le_diff_conv trans_le_add2)
 
 lemma LTP_minus_lt_if:
   assumes "j \<le> i" "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i" "\<delta> \<sigma> i j < n"
@@ -400,9 +473,6 @@ proof -
     by (metis Max_in not_in empty_iff not_le_imp_less)
 qed
 
-lemma diff_cancel_middle: "(c::nat) \<le> b + a \<Longrightarrow> a - (b + a - c) = c - b"
-  by simp
-
 lemma LTP_minus_lt_iff:
   assumes "\<tau> \<sigma> 0 + n \<le> \<tau> \<sigma> i"
   shows "LTP \<sigma> (\<tau> \<sigma> i - n) < j \<longleftrightarrow> (if \<not> j \<le> i \<and> n = 0 then \<delta> \<sigma> j i > 0 else \<delta> \<sigma> i j < n)"
@@ -422,8 +492,7 @@ next
     case 0
     then show ?thesis
       using False assms
-      by (simp add: i_LTP_tau not_le_imp_less)
-        (metis "0" Nat.add_0_right assms i_LTP_tau linorder_not_less)
+      by (metis add.right_neutral diff_is_0_eq diff_zero i_LTP_tau linorder_not_less)
   next
     case (Suc n')
     then show ?thesis
@@ -460,9 +529,7 @@ lemma LTP_plus_eq_iff:
   by (meson LTP_plus_ge_iff linorder_not_less not_less_eq_eq)
 
 lemma LTP_p_def: "\<tau> \<sigma> 0 + left I \<le> \<tau> \<sigma> i \<Longrightarrow> LTP_p \<sigma> i I = (case left I of 0 \<Rightarrow> i | _ \<Rightarrow> LTP \<sigma> (\<tau> \<sigma> i - left I))"
-  using i_le_LTPi
-  by (simp add: min_def split: nat.splits)
-    (smt (verit, ccfv_threshold) Zero_not_Suc add_leD2 add_le_imp_le_diff diff_diff_cancel diff_is_0_eq' i_LTP_tau i_le_LTPi)
+  using i_le_LTPi by (auto simp: min_def i_LTP_tau split: nat.splits)
 
 definition "check_upt_LTP_p \<sigma> I li xs i \<longleftrightarrow> (case xs of [] \<Rightarrow>
   (case left I of 0 \<Rightarrow> i < li | Suc n \<Rightarrow>
@@ -696,17 +763,12 @@ proof -
     by (rule Max_ge)
 qed
 
-function LTP_rec where
+function (sequential) LTP_rec where
   "LTP_rec \<sigma> t i = (if \<tau> \<sigma> (Suc i) \<le> t then LTP_rec \<sigma> t (i + 1) else i)"
   by pat_completeness auto
 termination
   using LTP_aux
   by (relation "measure (\<lambda>(\<sigma>, t, i). Suc (LTP \<sigma> t) - i)") (fastforce simp: LTP_def)+
-
-lemma max_aux: "finite X \<Longrightarrow> Suc j \<in> X \<Longrightarrow> Max (insert (Suc j) (X - {j})) = Max (insert j X)"
-  (* sledgehammer *)
-  by (smt (verit) max.orderI Max.insert_remove Max_ge Max_insert empty_iff insert_Diff_single
-      insert_absorb insert_iff max_def not_less_eq_eq)
 
 lemma LTP_rec_sound: "LTP_rec \<sigma> t j = Max ({i. i \<ge> j \<and> (\<tau> \<sigma> i) \<le> t} \<union> {j})"
 proof (induction \<sigma> t j rule: LTP_rec.induct)
@@ -726,7 +788,8 @@ proof (induction \<sigma> t j rule: LTP_rec.induct)
     case False
     then show ?thesis
       using fin
-      by simp (smt (verit) Max_insert2 \<tau>_mono mem_Collect_eq not_less_eq_eq order_trans)
+      by (auto simp: not_le intro!: Max_insert2[symmetric]
+        dest!: order.strict_trans1 less_\<tau>D)
   qed
 qed
 
@@ -736,181 +799,40 @@ lemma LTP_code[code]: "LTP \<sigma> t = (if t < \<tau> \<sigma> 0
   using LTP_rec_sound[of \<sigma> t 0]
   by (auto simp: LTP_def insert_absorb simp del: LTP_rec.simps)
 
-code_deps LTP
-
 lemma map_part_code[code]: "Rep_part (map_part f xs) = map (map_prod id f) (Rep_part xs)"
   using Rep_part[of xs]
   by (auto simp: map_part_def intro!: Abs_part_inverse)
 
-instantiation nat :: default begin
-definition default_nat :: nat where "default_nat = 0"
-instance proof qed
-end
+lemma coset_subset_set_code[code]:
+  "(List.coset (xs :: _ :: universe list) \<subseteq> set ys) = (case universe of None \<Rightarrow> False
+  | Some zs \<Rightarrow> \<forall>z \<in> set zs. z \<in> set xs \<or> z \<in> set ys)"
+  using finite_compl finite_subset
+  by (auto split: option.splits dest!: infinite finite)
 
-instantiation list :: (type) default begin
-definition default_list :: "'a list" where "default_list = []"
-instance proof qed
-end
+lemma is_empty_coset[code]: "Set.is_empty (List.coset (xs :: _ :: universe list)) =
+  (case universe of None \<Rightarrow> False
+  | Some zs \<Rightarrow> \<forall>z \<in> set zs. z \<in> set xs)"
+  using coset_subset_set_code[of xs] by (auto simp: Set.is_empty_def split: option.splits dest: infinite finite)
 
-lemma coset_subset_set_code[code]: "(List.coset (xs :: _ :: infinite list) \<subseteq> set ys) = False"
-  using finite_coset finite_subset by fastforce
+subsection \<open>Exported functions\<close>
 
-lemma is_empty_coset[code]: "Set.is_empty (List.coset (xs :: _ :: infinite list)) = False"
-  using coset_subset_set_code by (fastforce simp: Set.is_empty_def)
+type_synonym name = string8
 
-definition "check_p \<sigma> v \<phi> p = (case p of Inl sp \<Rightarrow> s_check \<sigma> v \<phi> sp | Inr vp \<Rightarrow> v_check \<sigma> v \<phi> vp)"
-definition "check_exec_p \<sigma> vs \<phi> p = (case p of Inl sp \<Rightarrow> s_check_exec \<sigma> vs \<phi> sp | Inr vp \<Rightarrow> v_check_exec \<sigma> vs \<phi> vp)"
+declare Formula.future_bounded.simps[code]
 
-fun check_one where
-  "check_one \<sigma> v \<phi> (Leaf p) = check_p \<sigma> v \<phi> p"
-| "check_one \<sigma> v \<phi> (Node x part) = check_one \<sigma> v \<phi> (lookup_part part (v x))"
-
-fun check_all_aux where
-  "check_all_aux \<sigma> vs \<phi> (Leaf p) = check_exec_p \<sigma> vs \<phi> p"
-| "check_all_aux \<sigma> vs \<phi> (Node x part) = (\<forall>(D, e) \<in> set (subsvals part). check_all_aux \<sigma> (vs(x := D)) \<phi> e)"
-
-fun collect_paths_aux where
-  "collect_paths_aux DS \<sigma> vs \<phi> (Leaf p) = (if check_exec_p \<sigma> vs \<phi> p then {} else rev ` DS)"
-| "collect_paths_aux DS \<sigma> vs \<phi> (Node x part) = (\<Union>(D, e) \<in> set (subsvals part). collect_paths_aux (Cons D ` DS) \<sigma> (vs(x := D)) \<phi> e)"
-
-lift_definition lookup :: "('d, 'a) part \<Rightarrow> 'd \<Rightarrow> ('d set \<times> 'a)" is "\<lambda>xs d. the (find (\<lambda>(D, _). d \<in> D) xs)" .
-
-lemma snd_lookup[simp]: "snd (lookup part d) = lookup_part part d"
-  by transfer auto
-
-lemma distinct_disjoint_uniq: "distinct xs \<Longrightarrow> disjoint (set xs) \<Longrightarrow>
-  i < j \<Longrightarrow> j < length xs \<Longrightarrow> d \<in> xs ! i \<Longrightarrow> d \<in> xs ! j \<Longrightarrow> False"
-  unfolding disjoint_def disjoint_iff
-  by (metis (no_types, lifting) order.strict_trans min.strict_order_iff nth_eq_iff_index_eq nth_mem)
-
-lemma partition_on_UNIV_find_Some:
-  "partition_on UNIV (set (map fst part)) \<Longrightarrow> distinct (map fst part) \<Longrightarrow>
-  \<exists>y. find (\<lambda>(D, _). d \<in> D) part = Some y"
-  unfolding partition_on_def set_eq_iff
-  by (auto simp: find_Some_iff in_set_conv_nth
-      Ball_def image_iff Bex_def split_beta dest: distinct_disjoint_uniq dest!: spec[of _ d]
-      intro!: exI[where P="\<lambda>x. \<exists>y z. P x y z \<and> Q x y z" for P Q, OF exI, OF exI, OF conjI])
-
-lemma fst_lookup: "d \<in> fst (lookup part d)"
-proof (transfer fixing: d, goal_cases)
-  case (1 part)
-  then obtain y where "find (\<lambda>(D, _). d \<in> D) part = Some y" using partition_on_UNIV_find_Some
-    by fastforce
-  then show ?case
-    by (auto dest: find_Some_iff[THEN iffD1])
-qed
-
-lemma lookup_subsvals: "lookup part d \<in> set (subsvals part)"
-proof (transfer fixing: d, goal_cases)
-  case (1 part)
-  then obtain y where "find (\<lambda>(D, _). d \<in> D) part = Some y" using partition_on_UNIV_find_Some
-    by fastforce
-  then show ?case
-    by (auto simp: in_set_conv_nth dest: find_Some_iff[THEN iffD1])
-qed
-
-lemma sat_vorder_Node:
-  assumes "distinct xs"
-  shows "sat_vorder xs (Node x part) = (\<exists>ys zs. xs = ys @ x # zs \<and> (\<forall>e \<in> Vals part. sat_vorder zs e))"
-proof (safe, goal_cases LR RL)
-  case LR
-  then show ?case 
-    by (induct xs "Node x part" rule: sat_vorder.induct)
-      (auto 4 3 intro: exI[of _ "_ # _"])
-next
-  case (RL ys zs)
-  with assms show ?case 
-    by (induct ys arbitrary: xs)
-      (auto intro: sat_vorder.intros)
-qed
-
-fun vars where
-  "vars (Leaf _) = {}"
-| "vars (Node x part) = {x} \<union> (\<Union>e \<in> Vals part. vars e)"
-
-fun distinct_paths where
-  "distinct_paths (Leaf _) = True"
-| "distinct_paths (Node x part) = (\<forall>e \<in> Vals part. x \<notin> vars e \<and> distinct_paths e)"
-
-lemma check_one_cong: "\<forall>x\<in>Formula.fv \<phi> \<union> vars e. v x = v' x \<Longrightarrow> check_one \<sigma> v \<phi> e = check_one \<sigma> v' \<phi> e"
-proof (induct e arbitrary: v v')
-  case (Leaf x)
-  then show ?case
-    by (auto simp: check_p_def check_fv_cong split: sum.splits)
-next
-  case (Node x part)
-  from Node(2) have *: "v x = v' x"
-    by simp
-  from Node(2) show ?case
-    unfolding check_one.simps *
-    by (intro Node(1)) auto
-qed
-
-lemma lookup_part_from_subvals: "(D, e) \<in> set (subsvals part) \<Longrightarrow> d \<in> D \<Longrightarrow> lookup_part part d = e"
-proof (transfer fixing: D e d, goal_cases)
-  case (1 part)
-  then show ?case 
-  proof (cases "find (\<lambda>(D, _). d \<in> D) part")
-    case (Some De)
-    from 1 show ?thesis 
-      unfolding partition_on_def set_eq_iff Some using Some unfolding find_Some_iff
-      by (fastforce dest!: spec[of _ d] simp: in_set_conv_nth split_beta dest: part_list_set_eq_aux2)
-  qed (auto simp: partition_on_def image_iff find_None_iff)
-qed
-
-lemma check_all_aux_check_one: "\<forall>x. vs x \<noteq> {} \<Longrightarrow> distinct_paths e \<Longrightarrow> (\<forall>x \<in> vars e. vs x = UNIV) \<Longrightarrow>
-  check_all_aux \<sigma> vs \<phi> e \<longleftrightarrow> (\<forall>v \<in> compatible_vals (Formula.fv \<phi>) vs. check_one \<sigma> v \<phi> e)"
-proof (induct e arbitrary: vs)
-  case (Node x part)
-  show ?case
-    unfolding check_all_aux.simps check_one.simps split_beta
-  proof (safe, unfold fst_conv snd_conv, goal_cases LR RL)
-    case (LR v)
-    from Node(2-) fst_lookup[of "v x" part] LR(1)[rule_format, OF lookup_subsvals[of _ "v x"]] LR(2) show ?case
-      by (subst (asm) Node(1))
-         (auto 0 3 simp: compatible_vals_fun_upd dest!: bspec[of _ _ v]
-            elim!: compatible_vals_antimono[THEN set_mp, rotated])
-  next
-    case (RL D e)
-    from RL(2) obtain d where "d \<in> D"
-      by transfer (force simp: partition_on_def image_iff)
-    with RL show ?case
-      using Node(2-) lookup_subsvals[of part d] lookup_part_Vals[of part d]
-        lookup_part_from_subvals[of D e part d]
-    proof (intro Node(1)[THEN iffD2, OF _ _ _ _ ballI], goal_cases _ _ _ _ compatible)
-      case (compatible v)
-      from compatible(2-) compatible(1)[THEN bspec, of "v(x := d)"] compatible(1)[THEN bspec, of v]
-      show ?case
-        using lookup_part_from_subvals[of D e part "v x"]
-          fun_upd_in_compatible_vals_in[of v "Formula.fv \<phi>" x vs "v x"]
-          check_one_cong[THEN iffD1, rotated -1, of \<sigma> "v(x := d)" \<phi> e v, simplified]
-        by (auto simp: compatible_vals_fun_upd fun_upd_apply[of _ _ _ x]
-          fun_upd_in_compatible_vals_notin split: if_splits
-          simp del: fun_upd_apply)
-    qed auto
-  qed
-qed (auto simp: check_exec_p_def check_p_def check_exec_check split: sum.splits)
-
-instance event_data :: infinite by standard (simp add: infinite_UNIV_event_data)
-
-instance event_data :: equal by standard
-
-definition check_all_generic :: "(Formula.name \<times> 'd ::  {default,linorder} list) trace \<Rightarrow> 'd Formula.formula \<Rightarrow> ('d, 'd proof) pdt \<Rightarrow> bool" where
-  "check_all_generic \<sigma> \<phi> e = (distinct_paths e \<and> check_all_aux \<sigma> (\<lambda>_. UNIV) \<phi> e)"
-
-definition collect_paths :: "(Formula.name \<times> 'd ::  {default,linorder} list) trace \<Rightarrow> 'd Formula.formula \<Rightarrow> ('d, 'd proof) pdt \<Rightarrow> 'd set list set option" where
+definition collect_paths :: "('n, 'd :: {default, linorder}) trace \<Rightarrow> ('n, 'd) formula \<Rightarrow> ('n, 'd) expl \<Rightarrow> 'd set list set option" where
   "collect_paths \<sigma> \<phi> e = (if (distinct_paths e \<and> check_all_aux \<sigma> (\<lambda>_. UNIV) \<phi> e) then None else Some (collect_paths_aux {[]} \<sigma> (\<lambda>_. UNIV) \<phi> e))"
 
-definition check :: "(Formula.name \<times> event_data list) trace \<Rightarrow> event_data Formula.formula \<Rightarrow> (event_data, event_data proof) pdt \<Rightarrow> bool" where
-  "check = check_all_generic"
+definition check :: "(name, event_data) trace \<Rightarrow> (name, event_data) formula \<Rightarrow> (name, event_data) expl \<Rightarrow> bool" where
+  "check = check_all"
 
-definition collect_paths_specialized :: "(Formula.name \<times> event_data list) trace \<Rightarrow> event_data Formula.formula \<Rightarrow> (event_data, event_data proof) pdt \<Rightarrow> event_data set list set option" where
+definition collect_paths_specialized :: "(name, event_data) trace \<Rightarrow> (name, event_data) formula \<Rightarrow> (name, event_data) expl \<Rightarrow> event_data set list set option" where
   "collect_paths_specialized = collect_paths"
 
-definition trace_of_list_specialized :: "((Formula.name \<times> event_data list) set \<times> nat) list \<Rightarrow> (Formula.name \<times> event_data list) trace" where
+definition trace_of_list_specialized :: "((name \<times> event_data list) set \<times> nat) list \<Rightarrow> (name, event_data) trace" where
   "trace_of_list_specialized xs = trace_of_list xs"
 
-definition specialized_set :: "(Formula.name \<times> event_data list) list \<Rightarrow> (Formula.name \<times> event_data list) set" where
+definition specialized_set :: "(name \<times> event_data list) list \<Rightarrow> (name \<times> event_data list) set" where
   "specialized_set = set"
 
 definition ed_set :: "event_data list \<Rightarrow> event_data set" where
@@ -931,15 +853,12 @@ lift_definition abs_part :: "(event_data set \<times> 'a) list \<Rightarrow> (ev
    \<or> (\<Union>D \<in> set Ds. D) \<noteq> UNIV then [(UNIV, undefined)] else xs"
   by (auto simp: partition_on_def disjoint_def)
 
-lemma check_all_check_one: "check_all_generic \<sigma> \<phi> e = (distinct_paths e \<and> (\<forall>v. check_one \<sigma> v \<phi> e))"
-  unfolding check_all_generic_def
-  by (rule conj_cong[OF refl], subst check_all_aux_check_one)
-    (auto simp: compatible_vals_def)
-
 export_code interval enat nat_of_integer integer_of_nat
   STT Formula.TT Inl EInt Formula.Var Leaf set part_hd sum_nat sub_nat subsvals
   check trace_of_list_specialized specialized_set ed_set abs_part 
   collect_paths_specialized
-  in OCaml module_name Whymon file_prefix "checker"
+  in OCaml module_name Checker file_prefix "checker"
 
+(*<*)
 end
+(*>*)

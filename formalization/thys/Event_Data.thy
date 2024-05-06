@@ -1,12 +1,13 @@
 (*<*)
 theory Event_Data
   imports
-    "HOL-Library.Char_ord" Containers.Collection_Eq
-    Containers.Collection_Order Deriving.Derive
+    "HOL-Library.Char_ord"
 begin
-  (*>*)
+(*>*)
 
-section \<open>Code adaptation for 8-bit strings\<close>
+section \<open>Type of Events\<close>
+
+subsection \<open>Code Adaptation for 8-bit strings\<close>
 
 typedef string8 = "UNIV :: char list set" ..
 
@@ -66,11 +67,7 @@ code_printing
   | constant "(<) :: string8 \<Rightarrow> string8 \<Rightarrow> bool" \<rightharpoonup> (Eval) infixl 6 "<"
   | constant "Code_Evaluation.term_of :: string8 \<Rightarrow> term" \<rightharpoonup> (Eval) "String8.to'_term"
 
-derive (eq) ceq string8
-derive (linorder) compare string8
-derive (compare) ccompare string8
-
-section \<open>Event parameters\<close>
+subsection \<open>Event Parameters\<close>
 
 definition div_to_zero :: "integer \<Rightarrow> integer \<Rightarrow> integer" where
   "div_to_zero x y = (let z = fst (Code_Numeral.divmod_abs x y) in
@@ -85,9 +82,6 @@ lemma "b \<noteq> 0 \<Longrightarrow> div_to_zero a b * b + mod_to_zero a b = a"
   by (auto simp: minus_mod_eq_mult_div[symmetric] div_minus_right mod_minus_right ac_simps)
 
 datatype event_data = EInt integer | EString string8
-
-derive (eq) ceq event_data
-derive ccompare event_data
 
 instantiation event_data :: "{ord, plus, minus, uminus, times, divide, modulo}"
 begin
@@ -139,12 +133,6 @@ proof -
     by (meson infinite_UNIV_char_0 infinite_iff_countable_subset top_greatest)
 qed
 
-instantiation event_data :: card_UNIV begin
-definition "finite_UNIV = Phantom(event_data) False"
-definition "card_UNIV = Phantom(event_data) 0"
-instance by intro_classes (simp_all add: finite_UNIV_event_data_def card_UNIV_event_data_def infinite_UNIV_event_data)
-end
-
 primrec integer_of_event_data :: "event_data \<Rightarrow> integer" where
   "integer_of_event_data (EInt _) = undefined"
 | "integer_of_event_data (EString _) = undefined"
@@ -159,17 +147,23 @@ end
 
 instantiation event_data :: linorder begin
 instance
-  apply standard
-      apply (auto simp add: less_event_data_def)
-  subgoal for x
+proof (standard, unfold less_event_data_def, goal_cases less refl trans antisym total)
+  case (refl x)
+  then show ?case
     by (cases x) auto
-  subgoal for x y z
+next
+  case (trans x y z)
+  then show ?case
     by (cases x; cases y; cases z) auto
-  subgoal for x y
+next
+  case (antisym x y)
+  then show ?case
     by (cases x; cases y) auto
-  subgoal for x y
+next
+  case (total x y)
+  then show ?case
     by (cases x; cases y) auto
-  done
+qed simp
 
 end
 

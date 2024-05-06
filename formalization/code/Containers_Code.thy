@@ -1,6 +1,12 @@
 theory Containers_Code
-imports Monitor_Code Containers.Containers
+imports Whymon.Monitor Containers.Containers Deriving.Derive
 begin
+
+derive (eq) ceq event_data
+derive ccompare event_data
+derive (eq) ceq string8
+derive (linorder) compare string8
+derive (compare) ccompare string8
 
 subsection \<open>Comparator\<close>
 

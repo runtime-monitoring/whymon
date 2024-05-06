@@ -1,0 +1,8 @@
+NOT (attempt(usr, country) 
+      AND (EXISTS country1. (ONCE[0,151200] (
+          attempt(usr, country1) 
+          AND (NOT attempt(usr, country))
+          AND ((FORALL country2. attempt(usr, country2) IMPLIES attempt(usr, country1)) UNTIL[0,151201] attempt(usr, country))
+          ))
+        AND PREV ((NOT (EXISTS country2. attempt(usr, country2))) SINCE [0,151200] attempt(usr, country1))
+      ))

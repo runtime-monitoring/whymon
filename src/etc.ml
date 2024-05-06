@@ -96,3 +96,14 @@ let compute_lines inc =
     | None -> i
     | Some _ -> compute_lines_rec (i+1) in
   compute_lines_rec 0
+
+(* if len(d1) != len(d2) this function returns false *)
+let fdeque_for_all2 d1 d2 ~f:((f : _ -> _ -> _)) =
+  let rec fdeque_for_all2_rec d1 d2 =
+    match Fdeque.dequeue_front d1, Fdeque.dequeue_front d2 with
+    | None, None -> true
+    | Some(a1, d1), Some(a2, d2) ->
+       f a1 a2 && fdeque_for_all2_rec d1 d2
+    | _ -> false in
+  if Int.equal (Fdeque.length d1) (Fdeque.length d2) then fdeque_for_all2_rec d1 d2
+  else false

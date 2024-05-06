@@ -156,6 +156,16 @@ let tstps_to_string ts_zero tstps_in tstps_out =
           ~f:(fun acc (ts, tp) -> acc ^ (Printf.sprintf "(%d, %d);" ts tp)) ^
           (Printf.sprintf "]\n")
 
+let tstp_equal (ts, tp) (ts', tp') = Int.equal ts ts' && Int.equal tp tp'
+let ts_p_equal (ts, p) (ts', p') = Int.equal ts ts' && Proof.equal p p'
+let ts_sp_equal (ts, sp) (ts', sp') = Int.equal ts ts' && Proof.s_equal sp sp'
+let ts_vp_equal (ts, vp) (ts', vp') = Int.equal ts ts' && Proof.v_equal vp vp'
+let ts_vopt2_equal (ts, vp1, vp2) (ts', vp1', vp2') =
+  Int.equal ts ts' && (Option.equal Proof.v_equal) vp1 vp1' &&
+    (Option.equal Proof.v_equal) vp2 vp2'
+let ts_pds_equal ts_pds1 ts_pds2 =
+  Etc.fdeque_for_all2 ts_pds1 ts_pds2 ts_p_equal
+
 module Buf2 = struct
 
   type ('a, 'b) t = 'a list * 'b list
@@ -169,6 +179,12 @@ module Buf2 = struct
                       ((f x y)::zs, buf2')
 
   let length (l1, l2) = (List.length l1, List.length l2)
+
+  let equal buf2 buf2' eq =
+    let equal_component c1 c2 = match List.for_all2 c1 c2 ~f:eq with
+      | Ok b -> b
+      | Unequal_lengths -> false in
+    equal_component (fst buf2) (fst buf2') && equal_component (snd buf2) (snd buf2')
 
 end
 
@@ -188,6 +204,12 @@ module Buft = struct
     | xs, [] -> (z, xs, [])
     | x::xs, (a,b)::ys -> take f (f x a b z) (xs, ys)
 
+  let equal buft buft' eqfst eqsnd =
+    let equal_component c1 c2 f = match List.for_all2 c1 c2 ~f with
+      | Ok b -> b
+      | Unequal_lengths -> false in
+    equal_component (fst buft) (fst buft') eqfst && equal_component (snd buft) (snd buft') eqsnd
+
 end
 
 module Buf2t = struct
@@ -201,6 +223,14 @@ module Buf2t = struct
     | (xs, []), zs -> (w, ((xs, []), zs))
     | (xs, ys), [] -> (w, ((xs, ys), []))
     | (x::xs, y::ys), (a,b)::zs -> take f (f x y a b w) (xs, ys) zs
+
+  let equal buf2t buf2t' eq1 eq2 eq3 =
+    let equal_component c1 c2 f = match List.for_all2 c1 c2 ~f with
+      | Ok b -> b
+      | Unequal_lengths -> false in
+    equal_component (fst (fst buf2t)) (fst (fst buf2t')) eq1 &&
+      equal_component (snd (fst buf2t)) (snd (fst buf2t')) eq2 &&
+        equal_component (snd buf2t) (snd buf2t') eq3
 
 end
 
@@ -223,13 +253,22 @@ module Once = struct
                 ; v_alphas_in = Fdeque.empty
                 ; v_alphas_out = Fdeque.empty }
 
+  let equal moaux moaux' =
+    (Option.equal Int.equal) moaux.ts_zero moaux'.ts_zero &&
+      Etc.fdeque_for_all2 moaux.tstps_in moaux'.tstps_in tstp_equal &&
+        Etc.fdeque_for_all2 moaux.tstps_out moaux'.tstps_out tstp_equal &&
+          Etc.fdeque_for_all2 moaux.s_alphas_in moaux'.s_alphas_in ts_p_equal &&
+            Etc.fdeque_for_all2 moaux.s_alphas_out moaux'.s_alphas_out ts_p_equal &&
+              Etc.fdeque_for_all2 moaux.v_alphas_in moaux'.v_alphas_in ts_vp_equal &&
+                Etc.fdeque_for_all2 moaux.v_alphas_out moaux'.v_alphas_out ts_vp_equal
+
   let to_string { ts_zero
-                      ; tstps_in
-                      ; tstps_out
-                      ; s_alphas_in
-                      ; s_alphas_out
-                      ; v_alphas_in
-                      ; v_alphas_out } =
+                ; tstps_in
+                ; tstps_out
+                ; s_alphas_in
+                ; s_alphas_out
+                ; v_alphas_in
+                ; v_alphas_out } =
     ("\n\nOnce state: " ^ (tstps_to_string ts_zero tstps_in tstps_out) ^
        Fdeque.fold s_alphas_in ~init:"\ns_alphas_in = "
          ~f:(fun acc (ts, p) ->
@@ -324,6 +363,13 @@ module Eventually = struct
                 ; s_alphas_in = Fdeque.empty
                 ; v_alphas_in = Fdeque.empty
                 ; optimal_proofs = Fdeque.empty }
+
+  let equal meaux meaux' =
+    Etc.fdeque_for_all2 meaux.tstps_out meaux'.tstps_out tstp_equal &&
+      Etc.fdeque_for_all2 meaux.tstps_in meaux'.tstps_in tstp_equal &&
+        Etc.fdeque_for_all2 meaux.s_alphas_in meaux'.s_alphas_in ts_p_equal &&
+          Etc.fdeque_for_all2 meaux.v_alphas_in meaux'.v_alphas_in ts_vp_equal &&
+            Etc.fdeque_for_all2 meaux.optimal_proofs meaux'.optimal_proofs ts_p_equal
 
   let to_string { tstps_out
                 ; tstps_in
@@ -432,6 +478,15 @@ module Historically = struct
                 ; v_alphas_in = Fdeque.empty
                 ; v_alphas_out = Fdeque.empty }
 
+  let equal mhaux mhaux' =
+    (Option.equal Int.equal) mhaux.ts_zero mhaux'.ts_zero &&
+      Etc.fdeque_for_all2 mhaux.tstps_in mhaux'.tstps_in tstp_equal &&
+        Etc.fdeque_for_all2 mhaux.tstps_out mhaux'.tstps_out tstp_equal &&
+          Etc.fdeque_for_all2 mhaux.s_alphas_in mhaux'.s_alphas_in ts_sp_equal &&
+            Etc.fdeque_for_all2 mhaux.s_alphas_out mhaux'.s_alphas_out ts_sp_equal &&
+              Etc.fdeque_for_all2 mhaux.v_alphas_in mhaux'.v_alphas_in ts_p_equal &&
+                Etc.fdeque_for_all2 mhaux.v_alphas_out mhaux'.v_alphas_out ts_p_equal
+
   let to_string { ts_zero
                 ; tstps_in
                 ; tstps_out
@@ -532,6 +587,13 @@ module Always = struct
                 ; v_alphas_in = Fdeque.empty
                 ; s_alphas_in = Fdeque.empty
                 ; optimal_proofs = Fdeque.empty }
+
+  let equal maaux maaux' =
+    Etc.fdeque_for_all2 maaux.tstps_out maaux'.tstps_out tstp_equal &&
+      Etc.fdeque_for_all2 maaux.tstps_in maaux'.tstps_in tstp_equal &&
+        Etc.fdeque_for_all2 maaux.v_alphas_in maaux'.v_alphas_in ts_p_equal &&
+          Etc.fdeque_for_all2 maaux.s_alphas_in maaux'.s_alphas_in ts_sp_equal &&
+            Etc.fdeque_for_all2 maaux.optimal_proofs maaux'.optimal_proofs ts_p_equal
 
   let to_string { tstps_out
                 ; tstps_in
@@ -641,6 +703,17 @@ module Since = struct
                 ; v_alphas_out = Fdeque.empty
                 ; v_betas_in = Fdeque.empty
                 ; v_alphas_betas_out = Fdeque.empty }
+
+  let equal msaux msaux' =
+    (Option.equal Int.equal) msaux.ts_zero msaux'.ts_zero &&
+      Etc.fdeque_for_all2 msaux.tstps_in msaux'.tstps_in tstp_equal &&
+        Etc.fdeque_for_all2 msaux.tstps_out msaux'.tstps_out tstp_equal &&
+          Etc.fdeque_for_all2 msaux.s_beta_alphas_in msaux'.s_beta_alphas_in ts_p_equal &&
+            Etc.fdeque_for_all2 msaux.s_beta_alphas_out msaux'.s_beta_alphas_out ts_p_equal &&
+              Etc.fdeque_for_all2 msaux.v_alpha_betas_in msaux'.v_alpha_betas_in ts_p_equal &&
+                Etc.fdeque_for_all2 msaux.v_alphas_out msaux'.v_alphas_out ts_p_equal &&
+                  Etc.fdeque_for_all2 msaux.v_betas_in msaux'.v_betas_in ts_vp_equal &&
+                    Etc.fdeque_for_all2 msaux.v_alphas_betas_out msaux'.v_alphas_betas_out ts_vopt2_equal
 
   let to_string { ts_zero
                 ; tstps_in
@@ -834,6 +907,17 @@ module Until = struct
                 ; v_alphas_in = Fdeque.empty
                 ; v_betas_suffix_in = Fdeque.empty
                 ; optimal_proofs = Fdeque.empty }
+
+  let equal muaux muaux' =
+    Etc.fdeque_for_all2 muaux.tstps_in muaux'.tstps_in tstp_equal &&
+      Etc.fdeque_for_all2 muaux.tstps_out muaux'.tstps_out tstp_equal &&
+        Etc.fdeque_for_all2 muaux.s_alphas_beta muaux'.s_alphas_beta ts_pds_equal &&
+          Etc.fdeque_for_all2 muaux.s_alphas_suffix muaux'.s_alphas_suffix ts_sp_equal &&
+            Etc.fdeque_for_all2 muaux.v_betas_alpha muaux'.v_betas_alpha ts_pds_equal &&
+              Etc.fdeque_for_all2 muaux.v_alphas_out muaux'.v_alphas_out ts_p_equal &&
+                Etc.fdeque_for_all2 muaux.v_alphas_in muaux'.v_alphas_in ts_p_equal &&
+                  Etc.fdeque_for_all2 muaux.v_betas_suffix_in muaux'.v_betas_suffix_in ts_vp_equal &&
+                    Etc.fdeque_for_all2 muaux.optimal_proofs muaux'.optimal_proofs ts_p_equal
 
   let to_string { tstps_in
                 ; tstps_out
@@ -1172,6 +1256,9 @@ end
 
 module MFormula = struct
 
+  type tss = timestamp list
+  type tstps = (timestamp * timepoint) list
+
   type t =
     | MTT
     | MFF
@@ -1237,6 +1324,63 @@ module MFormula = struct
     | Formula.Since (i, f, g) -> MSince (i, init f, init g, (([], []), []), Leaf (Since.init ()))
     | Formula.Until (i, f, g) -> MUntil (i, init f, init g, (([], []), []), Leaf (Until.init ()))
 
+  let tss_equal tss tss' =
+    match List.for_all2 tss tss' ~f:Int.equal with
+    | Ok b -> b
+    | Unequal_lengths -> false
+
+  let tstps_equal tstps tstps' =
+    match List.for_all2 tstps tstps' ~f:tstp_equal with
+    | Ok b -> b
+    | Unequal_lengths -> false
+
+  let rec equal mf mf' = match mf, mf' with
+    | MTT, MTT -> true
+    | MFF, MFF -> true
+    | MEqConst (x, c), MEqConst (x', c') -> String.equal x x' && Domain.equal c c'
+    | MPredicate (r, trms), MPredicate (r', trms') ->
+       let trms_equal = match List.for_all2 trms trms' ~f:Term.equal with
+         | Ok b -> b
+         | Unequal_lengths -> false in
+       String.equal r r' && trms_equal
+    | MNeg mf, MNeg mf' -> equal mf mf'
+    | MAnd (mf1, mf2, buf2), MAnd (mf1', mf2', buf2') ->
+       equal mf1 mf1' && equal mf2 mf2' && Buf2.equal buf2 buf2' Expl.equal
+    | MOr (mf1, mf2, buf2), MOr (mf1', mf2', buf2') ->
+       equal mf1 mf1' && equal mf2 mf2' && Buf2.equal buf2 buf2' Expl.equal
+    | MImp (mf1, mf2, buf2), MImp (mf1', mf2', buf2') ->
+       equal mf1 mf1' && equal mf2 mf2' && Buf2.equal buf2 buf2' Expl.equal
+    | MIff (mf1, mf2, buf2), MIff (mf1', mf2', buf2') ->
+       equal mf1 mf1' && equal mf2 mf2' && Buf2.equal buf2 buf2' Expl.equal
+    | MExists (x, tc, mf), MExists (x', tc', mf') ->
+       String.equal x x' && Domain.tt_equal tc tc' && equal mf mf'
+    | MForall (x, tc, mf), MForall (x', tc', mf') ->
+       String.equal x x' && Domain.tt_equal tc tc' && equal mf mf'
+    | MPrev (i, mf, first, buft), MPrev (i', mf', first', buft') ->
+       Interval.equal i i' && Bool.equal first first' &&
+         equal mf mf' && Buft.equal buft buft' Expl.equal Int.equal
+    | MNext (i, mf, first, tss), MNext (i', mf', first', tss') ->
+       Interval.equal i i' && Bool.equal first first' &&
+         tss_equal tss tss' && equal mf mf'
+    | MOnce (i, mf, tstps, moaux_pdt), MOnce (i', mf', tstps', moaux_pdt') ->
+       Interval.equal i i' && tstps_equal tstps tstps' &&
+         equal mf mf' && (Pdt.equal Once.equal) moaux_pdt moaux_pdt'
+    | MEventually (i, mf, buft, meaux_pdt), MEventually (i', mf', buft', meaux_pdt') ->
+       Interval.equal i i' && Buft.equal buft buft' Expl.equal tstp_equal &&
+         equal mf mf' && (Pdt.equal Eventually.equal) meaux_pdt meaux_pdt'
+    | MHistorically (i, mf, tstps, mhaux_pdt), MHistorically (i', mf', tstps', mhaux_pdt') ->
+       Interval.equal i i' && tstps_equal tstps tstps' &&
+         equal mf mf' && (Pdt.equal Historically.equal) mhaux_pdt mhaux_pdt'
+    | MAlways (i, mf, buft, maaux_pdt), MAlways (i', mf', buft', maaux_pdt') ->
+       Interval.equal i i' && Buft.equal buft buft' Expl.equal tstp_equal &&
+         equal mf mf' && (Pdt.equal Always.equal) maaux_pdt maaux_pdt'
+    | MSince (i, mf1, mf2, buf2t, msaux_pdt), MSince (i', mf1', mf2', buf2t', msaux_pdt') ->
+       Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
+         equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Since.equal) msaux_pdt msaux_pdt'
+    | MUntil (i, mf1, mf2, buf2t, muaux_pdt), MUntil (i', mf1', mf2', buf2t', muaux_pdt') ->
+       Interval.equal i i' && Buf2t.equal buf2t buf2t' Expl.equal Expl.equal tstp_equal &&
+         equal mf1 mf1' && equal mf2 mf2' && (Pdt.equal Until.equal) muaux_pdt muaux_pdt'
+
   let rec to_string_rec l = function
     | MTT -> Printf.sprintf "⊤"
     | MFF -> Printf.sprintf "⊥"
@@ -1255,8 +1399,10 @@ module MFormula = struct
     | MEventually (i, f, _, _) -> Printf.sprintf (Etc.paren l 5 "◊%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
     | MHistorically (i, f, _, _) -> Printf.sprintf (Etc.paren l 5 "■%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
     | MAlways (i, f, _, _) -> Printf.sprintf (Etc.paren l 5 "□%a %a") (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) f
-    | MSince (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a S%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) g
-    | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i (fun x -> to_string_rec 5) g
+    | MSince (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a S%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
+                                  (fun x -> to_string_rec 5) g
+    | MUntil (i, f, g, _, _) -> Printf.sprintf (Etc.paren l 0 "%a U%a %a") (fun x -> to_string_rec 5) f (fun x -> Interval.to_string) i
+                                  (fun x -> to_string_rec 5) g
   let to_string = to_string_rec 0
 
 end
@@ -1352,7 +1498,7 @@ let rec pdt_of tp r trms (vars: string list) maps : Expl.t = match vars with
                                             | Some(d') -> if Domain.equal d d' then
                                                             map :: acc
                                                           else acc) in
-     let part = Part.tabulate_dedup (Pdt.eq Proof.equal) (Set.of_list (module Domain) ds)
+     let part = Part.tabulate_dedup (Pdt.equal Proof.equal) (Set.of_list (module Domain) ds)
                   (fun d -> pdt_of tp r trms vars (find_maps d)) (pdt_of tp r trms vars []) in
      Node (x, part)
 
@@ -1455,7 +1601,8 @@ let rec meval vars ts tp (db: Db.t) = function
            (aux_pdt', es @ (Pdt.split_list es')))
          (moaux_pdt, []) (expls, (tstps @ [(ts,tp)])) in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
-     (expls'', MOnce (i, mf', tstps', moaux_pdt'))
+     let moaux_pdt'' = Pdt.reduce Once.equal moaux_pdt' in
+     (expls'', MOnce (i, mf', tstps', moaux_pdt''))
   | MEventually (i, mf, (buf, ntstps), meaux_pdt) ->
      let (expls, mf') = meval vars ts tp db mf in
      let (meaux_pdt', buf', ntstps') =
@@ -1469,7 +1616,8 @@ let rec meval vars ts tp (db: Db.t) = function
        Pdt.split_prod (Pdt.apply1 vars (fun aux -> Eventually.eval i nts ntp (aux, [])) meaux_pdt') in
      let expls' = Pdt.split_list es' in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
-     (expls'', MEventually (i, mf', (buf', ntstps'), meaux_pdt'))
+     let meaux_pdt'' = Pdt.reduce Eventually.equal meaux_pdt' in
+     (expls'', MEventually (i, mf', (buf', ntstps'), meaux_pdt''))
   | MHistorically (i, mf, tstps, mhaux_pdt) ->
      let (expls, mf') = meval vars ts tp db mf in
      let ((mhaux_pdt', expls'), buf', tstps') =
@@ -1480,7 +1628,8 @@ let rec meval vars ts tp (db: Db.t) = function
            (aux_pdt', es @ (Pdt.split_list es')))
          (mhaux_pdt, []) (expls, (tstps @ [(ts,tp)])) in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
-     (expls'', MHistorically (i, mf', tstps', mhaux_pdt'))
+     let mhaux_pdt'' = Pdt.reduce Historically.equal mhaux_pdt' in
+     (expls'', MHistorically (i, mf', tstps', mhaux_pdt''))
   | MAlways (i, mf, (buf, ntstps), maaux_pdt) ->
      let (expls, mf') = meval vars ts tp db mf in
      let (maaux_pdt', buf', ntstps') =
@@ -1494,7 +1643,8 @@ let rec meval vars ts tp (db: Db.t) = function
        Pdt.split_prod (Pdt.apply1 vars (fun aux -> Always.eval i nts ntp (aux, [])) maaux_pdt') in
      let expls' = Pdt.split_list es' in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
-     (expls'', MAlways (i, mf', (buf', ntstps'), maaux_pdt'))
+     let maaux_pdt'' = Pdt.reduce Always.equal maaux_pdt' in
+     (expls'', MAlways (i, mf', (buf', ntstps'), maaux_pdt''))
   | MSince (i, mf1, mf2, (buf2, tstps), msaux_pdt) ->
      let (expls1, mf1') = meval vars ts tp db mf1 in
      let (expls2, mf2') = meval vars ts tp db mf2 in
@@ -1506,7 +1656,8 @@ let rec meval vars ts tp (db: Db.t) = function
            (aux_pdt', es @ (Pdt.split_list es')))
          (msaux_pdt, []) (Buf2.add expls1 expls2 buf2) (tstps @ [(ts,tp)]) in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
-     (expls'', MSince (i, mf1', mf2', (buf2', tstps'), msaux_pdt'))
+     let msaux_pdt'' = Pdt.reduce Since.equal msaux_pdt' in
+     (expls'', MSince (i, mf1', mf2', (buf2', tstps'), msaux_pdt''))
   | MUntil (i, mf1, mf2, (buf2, ntstps), muaux_pdt) ->
      let (expls1, mf1') = meval vars ts tp db mf1 in
      let (expls2, mf2') = meval vars ts tp db mf2 in
@@ -1523,7 +1674,8 @@ let rec meval vars ts tp (db: Db.t) = function
                            Until.eval i nts ntp (aux, [])) muaux_pdt') in
      let expls' = Pdt.split_list es' in
      let expls'' = List.map expls' ~f:(Pdt.reduce Proof.equal) in
-     (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt'))
+     let muaux_pdt'' = Pdt.reduce Until.equal muaux_pdt' in
+     (expls'', MUntil (i, mf1', mf2', (buf2', ntstps'), muaux_pdt''))
 
 module MState = struct
 

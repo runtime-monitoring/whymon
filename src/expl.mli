@@ -142,7 +142,7 @@ module Pdt : sig
   val hide: string list -> ('a -> 'b) -> ('a Part.t -> 'b) -> 'a t -> 'b t
   val to_string: ('a -> string) -> string -> 'a t -> string
 
-  val eq: ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+  val equal: ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   val reduce: ('a -> 'a -> bool) -> 'a t -> 'a t
   val apply1_reduce: ('a -> 'a -> bool) -> string list -> ('b -> 'a) -> 'b t -> 'a t
   val apply2_reduce: ('a -> 'a -> bool) -> string list -> ('b -> 'c -> 'a) -> 'b t -> 'c t -> 'a t
@@ -154,6 +154,7 @@ end
 
 type t = Proof.t Pdt.t
 
+val equal: t -> t -> bool
 val is_violated: t -> bool
 val at: t -> int
 val sort_parts: t -> t

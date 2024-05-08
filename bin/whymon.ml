@@ -30,6 +30,7 @@ module Whymon = struct
        \t -mode
        \t\t unverified         - (default)
        \t\t verified           - check output with formally verified checker
+       \t\t light              - only outputs explanations containing violations
        \t -measure
        \t\t size               - optimize proof size (default)
        \t\t none               - pick any proof

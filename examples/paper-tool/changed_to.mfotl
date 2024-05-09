@@ -1,8 +1,9 @@
-NOT (attempt(usr, country) 
-      AND (EXISTS country1. (ONCE[0,151200] (
-          attempt(usr, country1) 
-          AND (NOT attempt(usr, country))
-          AND ((FORALL country2. attempt(usr, country2) IMPLIES attempt(usr, country1)) UNTIL[0,151201] attempt(usr, country))
-          ))
-        AND PREV ((NOT (EXISTS country2. attempt(usr, country2))) SINCE [0,151200] attempt(usr, country1))
-      ))
+¬(attempt(u, c) ∧
+   (∃c1. (⧫[0,151200]
+           (attempt(u, c1) ∧
+             (¬attempt(u, c)) ∧
+             ((∀c2. attempt(u, c2) → attempt(u, c1)) U[0,151201] attempt(u, c)))
+         ) ∧
+         ● ((¬(∃c2. attempt(u, c2))) S[0,151200] attempt(u, c1))
+   )
+ )

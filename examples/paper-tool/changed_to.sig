@@ -1,1 +1,1 @@
-attempt(id:int, country:string)
+attempt(u:int, c:string)

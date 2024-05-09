@@ -49,14 +49,32 @@ export default function ExampleSelect ({ setFormState }) {
             onChange={handleChange}
             onClose={handleClose}
           >
-            {/* <MenuItem value={"publish-approve-unix-ts"}>publish-approve-unix-ts</MenuItem> */}
-            <MenuItem value={"publish-approve-manager"}>Publish/Approve</MenuItem>
-            {/* <MenuItem value={"publish-approve-manager-unix-ts"}>publish-approve-manager-unix-ts</MenuItem> */}
-            <MenuItem value={"closed-publish-approve-manager"}>Closed Publish/Approve</MenuItem>
-            <MenuItem value={"data-race"}>Data Race</MenuItem>
-            <MenuItem value={"nokia-del-2-3"}>Database Deletion Propagation</MenuItem>
-            <MenuItem value={"three-attempts"}>Three Login Attempts</MenuItem>
-            <MenuItem value={"canonical"}>Canonical</MenuItem>
+            <MenuItem disabled value="">
+              <em>MFOTL Semantics</em>
+            </MenuItem>
+            <MenuItem value={"negation"}>Negation</MenuItem>
+            <MenuItem value={"equality"}>Equality</MenuItem>
+            <MenuItem value={"conjunction"}>Conjunction</MenuItem>
+            <MenuItem value={"implication"}>Implication</MenuItem>
+            <MenuItem value={"exists-sat"}>Exists (Satisfaction)</MenuItem>
+            <MenuItem value={"exists-vio"}>Exists (Violation)</MenuItem>
+            <MenuItem value={"forall-sat"}>Forall (Satisfaction)</MenuItem>
+            <MenuItem value={"forall-vio"}>Forall (Violation)</MenuItem>
+            <MenuItem value={"previous"}>Previous</MenuItem>
+            <MenuItem value={"once"}>Once</MenuItem>
+            <MenuItem value={"since"}>Since</MenuItem>
+            <MenuItem disabled value="">
+              <em>Policies</em>
+            </MenuItem>
+            <MenuItem value={"three-attempts"}>Three Attempts</MenuItem>
+            <MenuItem value={"changed-to"}>Changed To</MenuItem>
+            {/* <MenuItem disabled value=""> */}
+            {/*   <em>TACAS'24</em> */}
+            {/* </MenuItem> */}
+            {/* <MenuItem value={"publish-approve-manager"}>Publish/Approve/Manager</MenuItem> */}
+            {/* <MenuItem value={"closed-publish-approve-manager"}>Closed Publish/Approve/Manager</MenuItem> */}
+            {/* <MenuItem value={"data-race"}>Data Race</MenuItem> */}
+            {/* <MenuItem value={"nokia-del-2-3"}>Database Deletion Propagation</MenuItem> */}
           </Select>
         </FormControl>
       </div>

@@ -71,7 +71,7 @@ export default function ExampleSelect ({ setFormState }) {
             {/* <MenuItem disabled value=""> */}
             {/*   <em>TACAS'24</em> */}
             {/* </MenuItem> */}
-            {/* <MenuItem value={"publish-approve-manager"}>Publish/Approve/Manager</MenuItem> */}
+            <MenuItem value={"publish-approve-manager"}>Publish/Approve/Manager</MenuItem>
             {/* <MenuItem value={"closed-publish-approve-manager"}>Closed Publish/Approve/Manager</MenuItem> */}
             {/* <MenuItem value={"data-race"}>Data Race</MenuItem> */}
             {/* <MenuItem value={"nokia-del-2-3"}>Database Deletion Propagation</MenuItem> */}

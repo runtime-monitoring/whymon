@@ -17,6 +17,7 @@ import LeaveButton from './components/LeaveButton';
 import ResetButton from './components/ResetButton';
 import UndoButton from './components/UndoButton';
 import ExampleSelect from './components/ExampleSelect';
+import ExampleGroupSelect from './components/ExampleGroupSelect';
 import AlertDialog from './components/AlertDialog';
 import CheckmarkOptions from './components/CheckmarkOptions';
 import SyntaxCheckBar from './components/SyntaxCheckBar';
@@ -266,6 +267,7 @@ const BootstrapTooltip = styled(({ className, ...props }) => (
 
 export default function Monitor() {
 
+  const [exampleGroup, setExampleGroup] = useState("");
   const [formState, setFormState] = useReducer(formStateReducer, { formula: "", trace: "", sig: "", appendTrace: "",
                                                                    checkedInputs: {0: "empty", 1: "empty", 2: "empty"} });
   const [monitorState, setMonitorState] = useReducer(monitorStateReducer, initMonitorState ());
@@ -338,10 +340,15 @@ export default function Monitor() {
             { !monitorState.fixParameters &&
               <Grid container item spacing={3}>
                 <Grid container item spacing={2} xs={12} sm={6} md={6} lg={6} xl={6}>
-                  <Grid item xs={12} sm={6} md={6} lg={6} xl={6}>
-                    <ExampleSelect setFormState={setFormState} />
+                  <Grid item xs={12} sm={3} md={3} lg={3} xl={3}>
+                    <ExampleGroupSelect exampleGroup={exampleGroup}
+                                        setExampleGroup={setExampleGroup} />
                   </Grid>
                   <Grid item xs={12} sm={4} md={4} lg={4} xl={4}>
+                    <ExampleSelect exampleGroup={exampleGroup}
+                                   setFormState={setFormState} />
+                  </Grid>
+                  <Grid item xs={12} sm={3} md={3} lg={3} xl={3}>
                     <MonitorButton handleMonitor={handleMonitor} />
                   </Grid>
                   <Grid item xs={12} sm={2} md={2} lg={2} xl={2}>

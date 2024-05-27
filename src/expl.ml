@@ -89,7 +89,7 @@ module Part = struct
     | [] -> indent ^ "❮ · ❯"
     | [x] -> indent ^ "❮\n\n" ^ (el_to_string indent var f x) ^ "\n" ^ indent ^ "❯\n"
     | xs -> List.fold_left xs ~init:(indent ^ "❮\n\n")
-              ~f:(fun s el -> s ^ (el_to_string indent var f el) ^ "\n") ^ indent ^ "❯\n"
+              ~f:(fun s el -> s ^ (el_to_string indent var f el) ^ "\n\n") ^ indent ^ "❯\n"
 
   (* dedup related *)
   let dedup p_eq part =
@@ -192,10 +192,12 @@ module Proof = struct
 
   let rec s_equal x y = match x, y with
     | STT tp, STT tp' -> Int.equal tp tp'
-    | SEqConst (tp, x, c), SEqConst (tp', x', c') -> Int.equal tp tp' && String.equal x x' && Domain.equal c c'
-    | SPred (tp, r, terms), SPred (tp', r', terms') -> Int.equal tp tp' && String.equal r r' &&
-                                                         Int.equal (List.length terms) (List.length terms') &&
-                                                           List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
+    | SEqConst (tp, x, c), SEqConst (tp', x', c') ->
+       Int.equal tp tp' && String.equal x x' && Domain.equal c c'
+    | SPred (tp, r, terms), SPred (tp', r', terms') ->
+       Int.equal tp tp' && String.equal r r' &&
+         Int.equal (List.length terms) (List.length terms') &&
+           List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
     | SNeg vp, SNeg vp'
       | SImpL vp, SImpL vp' -> v_equal vp vp'
     | SImpR sp, SImpR sp'
@@ -207,28 +209,33 @@ module Proof = struct
       | SIffSS (sp1, sp2), SIffSS (sp1', sp2') -> s_equal sp1 sp1' && s_equal sp2 sp2'
     | SIffVV (vp1, vp2), SIffVV (vp1', vp2') -> v_equal vp1 vp1' && v_equal vp2 vp2'
     | SExists (x, d, sp), SExists (x', d', sp') -> String.equal x x' && Domain.equal d d' && s_equal sp sp'
-    | SForall (x, part), SForall (x', part') -> String.equal x x' && Int.equal (Part.length part) (Part.length part') &&
-                                                  List.for_all2_exn part part' ~f:(fun (s, p) (s', p') ->
-                                                      Setc.equal s s' && s_equal p p')
+    | SForall (x, part), SForall (x', part') ->
+       String.equal x x' && Int.equal (Part.length part) (Part.length part') &&
+         List.for_all2_exn part part' ~f:(fun (s, p) (s', p') ->
+             Setc.equal s s' && s_equal p p')
     | SOnce (tp, sp), SOnce (tp', sp')
       | SEventually (tp, sp), SEventually (tp', sp') -> Int.equal tp tp' && s_equal sp sp'
     | SHistoricallyOut tp, SHistoricallyOut tp' -> Int.equal tp tp'
-    | SHistorically (tp, ltp, sps), SHistorically (tp', li', sps') -> Int.equal tp tp' && Int.equal ltp li' &&
-                                                                        Int.equal (Fdeque.length sps) (Fdeque.length sps') &&
-                                                                          Etc.fdeque_for_all2_exn sps sps' ~f:(fun sp sp' -> s_equal sp sp')
-    | SAlways (tp, htp, sps), SAlways (tp', hi', sps') -> Int.equal tp tp' && Int.equal htp hi' &&
-                                                            Int.equal (Fdeque.length sps) (Fdeque.length sps') &&
-                                                              Etc.fdeque_for_all2_exn sps sps' ~f:(fun sp sp' -> s_equal sp sp')
+    | SHistorically (tp, ltp, sps), SHistorically (tp', li', sps') ->
+       Int.equal tp tp' && Int.equal ltp li' &&
+         Int.equal (Fdeque.length sps) (Fdeque.length sps') &&
+           Etc.fdeque_for_all2_exn sps sps' ~f:(fun sp sp' -> s_equal sp sp')
+    | SAlways (tp, htp, sps), SAlways (tp', hi', sps') ->
+       Int.equal tp tp' && Int.equal htp hi' &&
+         Int.equal (Fdeque.length sps) (Fdeque.length sps') &&
+           Etc.fdeque_for_all2_exn sps sps' ~f:(fun sp sp' -> s_equal sp sp')
     | SSince (sp2, sp1s), SSince (sp2', sp1s')
-      | SUntil (sp2, sp1s), SUntil (sp2', sp1s') -> s_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
-                                                      Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> s_equal sp1 sp1')
+      | SUntil (sp2, sp1s), SUntil (sp2', sp1s') ->
+       s_equal sp2 sp2' && Int.equal (Fdeque.length sp1s) (Fdeque.length sp1s') &&
+         Etc.fdeque_for_all2_exn sp1s sp1s' ~f:(fun sp1 sp1' -> s_equal sp1 sp1')
     | _ -> false
   and v_equal x y = match x, y with
     | VFF tp, VFF tp' -> Int.equal tp tp'
     | VEqConst (tp, x, c), VEqConst (tp', x', c') -> Int.equal tp tp' && String.equal x x' && Domain.equal c c'
-    | VPred (tp, r, terms), VPred (tp', r', terms') -> Int.equal tp tp' && String.equal r r' &&
-                                                         Int.equal (List.length terms) (List.length terms') &&
-                                                           List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
+    | VPred (tp, r, terms), VPred (tp', r', terms') ->
+       Int.equal tp tp' && String.equal r r' &&
+         Int.equal (List.length terms) (List.length terms') &&
+           List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
     | VNeg sp, VNeg sp' -> s_equal sp sp'
     | VAndL vp, VAndL vp'
       | VAndR vp, VAndR vp'
@@ -238,9 +245,10 @@ module Proof = struct
     | VImp (sp1, vp2), VImp (sp1', vp2')
       | VIffSV (sp1, vp2), VIffSV (sp1', vp2') -> s_equal sp1 sp1' && v_equal vp2 vp2'
     | VIffVS (vp1, sp2), VIffVS (vp1', sp2') -> v_equal vp1 vp1' && s_equal sp2 sp2'
-    | VExists (x, part), VExists (x', part') -> String.equal x x' && Int.equal (Part.length part) (Part.length part') &&
-                                                  List.for_all2_exn part part' ~f:(fun (s, p) (s', p') ->
-                                                      Setc.equal s s' && v_equal p p')
+    | VExists (x, part), VExists (x', part') ->
+       String.equal x x' && Int.equal (Part.length part) (Part.length part') &&
+         List.for_all2_exn part part' ~f:(fun (s, p) (s', p') ->
+             Setc.equal s s' && v_equal p p')
     | VForall (x, d, vp), VForall (x', d', vp') -> String.equal x x' && Domain.equal d d' && v_equal vp vp'
     | VPrev0, VPrev0 -> true
     | VPrevOutL tp, VPrevOutL tp'
@@ -249,27 +257,30 @@ module Proof = struct
       | VNextOutR tp, VNextOutR tp'
       | VOnceOut tp, VOnceOut tp'
       | VSinceOut tp, VSinceOut tp' -> Int.equal tp tp'
-    | VOnce (tp, ltp, vps), VOnce (tp', li', vps') -> Int.equal tp tp' && Int.equal ltp li' &&
-                                                        Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
-                                                          Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> v_equal vp vp')
-    | VEventually (tp, htp, vps), VEventually (tp', hi', vps') -> Int.equal tp tp' && Int.equal htp hi' &&
-                                                                    Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
-                                                                      Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> v_equal vp vp')
+    | VOnce (tp, ltp, vps), VOnce (tp', li', vps') ->
+       Int.equal tp tp' && Int.equal ltp li' &&
+         Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
+           Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> v_equal vp vp')
+    | VEventually (tp, htp, vps), VEventually (tp', hi', vps') ->
+       Int.equal tp tp' && Int.equal htp hi' &&
+         Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
+           Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> v_equal vp vp')
     | VHistorically (tp, vp), VHistorically (tp', vp')
       | VAlways (tp, vp), VAlways (tp', vp') -> Int.equal tp tp'
     | VSince (tp, vp1, vp2s), VSince (tp', vp1', vp2s')
-      | VUntil (tp, vp1, vp2s), VUntil (tp', vp1', vp2s') -> Int.equal tp tp' && v_equal vp1 vp1' &&
-                                                               Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
-                                                                 Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
-    | VSinceInf (tp, ltp, vp2s), VSinceInf (tp', li', vp2s') -> Int.equal tp tp' && Int.equal ltp li' &&
-                                                                  Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
-                                                                    Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
-
-    | VUntilInf (tp, htp, vp2s), VUntilInf (tp', hi', vp2s') -> Int.equal tp tp' && Int.equal htp hi' &&
-                                                                  Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
-                                                                    Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
+      | VUntil (tp, vp1, vp2s), VUntil (tp', vp1', vp2s') ->
+       Int.equal tp tp' && v_equal vp1 vp1' &&
+         Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
+           Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
+    | VSinceInf (tp, ltp, vp2s), VSinceInf (tp', li', vp2s') ->
+       Int.equal tp tp' && Int.equal ltp li' &&
+         Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
+           Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
+    | VUntilInf (tp, htp, vp2s), VUntilInf (tp', hi', vp2s') ->
+       Int.equal tp tp' && Int.equal htp hi' &&
+         Int.equal (Fdeque.length vp2s) (Fdeque.length vp2s') &&
+           Etc.fdeque_for_all2_exn vp2s vp2s' ~f:(fun vp2 vp2' -> v_equal vp2 vp2')
     | _ -> false
-
 
   let equal x y = match x, y with
     | S sp, S sp' -> s_equal sp sp'
@@ -391,7 +402,7 @@ module Proof = struct
   let cmp f p1 p2 = f p1 <= f p2
 
   let rec s_to_string indent p =
-    let indent' = "\t" ^ indent in
+    let indent' = "    " ^ indent in
     match p with
     | STT i -> Printf.sprintf "%strue{%d}" indent i
     | SEqConst (tp, x, c) -> Printf.sprintf "%sSEqConst(%d, %s, %s)" indent tp x (Domain.to_string c)
@@ -407,10 +418,10 @@ module Proof = struct
                              (s_to_string indent' sp1) (s_to_string indent' sp2)
     | SIffVV (vp1, vp2) -> Printf.sprintf "%sSIffVV{%d}\n%s\n%s" indent (s_at p)
                              (v_to_string indent' vp1) (v_to_string indent' vp2)
-    | SExists (x, d, sp) -> Printf.sprintf "%sSExists{%d}{%s=%s}\n%s\n" indent (s_at p)
-                              x (Domain.to_string d) (s_to_string indent' sp)
-    | SForall (x, part) -> Printf.sprintf "%sSForall{%d}{%s}\n%s\n" indent (s_at (SForall (x, part)))
-                             x (Part.to_string indent' (Var x) s_to_string part)
+    | SExists (x, d, sp) -> Printf.sprintf "%sSExists{%d}{%s=%s}\n%s\n" ("" ^ indent ^ "") (s_at p)
+                              x (Domain.to_string d) (s_to_string ("" ^ indent' ^ "") sp)
+    | SForall (x, part) -> Printf.sprintf "%sSForall{%d}{%s}\n\n%s\n" indent' (s_at (SForall (x, part)))
+                             x (Part.to_string ("                " ^ indent') (Var x) s_to_string part)
     | SPrev sp -> Printf.sprintf "%sSPrev{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
     | SNext sp -> Printf.sprintf "%sSNext{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
     | SOnce (_, sp) -> Printf.sprintf "%sSOnce{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
@@ -418,7 +429,7 @@ module Proof = struct
                                (s_to_string indent' sp)
     | SHistorically (_, _, sps) -> Printf.sprintf "%sSHistorically{%d}\n%s" indent (s_at p)
                                      (Etc.deque_to_string indent' s_to_string sps)
-    | SHistoricallyOut i -> Printf.sprintf "%sSHistoricallyOut{%d}" indent' i
+    | SHistoricallyOut i -> Printf.sprintf "%sSHistoricallyOut{%d}" indent i
     | SAlways (_, _, sps) -> Printf.sprintf "%sSAlways{%d}\n%s" indent (s_at p)
                                (Etc.deque_to_string indent' s_to_string sps)
     | SSince (sp2, sp1s) -> Printf.sprintf "%sSSince{%d}\n%s\n%s" indent (s_at p) (s_to_string indent' sp2)
@@ -426,7 +437,7 @@ module Proof = struct
     | SUntil (sp2, sp1s) -> Printf.sprintf "%sSUntil{%d}\n%s\n%s" indent (s_at p)
                               (Etc.deque_to_string indent' s_to_string sp1s) (s_to_string indent' sp2)
   and v_to_string indent p =
-    let indent' = "\t" ^ indent in
+    let indent' = "    " ^ indent in
     match p with
     | VFF i -> Printf.sprintf "%sfalse{%d}" indent i
     | VEqConst (tp, x, c) -> Printf.sprintf "%sVEqConst(%d, %s, %s)" indent tp x (Domain.to_string c)
@@ -436,27 +447,29 @@ module Proof = struct
     | VAndL vp1 -> Printf.sprintf "%sVAndL{%d}\n%s" indent (v_at p) (v_to_string indent' vp1)
     | VAndR vp2 -> Printf.sprintf "%sVAndR{%d}\n%s" indent (v_at p) (v_to_string indent' vp2)
     | VImp (sp1, vp2) -> Printf.sprintf "%sVImp{%d}\n%s\n%s" indent (v_at p) (s_to_string indent' sp1) (v_to_string indent' vp2)
-    | VIffSV (sp1, vp2) -> Printf.sprintf "%sVIffSV{%d}\n%s\n%s" indent (v_at p) (s_to_string indent' sp1) (v_to_string indent' vp2)
-    | VIffVS (vp1, sp2) -> Printf.sprintf "%sVIffVS{%d}\n%s\n%s" indent (v_at p) (v_to_string indent' vp1) (s_to_string indent' sp2)
-    | VExists (x, part) -> Printf.sprintf "%sVExists{%d}{%s}\n%s\n" indent (v_at (VExists (x, part)))
-                             x (Part.to_string indent' (Var x) v_to_string part)
+    | VIffSV (sp1, vp2) -> Printf.sprintf "%sVIffSV{%d}\n%s\n%s" indent (v_at p) (s_to_string indent' sp1)
+                             (v_to_string indent' vp2)
+    | VIffVS (vp1, sp2) -> Printf.sprintf "%sVIffVS{%d}\n%s\n%s" indent (v_at p) (v_to_string indent' vp1)
+                             (s_to_string indent' sp2)
+    | VExists (x, part) -> Printf.sprintf "%sVExists{%d}{%s}\n\n%s\n" indent' (v_at (VExists (x, part)))
+                             x (Part.to_string ("                " ^ indent') (Var x) v_to_string part)
     | VForall (x, d, vp) -> Printf.sprintf "%sVForall{%d}{%s=%s}\n%s\n" indent (v_at p)
-                              x (Domain.to_string d) (v_to_string indent' vp)
+                              x (Domain.to_string d) (v_to_string ("            " ^ indent') vp)
     | VPrev vp -> Printf.sprintf "%sVPrev{%d}\n%s" indent (v_at p) (v_to_string indent' vp)
-    | VPrev0 -> Printf.sprintf "%sVPrev0{0}" indent'
-    | VPrevOutL i -> Printf.sprintf "%sVPrevOutL{%d}" indent' i
-    | VPrevOutR i -> Printf.sprintf "%sVPrevOutR{%d}" indent' i
+    | VPrev0 -> Printf.sprintf "%sVPrev0{0}" indent
+    | VPrevOutL i -> Printf.sprintf "%sVPrevOutL{%d}" indent i
+    | VPrevOutR i -> Printf.sprintf "%sVPrevOutR{%d}" indent i
     | VNext vp -> Printf.sprintf "%sVNext{%d}\n%s" indent (v_at p) (v_to_string indent' vp)
-    | VNextOutL i -> Printf.sprintf "%sVNextOutL{%d}" indent' i
-    | VNextOutR i -> Printf.sprintf "%sVNextOutR{%d}" indent' i
-    | VOnceOut i -> Printf.sprintf "%sVOnceOut{%d}" indent' i
+    | VNextOutL i -> Printf.sprintf "%sVNextOutL{%d}" indent i
+    | VNextOutR i -> Printf.sprintf "%sVNextOutR{%d}" indent i
+    | VOnceOut i -> Printf.sprintf "%sVOnceOut{%d}" indent i
     | VOnce (_, _, vps) -> Printf.sprintf "%sVOnce{%d}\n%s" indent (v_at p)
                              (Etc.deque_to_string indent' v_to_string vps)
     | VEventually (_, _, vps) -> Printf.sprintf "%sVEventually{%d}\n%s" indent (v_at p)
                                    (Etc.deque_to_string indent' v_to_string vps)
     | VHistorically (_, vp) -> Printf.sprintf "%sVHistorically{%d}\n%s" indent (v_at p) (v_to_string indent' vp)
     | VAlways (_, vp) -> Printf.sprintf "%sVAlways{%d}\n%s" indent (v_at p) (v_to_string indent' vp)
-    | VSinceOut i -> Printf.sprintf "%sVSinceOut{%d}" indent' i
+    | VSinceOut i -> Printf.sprintf "%sVSinceOut{%d}" indent i
     | VSince (_, vp1, vp2s) -> Printf.sprintf "%sVSince{%d}\n%s\n%s" indent (v_at p) (v_to_string indent' vp1)
                                  (Etc.deque_to_string indent' v_to_string vp2s)
     | VSinceInf (_, _, vp2s) -> Printf.sprintf "%sVSinceInf{%d}\n%s" indent (v_at p)
@@ -621,7 +634,8 @@ module Proof = struct
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (v_at p) ((v_at p)-1) (Interval.left i)
     | VPrevOutR tp, Prev (i, f) ->
        Printf.sprintf "\\infer[\\Vprevr]{%s, %d \\nvd %s}\n%s{{%d > 0} & {\\tau_%d - \\tau_%d > %d}}\n"
-         (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (v_at p) ((v_at p)-1) (Option.value_exn (Interval.right i))
+         (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (v_at p) ((v_at p)-1)
+         (Option.value_exn (Interval.right i))
     | VNext vp, Next (i, f) ->
        Printf.sprintf "\\infer[\\Vnext{}]{%s, %d \\nvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_to_latex indent' v idx vp f)
@@ -825,9 +839,11 @@ module Pdt = struct
                          else (if String.equal x w then
                                  Node (x, Part.map part1 (fun pdt1 -> apply3 vars f pdt1 (Node (y, part2)) (Node (z, part3))))
                                else (if String.equal y w then
-                                       Node (y, Part.map part2 (fun pdt2 -> apply3 vars f (Node (x, part1)) pdt2 (Node (z, part3))))
+                                       Node (y, Part.map part2 (fun pdt2 -> apply3 vars f (Node (x, part1)) pdt2
+                                                                              (Node (z, part3))))
                                      else (if String.equal z w then
-                                             Node (z, Part.map part3 (fun pdt3 -> apply3 vars f (Node (x, part1)) (Node (y, part2)) pdt3))
+                                             Node (z, Part.map part3 (fun pdt3 -> apply3 vars f (Node (x, part1))
+                                                                                    (Node (y, part2)) pdt3))
                                            else apply3 vars f (Node (x, part1)) (Node (y, part2)) (Node (z, part3))))))))
     | _ -> raise (Invalid_argument "variable list is empty")
 
@@ -841,7 +857,7 @@ module Pdt = struct
     | Node (x, part) -> List.map (Part.split_list (Part.map part split_list)) ~f:(fun el -> Node (x, el))
 
   let rec to_string f indent = function
-    | Leaf pt -> Printf.sprintf "%s%s\n" indent (f pt)
+    | Leaf pt -> Printf.sprintf "%s❮\n\n%s%s\n%s❯" indent indent (f pt) indent
     | Node (x, part) -> (Part.to_string indent (Var x) (to_string f) part)
 
   let rec to_latex f indent = function
@@ -905,7 +921,8 @@ module Pdt = struct
 
   let rec split_list_reduce p_eq = function
     | Leaf l -> List.map l ~f:(fun el -> Leaf el)
-    | Node (x, part) -> List.map (Part.split_list_dedup (equal p_eq) (Part.map part (split_list_reduce p_eq))) ~f:(fun el -> Node (x, el))
+    | Node (x, part) -> List.map (Part.split_list_dedup (equal p_eq) (Part.map part (split_list_reduce p_eq)))
+                          ~f:(fun el -> Node (x, el))
 
   let rec hide_reduce p_eq vars f_leaf f_node pdt = match vars, pdt with
     |  _ , Leaf l -> Leaf (f_leaf l)

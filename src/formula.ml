@@ -56,6 +56,31 @@ let until i f g = Until (i, f, g)
 let trigger i f g = Neg (Since (i, Neg (f), Neg (g)))
 let release i f g = Neg (Until (i, Neg (f), Neg (g)))
 
+(* Checks whether x occur in f *)
+(* TODO: Merge this function and check_bindings *)
+let quant_check x f =
+  let rec quant_check_rec = function
+  | TT | FF -> false
+  | EqConst (y, _) -> String.equal x y
+  | Predicate (_, trms) -> List.exists trms ~f:(fun y -> Term.equal (Var x) y)
+  | Exists (_, f)
+    | Forall (_, f) -> quant_check_rec f
+  | Neg f
+    | Prev (_, f)
+    | Once (_, f)
+    | Historically (_, f)
+    | Eventually (_, f)
+    | Always (_, f)
+    | Next (_, f) -> quant_check_rec f
+  | And (f1, f2)
+    | Or (f1, f2)
+    | Imp (f1, f2)
+    | Iff (f1, f2)
+    | Since (_, f1, f2)
+    | Until (_, f1, f2) -> quant_check_rec f1 || quant_check_rec f2 in
+  if not (quant_check_rec f) then
+    raise (Invalid_argument (Printf.sprintf "bound variable %s does not appear in subformula" x))
+
 let equal x y = match x, y with
   | TT, TT | FF, FF -> true
   | EqConst (x, c), EqConst (x', c') -> String.equal x x'
@@ -80,7 +105,7 @@ let equal x y = match x, y with
 let rec fv = function
   | TT | FF -> Set.empty (module String)
   | EqConst (x, c) -> Set.of_list (module String) [x]
-  | Predicate (x, trms) -> Set.of_list (module String) (Pred.Term.fv_list trms)
+  | Predicate (_, trms) -> Set.of_list (module String) (Pred.Term.fv_list trms)
   | Exists (x, f)
     | Forall (x, f) -> Set.filter (fv f) ~f:(fun y -> not (String.equal x y))
   | Neg f

@@ -140,7 +140,7 @@ module Pdt : sig
   val split_prod: ('a * 'b) t -> 'a t * 'b t
   val split_list: 'a list t -> 'a t list
   val hide: string list -> ('a -> 'b) -> ('a Part.t -> 'b) -> 'a t -> 'b t
-  val to_string: ('a -> string) -> string -> 'a t -> string
+  val to_string: (string -> 'a -> string) -> string -> 'a t -> string
 
   val equal: ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   val reduce: ('a -> 'a -> bool) -> 'a t -> 'a t

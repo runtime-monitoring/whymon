@@ -82,14 +82,13 @@ module Part = struct
     List.map (Option.value_exn (List.transpose vs)) ~f:(List.zip_exn subs)
 
   let rec el_to_string indent var f (sub, v) =
-    Printf.sprintf "%s%s ∈ %s\n\n%s" indent (Term.value_to_string var) (Setc.to_string sub)
-      (f (indent ^ (String.make 4 ' ')) v)
+    Printf.sprintf "%s%s ∈ %s\n\n%s" indent (Term.value_to_string var) (Setc.to_string sub) (f v)
 
   let to_string indent var f = function
     | [] -> indent ^ "❮ · ❯"
-    | [x] -> indent ^ "❮\n\n" ^ (el_to_string indent var f x) ^ "\n" ^ indent ^ "❯\n"
+    | [x] -> indent ^ "❮\n\n" ^ (el_to_string indent var (f indent) x) ^ "\n" ^ indent ^ "❯\n"
     | xs -> List.fold_left xs ~init:(indent ^ "❮\n\n")
-              ~f:(fun s el -> s ^ (el_to_string indent var f el) ^ "\n\n") ^ indent ^ "❯\n"
+              ~f:(fun s el -> s ^ (el_to_string indent var (f indent) el) ^ "\n\n") ^ indent ^ "❯\n"
 
   (* dedup related *)
   let dedup p_eq part =
@@ -402,7 +401,7 @@ module Proof = struct
   let cmp f p1 p2 = f p1 <= f p2
 
   let rec s_to_string indent p =
-    let indent' = "    " ^ indent in
+    let indent' = (String.make 4 ' ') ^ indent in
     match p with
     | STT i -> Printf.sprintf "%strue{%d}" indent i
     | SEqConst (tp, x, c) -> Printf.sprintf "%sSEqConst(%d, %s, %s)" indent tp x (Domain.to_string c)
@@ -418,10 +417,10 @@ module Proof = struct
                              (s_to_string indent' sp1) (s_to_string indent' sp2)
     | SIffVV (vp1, vp2) -> Printf.sprintf "%sSIffVV{%d}\n%s\n%s" indent (s_at p)
                              (v_to_string indent' vp1) (v_to_string indent' vp2)
-    | SExists (x, d, sp) -> Printf.sprintf "%sSExists{%d}{%s=%s}\n%s\n" ("" ^ indent ^ "") (s_at p)
-                              x (Domain.to_string d) (s_to_string ("" ^ indent' ^ "") sp)
-    | SForall (x, part) -> Printf.sprintf "%sSForall{%d}{%s}\n\n%s\n" indent' (s_at (SForall (x, part)))
-                             x (Part.to_string ("                " ^ indent') (Var x) s_to_string part)
+    | SExists (x, d, sp) -> Printf.sprintf "%sSExists{%d}{%s=%s}\n%s\n" indent (s_at p)
+                              x (Domain.to_string d) (s_to_string indent' sp)
+    | SForall (x, part) -> Printf.sprintf "%sSForall{%d}{%s}\n\n%s\n" indent (s_at (SForall (x, part)))
+                             x (Part.to_string indent' (Var x) s_to_string part)
     | SPrev sp -> Printf.sprintf "%sSPrev{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
     | SNext sp -> Printf.sprintf "%sSNext{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
     | SOnce (_, sp) -> Printf.sprintf "%sSOnce{%d}\n%s" indent (s_at p) (s_to_string indent' sp)
@@ -451,10 +450,10 @@ module Proof = struct
                              (v_to_string indent' vp2)
     | VIffVS (vp1, sp2) -> Printf.sprintf "%sVIffVS{%d}\n%s\n%s" indent (v_at p) (v_to_string indent' vp1)
                              (s_to_string indent' sp2)
-    | VExists (x, part) -> Printf.sprintf "%sVExists{%d}{%s}\n\n%s\n" indent' (v_at (VExists (x, part)))
-                             x (Part.to_string ("                " ^ indent') (Var x) v_to_string part)
+    | VExists (x, part) -> Printf.sprintf "%sVExists{%d}{%s}\n\n%s\n" indent (v_at (VExists (x, part)))
+                             x (Part.to_string indent' (Var x) v_to_string part)
     | VForall (x, d, vp) -> Printf.sprintf "%sVForall{%d}{%s=%s}\n%s\n" indent (v_at p)
-                              x (Domain.to_string d) (v_to_string ("            " ^ indent') vp)
+                              x (Domain.to_string d) (v_to_string indent' vp)
     | VPrev vp -> Printf.sprintf "%sVPrev{%d}\n%s" indent (v_at p) (v_to_string indent' vp)
     | VPrev0 -> Printf.sprintf "%sVPrev0{0}" indent
     | VPrevOutL i -> Printf.sprintf "%sVPrevOutL{%d}" indent i
@@ -856,9 +855,11 @@ module Pdt = struct
     | Leaf l -> List.map l ~f:(fun el -> Leaf el)
     | Node (x, part) -> List.map (Part.split_list (Part.map part split_list)) ~f:(fun el -> Node (x, el))
 
-  let rec to_string f indent = function
-    | Leaf pt -> Printf.sprintf "%s❮\n\n%s%s\n%s❯" indent indent (f pt) indent
-    | Node (x, part) -> (Part.to_string indent (Var x) (to_string f) part)
+  let rec to_string f indent pdt =
+    let indent' = (String.make 4 ' ') ^ indent in
+    match pdt with
+    | Leaf pt -> Printf.sprintf "%s❮\n\n%s\n%s❯" indent' ((f indent') pt) indent'
+    | Node (x, part) -> (Part.to_string indent' (Var x) (to_string f) part)
 
   let rec to_latex f indent = function
     | Leaf pt -> Printf.sprintf "%s%s\n" indent (f pt)
@@ -955,7 +956,7 @@ let rec sort_parts = function
   | Pdt.Leaf pt -> Pdt.Leaf pt
   | Node (x, part) -> Node (x, Part.map (Part.sort part) sort_parts)
 
-let to_string expl = Pdt.to_string (Proof.to_string "") "" expl
+let to_string expl = Pdt.to_string Proof.to_string "" expl
 
 let to_latex fmla expl = Pdt.to_latex (Proof.to_latex "" fmla) "" expl
 

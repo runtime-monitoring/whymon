@@ -27,16 +27,16 @@ module Plain = struct
 
   let expl = function
     | Explanation ((ts, tp), e) ->
-       Stdio.printf "%d:%d\nExplanation: \n%s\n\n" ts tp (Expl.to_string e)
+       Stdio.printf "%d:%d\nExplanation: \n\n%s\n\n" ts tp (Expl.to_string e)
     | ExplanationCheck ((ts, tp), e, b) ->
-       Stdio.printf "%d:%d\nExplanation: \n%s\n" ts tp (Expl.to_string e);
+       Stdio.printf "%d:%d\nExplanation: \n\n%s\n" ts tp (Expl.to_string e);
        Stdio.printf "\nChecker output: %B\n\n" b;
     | ExplanationLatex ((ts, tp), e, f) ->
-       Stdio.printf "%d:%d\nExplanation: \n%s\n\n" ts tp (Expl.to_latex f e)
+       Stdio.printf "%d:%d\nExplanation: \n\n%s\n\n" ts tp (Expl.to_latex f e)
     | ExplanationLight ((ts, tp), e) ->
-       Stdio.printf "%d:%d\nExplanation: \n%s\n\n" ts tp (Expl.to_light_string e)
+       Stdio.printf "%d:%d\nExplanation: \n\n%s\n\n" ts tp (Expl.to_light_string e)
     | ExplanationCheckDebug ((ts, tp), e, b, c_e, c_t, path_opt) ->
-       Stdio.printf "%d:%d\nExplanation: \n%s\n" ts tp (Expl.to_string e);
+       Stdio.printf "%d:%d\nExplanation: \n\n%s\n" ts tp (Expl.to_string e);
        Stdio.printf "\nChecker output: %B\n\n" b;
        Stdio.printf "\n[debug] Checker explanation:\n%s\n\n" (Checker_interface.Checker_pdt.to_string "" c_e);
        Stdio.printf "\n[debug] Checker trace:\n%s" (Checker_interface.Checker_trace.to_string c_t);
@@ -45,7 +45,7 @@ module Plain = struct
         | Some(l1) -> Stdio.printf "\n[debug] Checker false path: %s\n"
                         (Etc.list_to_string "" (fun _ l2 -> Etc.list_to_string ""
                                                               (fun _ s -> Setc.to_string s) l2) l1)
-        );
+       );
     | Info s -> Stdio.printf "\nInfo: %s\n\n" s
 
   let expls tstp_expls checker_es_opt paths_opt f_opt = function

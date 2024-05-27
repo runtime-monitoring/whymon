@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import AceEditor from "react-ace";
 import "ace-builds/src-noconflict/mode-java";

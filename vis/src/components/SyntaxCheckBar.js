@@ -47,6 +47,8 @@ export default function StatusBar({ checkedInputs }) {
               </Typography>
             );
             break;
+          default:
+            break;
           }
 
           return (

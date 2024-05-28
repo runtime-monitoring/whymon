@@ -27,13 +27,13 @@ module Checker_pdt : sig
 
 end
 
-val check: (timestamp * (string * Domain.t list, 'a) Base.Set.t) list ->
+val check: (timestamp * (string * Dom.t list, 'a) Base.Set.t) list ->
            Formula.t ->
            Expl.Proof.t Expl.Pdt.t list ->
            (bool * (event_data, ((string, event_data) sproof, (string, event_data) vproof) sum, string) pdt
             * Checker_trace.t) list
 
-val false_paths: (timestamp * (string * Domain.t list, 'a) Base.Set.t) list ->
+val false_paths: (timestamp * (string * Dom.t list, 'a) Base.Set.t) list ->
                  Formula.t ->
                  Expl.Proof.t Expl.Pdt.t list ->
-                 (Domain.t, Domain.comparator_witness) Setc.t list list option list
+                 (Dom.t, Dom.comparator_witness) Setc.t list list option list

@@ -17,7 +17,7 @@ module Plain : sig
 
   val expls: ((timestamp * timepoint) * Expl.t) list ->
              (bool * Checker_pdt.t * Checker_trace.t) list option ->
-             ((Domain.t, Domain.comparator_witness) Setc.t list list option list) option ->
+             ((Dom.t, Dom.comparator_witness) Setc.t list list option list) option ->
              Formula.t option -> mode -> unit
 
 end

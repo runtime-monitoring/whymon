@@ -14,7 +14,7 @@ open Pred
 type t =
   | TT
   | FF
-  | EqConst of string * Domain.t
+  | EqConst of string * Dom.t
   | Predicate of string * Term.t list
   | Neg of t
   | And of t * t
@@ -315,7 +315,7 @@ let op_to_string = function
 let rec to_string_rec l json = function
   | TT -> Printf.sprintf "⊤"
   | FF -> Printf.sprintf "⊥"
-  | EqConst (x, c) -> Printf.sprintf "%s = %s" x (Domain.to_string c)
+  | EqConst (x, c) -> Printf.sprintf "%s = %s" x (Dom.to_string c)
   | Predicate (r, trms) -> if json then Printf.sprintf "%s(%s)" r (Term.list_to_json_string trms)
                            else Printf.sprintf "%s(%s)" r (Term.list_to_string trms)
   | Neg f -> Printf.sprintf "¬%a" (fun x -> to_string_rec 5 json) f
@@ -345,7 +345,7 @@ let rec to_json_rec indent pos f =
   | FF -> Printf.sprintf "%s\"%sformula\": {\n%s\"type\": \"FF\"\n%s}"
             indent pos indent' indent
   | EqConst (x, c) -> Printf.sprintf "%s\"%sformula\": {\n%s\"type\": \"EqConst\",\n%s\"variable\": \"%s\",\n%s\"constant\": \"%s\"\n%s}"
-                         indent pos indent' indent' x indent' (Domain.to_string c) indent
+                         indent pos indent' indent' x indent' (Dom.to_string c) indent
   | Predicate (r, trms) -> Printf.sprintf "%s\"%sformula\": {\n%s\"type\": \"Predicate\",\n%s\"name\": \"%s\",\n%s\"terms\": \"%s\"\n%s}"
                              indent pos indent' indent' r indent' (Term.list_to_string trms) indent
   | Neg f -> Printf.sprintf "%s\"%sformula\": {\n%s\"type\": \"Neg\",\n%s\n%s}"
@@ -383,7 +383,7 @@ let to_json = to_json_rec "    " ""
 let rec to_latex_rec l = function
   | TT -> Printf.sprintf "\\top"
   | FF -> Printf.sprintf "\\bot"
-  | EqConst (x, c) -> Printf.sprintf "%s = %s" (Etc.escape_underscores x) (Domain.to_string c)
+  | EqConst (x, c) -> Printf.sprintf "%s = %s" (Etc.escape_underscores x) (Dom.to_string c)
   | Predicate (r, trms) -> Printf.sprintf "%s\\,(%s)" (Etc.escape_underscores r) (Term.list_to_string trms)
   | Neg f -> Printf.sprintf "\\neg %a" (fun x -> to_latex_rec 5) f
   | And (f, g) -> Printf.sprintf (Etc.paren l 4 "%a \\land %a") (fun x -> to_latex_rec 4) f (fun x -> to_latex_rec 4) g

@@ -21,10 +21,10 @@ val inter: ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
 val union: ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
 val diff: ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
 val min_elt: ('a, 'b) t -> 'a option
-val some_elt: Domain.tt -> (Domain.t, 'a) t -> Domain.t
+val some_elt: Dom.tt -> (Dom.t, 'a) t -> Dom.t
 val is_finite: ('a, 'b) t -> bool
 
 val to_list: ('a, 'b) t -> 'a list
-val to_json: (Domain.t, 'a) t -> string
-val to_string: (Domain.t, 'a) t -> string
-val to_latex: (Domain.t, 'a) t -> string
+val to_json: (Dom.t, 'a) t -> string
+val to_string: (Dom.t, 'a) t -> string
+val to_latex: (Dom.t, 'a) t -> string

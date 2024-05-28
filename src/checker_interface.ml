@@ -25,13 +25,13 @@ module Checker_interface = struct
   type trace = (string set * nat) list
   type trace_lst = (timestamp * (Db.Event.t, Db.Event.comparator_witness) Set.t) list
 
-  let to_event_data (d: Domain.t) = match d with
+  let to_event_data (d: Dom.t) = match d with
     | Int v -> EInt (Z.of_int v)
     | Str v -> EString v
     | _ -> raise (Invalid_argument "type not supported yet")
 
   let of_event_data (ed: event_data) = match ed with
-    | EInt v -> Domain.Int (Z.to_int v)
+    | EInt v -> Dom.Int (Z.to_int v)
     | EString v -> Str v
 
   let convert_term (t: Pred.Term.t) = match t with
@@ -44,9 +44,9 @@ module Checker_interface = struct
     | Setc.Complement s -> Coset (List.rev (Set.fold s ~init:[] ~f:(fun acc d -> (to_event_data d) :: acc)))
 
   let of_fset = function
-    | Set s -> Setc.Finite (Set.of_list (module Domain)
+    | Set s -> Setc.Finite (Set.of_list (module Dom)
                               (List.rev (List.fold s ~init:[] ~f:(fun acc ed -> (of_event_data ed) :: acc))))
-    | Coset cs -> Setc.Complement (Set.of_list (module Domain)
+    | Coset cs -> Setc.Complement (Set.of_list (module Dom)
                                      (List.rev (List.fold cs ~init:[] ~f:(fun acc ed -> (of_event_data ed) :: acc))))
 
   let of_poly_set = function

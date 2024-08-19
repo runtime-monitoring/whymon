@@ -1,1 +1,1 @@
-attempt(u:int, c:string)
+att(u:int, c:string)

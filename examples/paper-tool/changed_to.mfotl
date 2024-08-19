@@ -1,9 +1,9 @@
-¬(attempt(usr, country) ∧
-   (∃country1. (⧫[0,151200]
-           (attempt(usr, country1) ∧
-             (¬attempt(usr, country)) ∧
-             ((∀country2. attempt(usr, country2) → attempt(usr, country1)) U[0,151201] attempt(usr, country)))
+¬(att(u, c) ∧
+   (∃c1. (⧫[0,151200]
+           (att(u, c1) ∧
+             (¬att(u, c)) ∧
+             ((∀c2. att(u, c2) → att(u, c1)) U[0,151201] att(u, c)))
          ) ∧
-         ● ((¬(∃country2. attempt(usr, country2))) S[0,151200] attempt(usr, country1))
+         ● ((¬(∃c2. att(u, c2))) S[0,151200] att(u, c1))
    )
  )

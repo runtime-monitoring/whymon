@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/whymon/static/css/main.a6214bc8.css",
-    "main.js": "/whymon/static/js/main.bdf95765.js",
+    "main.js": "/whymon/static/js/main.9b83d099.js",
     "static/js/787.f0c62487.chunk.js": "/whymon/static/js/787.f0c62487.chunk.js",
     "index.html": "/whymon/index.html",
     "main.a6214bc8.css.map": "/whymon/static/css/main.a6214bc8.css.map",
-    "main.bdf95765.js.map": "/whymon/static/js/main.bdf95765.js.map",
+    "main.9b83d099.js.map": "/whymon/static/js/main.9b83d099.js.map",
     "787.f0c62487.chunk.js.map": "/whymon/static/js/787.f0c62487.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.a6214bc8.css",
-    "static/js/main.bdf95765.js"
+    "static/js/main.9b83d099.js"
   ]
 }

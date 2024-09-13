@@ -1,3 +1,3 @@
-∃u. attempt(u,c1) ∧
-  ⧫[1,30] (attempt(u,c2) ∧
-    ⧫[1,30] attempt(u,c3))
+∃u. att(u,c1) ∧
+  ⧫[1,30] (att(u,c2) ∧
+    ⧫[1,30] att(u,c3))

@@ -24,7 +24,7 @@ module Whymon = struct
   let n_args = ref 0
 
   let usage () =
-    Caml.Format.eprintf
+    Base.Format.eprintf
       "usage: ./whymon.exe [-mode] [-measure] [-sig] [-formula] [-log] [-out]
        arguments:
        \t -mode
@@ -45,11 +45,11 @@ module Whymon = struct
     exit 0
 
   let mode_error () =
-    Caml.Format.eprintf "modes: unverified, verified or debug\n%!";
+    Base.Format.eprintf "modes: unverified, verified or debug\n%!";
     raise (Invalid_argument "undefined mode")
 
   let measure_error () =
-    Caml.Format.eprintf "measures: size and none\n%!";
+    Base.Format.eprintf "measures: size and none\n%!";
     raise (Invalid_argument "undefined measure")
 
   let process_args =

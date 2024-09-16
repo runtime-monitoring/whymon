@@ -25,7 +25,7 @@ let is_digit = function
   | _ -> false
 
 exception Parsing_error of Lexing.position*Lexing.position*string
-let parsing_error i j fmt = Caml.Format.kasprintf (fun s -> raise (Parsing_error(i,j,s))) fmt
+let parsing_error i j fmt = Base.Format.kasprintf (fun s -> raise (Parsing_error(i,j,s))) fmt
 let lexing_error lexbuf fmt = parsing_error (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf) fmt
 let lexbuf_error_msg (lexbuf: Lexing.lexbuf) =
   Printf.sprintf "a problem was found at line %d character %d"

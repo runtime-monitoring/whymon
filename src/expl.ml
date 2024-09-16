@@ -81,7 +81,7 @@ module Part = struct
     let vs = List.map part ~f:snd in
     List.map (Option.value_exn (List.transpose vs)) ~f:(List.zip_exn subs)
 
-  let rec el_to_string indent var f (sub, v) =
+  let el_to_string indent var f (sub, v) =
     Printf.sprintf "%s%s ∈ %s\n\n%s" indent (Term.value_to_string var) (Setc.to_string sub) (f v)
 
   let to_string indent var f = function
@@ -264,8 +264,8 @@ module Proof = struct
        Int.equal tp tp' && Int.equal htp hi' &&
          Int.equal (Fdeque.length vps) (Fdeque.length vps') &&
            Etc.fdeque_for_all2_exn vps vps' ~f:(fun vp vp' -> v_equal vp vp')
-    | VHistorically (tp, vp), VHistorically (tp', vp')
-      | VAlways (tp, vp), VAlways (tp', vp') -> Int.equal tp tp'
+    | VHistorically (tp, _), VHistorically (tp', _)
+      | VAlways (tp, _), VAlways (tp', _) -> Int.equal tp tp'
     | VSince (tp, vp1, vp2s), VSince (tp', vp1', vp2s')
       | VUntil (tp, vp1, vp2s), VUntil (tp', vp1', vp2s') ->
        Int.equal tp tp' && v_equal vp1 vp1' &&
@@ -326,7 +326,7 @@ module Proof = struct
                                  | Some(vp2s') -> Some (VUntil (tp, vp1, vp2s')))
     | VUntilInf (tp, ltp, vp2s) -> (match Fdeque.drop_front vp2s with
                                     | None -> None
-                                    | Some(vp2s') -> Some (VUntilInf (tp, ltp, vp2s)))
+                                    | Some(vp2s') -> Some (VUntilInf (tp, ltp, vp2s')))
     | _ -> raise (Invalid_argument "vdrop is not defined for this vp")
 
   let rec s_at = function
@@ -502,20 +502,20 @@ module Proof = struct
     | SNeg vp, Neg f ->
        Printf.sprintf "\\infer[\\Sneg]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (v_to_latex indent' v idx vp f)
-    | SOrL sp1, Or (f, g) ->
+    | SOrL sp1, Or (f, _) ->
        Printf.sprintf "\\infer[\\Sdisjl]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp1 f)
-    | SOrR sp2, Or (f, g) ->
+    | SOrR sp2, Or (_, g) ->
        Printf.sprintf "\\infer[\\Sdisjr]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp2 g)
     | SAnd (sp1, sp2), And (f, g) ->
        Printf.sprintf "\\infer[\\Sconj]{%s, %d \\pvd %s}\n%s{{%s} & {%s}}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h)
          indent (s_to_latex indent' v idx sp1 f) (s_to_latex indent' v idx sp2 g)
-    | SImpL vp1, Imp (f, g) ->
+    | SImpL vp1, Imp (f, _) ->
        Printf.sprintf "\\infer[\\SimpL]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (v_to_latex indent' v idx vp1 f)
-    | SImpR sp2, Imp (f, g) ->
+    | SImpR sp2, Imp (_, g) ->
        Printf.sprintf "\\infer[\\SimpR]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp2 g)
     | SIffSS (sp1, sp2), Iff (f, g) ->
@@ -537,10 +537,10 @@ module Proof = struct
                                       let idx' = idx + 1 in
                                       let v' = v @ [(x, "d_" ^ (Int.to_string idx') ^ " \\in " ^ (Setc.to_latex sub))] in
                                       "{" ^ (s_to_latex indent' v' idx' sp f) ^ "}")))
-    | SPrev sp, Prev (i, f) ->
+    | SPrev sp, Prev (_, f) ->
        Printf.sprintf "\\infer[\\Sprev{}]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp f)
-    | SNext sp, Next (i, f) ->
+    | SNext sp, Next (_, f) ->
        Printf.sprintf "\\infer[\\Snext{}]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp f)
     | SOnce (tp, sp), Once (i, f) ->
@@ -555,10 +555,10 @@ module Proof = struct
        Printf.sprintf "\\infer[\\Shistorically{}]{%s, %d \\pvd %s}\n%s{{\\tau_%d - \\tau_0 \\geq %d} & %s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent tp (Interval.left i)
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map sps ~f:(fun sp -> "{" ^ (s_to_latex indent' v idx sp f) ^ "}"))))
-    | SHistoricallyOut _, Historically (i, f) ->
+    | SHistoricallyOut _, Historically (i, _) ->
        Printf.sprintf "\\infer[\\ShistoricallyL{}]{%s, %d \\pvd %s}\n%s{\\tau_%d - \\tau_0 < %d}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent (s_at p) (Interval.left i)
-    | SAlways (_, _, sps), Always (i, f) ->
+    | SAlways (_, _, sps), Always (_, f) ->
        Printf.sprintf "\\infer[\\Salways{}]{%s, %d \\pvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (s_at p) (Formula.to_latex h) indent
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map sps ~f:(fun sp -> "{" ^ (s_to_latex indent' v idx sp f) ^ "}"))))
@@ -623,35 +623,35 @@ module Proof = struct
        let v' = v @ [(x, Dom.to_string d)] in
        Printf.sprintf "\\infer[\\Vforall]{%s, %d \\nvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_to_latex indent' v' idx vp f)
-    | VPrev vp, Prev (i, f) ->
+    | VPrev vp, Prev (_, f) ->
        Printf.sprintf "\\infer[\\Vprev{}]{%s, %d \\nvd %s}\n%s{{%d > 0} & {%s}}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (v_to_latex indent' v idx vp f)
-    | VPrev0, Prev (i, f) ->
+    | VPrev0, Prev _ ->
        Printf.sprintf "\\infer[\\Vprevz]{%s, %d \\nvd %s}{}\n" (val_changes_to_latex v) (v_at p) (Formula.to_latex h)
-    | VPrevOutL tp, Prev (i, f) ->
+    | VPrevOutL _, Prev (i, _) ->
        Printf.sprintf "\\infer[\\Vprevl]{%s, %d \\nvd %s}\n%s{{%d > 0} & {\\tau_%d - \\tau_%d < %d}}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (v_at p) ((v_at p)-1) (Interval.left i)
-    | VPrevOutR tp, Prev (i, f) ->
+    | VPrevOutR _, Prev (i, _) ->
        Printf.sprintf "\\infer[\\Vprevr]{%s, %d \\nvd %s}\n%s{{%d > 0} & {\\tau_%d - \\tau_%d > %d}}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (v_at p) ((v_at p)-1)
          (Option.value_exn (Interval.right i))
-    | VNext vp, Next (i, f) ->
+    | VNext vp, Next (_, f) ->
        Printf.sprintf "\\infer[\\Vnext{}]{%s, %d \\nvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_to_latex indent' v idx vp f)
-    | VNextOutL tp, Next (i, f) ->
+    | VNextOutL _, Next (i, _) ->
        Printf.sprintf "\\infer[\\Vnextl]{%s, %d \\nvd %s}{\\tau_%d - \\tau_%d < %d}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) ((v_at p)+1) (v_at p) (Interval.left i)
-    | VNextOutR tp, Next (i, f) ->
+    | VNextOutR _, Next (i, _) ->
        Printf.sprintf "\\infer[\\Vnextr]{%s, %d \\nvd %s}{\\tau_%d - \\tau_%d > %d}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) ((v_at p)+1) (v_at p) (Option.value_exn (Interval.right i))
-    | VOnceOut tp, Once (i, f) ->
+    | VOnceOut _, Once (i, _) ->
        Printf.sprintf "\\infer[\\Voncel{}]{%s, %d \\nvd %s}\n%s{\\tau_%d - \\tau_0 < %d}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (Interval.left i)
     | VOnce (_, _, vps), Once (i, f) ->
        Printf.sprintf "\\infer[\\Vonce{}]{%s, %d \\nvd %s}\n%s{{\\tau_%d - \\tau_0 \\geq %d} & %s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (Interval.left i)
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map vps ~f:(fun vp -> "{" ^ (v_to_latex indent' v idx vp f) ^ "}"))))
-    | VEventually (_, _, vps), Eventually (i, f) ->
+    | VEventually (_, _, vps), Eventually (_, f) ->
        Printf.sprintf "\\infer[\\Veventually{}]{%s, %d \\nvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map vps ~f:(fun vp -> "{" ^ (v_to_latex indent' v idx vp f) ^ "}"))))
@@ -663,7 +663,7 @@ module Proof = struct
        Printf.sprintf "\\infer[\\Valways{}]{%s, %d \\nvd %s}\n%s{{%d \\geq %d} & {\\tau_%d - \\tau_%d \\in %s} & {%s}}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent
          (v_at vp) tp (v_at vp) tp (Interval.to_latex i) (v_to_latex indent' v idx vp f)
-    | VSinceOut tp, Since (i, f, g) ->
+    | VSinceOut _, Since (i, _, _) ->
        Printf.sprintf "\\infer[\\Vsincel{}]{%s, %d \\nvd %s}\n%s{\\tau_%d - \\tau_0 < %d}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (v_at p) (Interval.left i)
     | VSince (tp, vp1, vp2s), Since (i, f, g) ->
@@ -671,16 +671,16 @@ module Proof = struct
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent
          (v_at vp1) tp tp (Interval.left i) (v_to_latex indent' v idx vp1 f)
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map vp2s ~f:(fun vp -> "{" ^ (v_to_latex indent' v idx vp g) ^ "}"))))
-    | VSinceInf (tp, _, vp2s), Since (i, f, g) ->
+    | VSinceInf (tp, _, vp2s), Since (i, _, g) ->
        Printf.sprintf "\\infer[\\Vsinceinf{}]{%s, %d \\nvd %s}\n%s{{\\tau_%d - \\tau_0 \\geq %d} & %s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent tp (Interval.left i)
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map vp2s ~f:(fun vp -> "{" ^ (v_to_latex indent' v idx vp g) ^ "}"))))
-    | VUntil (tp, vp1, vp2s), Until (i, f, g) ->
+    | VUntil (tp, vp1, vp2s), Until (_, f, g) ->
        Printf.sprintf "\\infer[\\Vuntil{}]{%s, %d \\nvd %s}\n%s{{%d \\leq %d} & %s & {%s}}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent tp (v_at vp1)
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map vp2s ~f:(fun vp -> "{" ^ (v_to_latex indent' v idx vp g) ^ "}"))))
          (v_to_latex indent' v idx vp1 f)
-    | VUntilInf (_, _, vp2s), Until (i, f, g) ->
+    | VUntilInf (_, _, vp2s), Until (_, _, g) ->
        Printf.sprintf "\\infer[\\Vuntil{}]{%s, %d \\nvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent
          (String.concat ~sep:"&" (Fdeque.to_list (Fdeque.map vp2s ~f:(fun vp -> "{" ^ (v_to_latex indent' v idx vp g) ^ "}"))))
@@ -875,7 +875,7 @@ module Pdt = struct
 
   let rec hide vars f_leaf f_node pdt = match vars, pdt with
     |  _ , Leaf l -> Leaf (f_leaf l)
-    | [x], Node (y, part) -> Leaf (f_node (Part.map part unleaf))
+    | [_], Node (_, part) -> Leaf (f_node (Part.map part unleaf))
     | x :: vars, Node (y, part) -> if String.equal x y then
                                      Node (y, Part.map part (hide vars f_leaf f_node))
                                    else hide vars f_leaf f_node (Node (y, part))
@@ -888,6 +888,7 @@ module Pdt = struct
     | Node (x, part), Node (x', part') -> String.equal x x' && Int.equal (Part.length part) (Part.length part') &&
                                             List.for_all2_exn part part' ~f:(fun (s, v) (s', v') ->
                                                 Setc.equal s s' && equal p_eq v v')
+    | _ -> raise (Invalid_argument "function not defined for other cases")
 
   let rec reduce p_eq = function
     | Leaf l -> Leaf l
@@ -927,7 +928,7 @@ module Pdt = struct
 
   let rec hide_reduce p_eq vars f_leaf f_node pdt = match vars, pdt with
     |  _ , Leaf l -> Leaf (f_leaf l)
-    | [x], Node (y, part) -> Leaf (f_node (Part.map part unleaf))
+    | [_], Node (_, part) -> Leaf (f_node (Part.map part unleaf))
     | x :: vars, Node (y, part) -> if String.equal x y then
                                      Node (y, Part.map_dedup (equal p_eq) part (hide_reduce p_eq vars f_leaf f_node))
                                    else hide_reduce p_eq vars f_leaf f_node (Node (y, part))
@@ -946,7 +947,7 @@ let rec is_violated = function
   | Pdt.Leaf l -> (match l with
                    | Proof.S _ -> false
                    | V _ -> true)
-  | Node (x, part) -> Part.exists part is_violated
+  | Node (_, part) -> Part.exists part is_violated
 
 let rec at = function
   | Pdt.Leaf pt -> Proof.p_at pt

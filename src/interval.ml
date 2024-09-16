@@ -51,21 +51,21 @@ let mem t =
 
 let left =
   let left_UI (UI l) = l in
-  let left_BI (BI (l, r)) = l in
+  let left_BI (BI (l, _)) = l in
   case left_BI left_UI
 
 let right =
-  let right_UI (UI l) = None in
-  let right_BI (BI (l, r)) = Some(r) in
+  let right_UI (UI _) = None in
+  let right_BI (BI (_, r)) = Some(r) in
   case right_BI right_UI
 
 let below_UI t (UI l) = t < l
-let below_BI t (BI (l, r)) = t < l
+let below_BI t (BI (l, _)) = t < l
 let below t = case (below_BI t) (below_UI t)
 
 (* Check if t > interval *)
-let above_UI t (UI l) = false
-let above_BI t (BI (l, r)) = t > r
+let above_UI _ (UI _) = false
+let above_BI t (BI (_, r)) = t > r
 let above t = case (above_BI t) (above_UI t)
 
 let to_string_BI = function
@@ -73,11 +73,11 @@ let to_string_BI = function
 
 let to_string = function
   | U (UI i) -> Printf.sprintf "[%d,∞)" i
-  | B i -> Printf.sprintf "%a" (fun x -> to_string_BI) i
+  | B i -> Printf.sprintf "%a" (fun _ -> to_string_BI) i
 
 let to_latex = function
   | U (UI i) -> Printf.sprintf "[%d,\\infty)" i
-  | B i -> Printf.sprintf "%a" (fun x -> to_string_BI) i
+  | B i -> Printf.sprintf "%a" (fun _ -> to_string_BI) i
 
 let lex error l i j r =
   (match j with

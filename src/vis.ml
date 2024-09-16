@@ -424,7 +424,7 @@ module Expl = struct
               (Printf.sprintf "\n%s}" indent)
 
   let rec e_cell_to_json indent = function
-    | Leaf (b, c_row) ->
+    | Leaf (_, c_row) ->
        (Printf.sprintf "%s\"type\": \"leaf\",\n" (indent ^ (String.make 4 ' '))) ^
          (Printf.sprintf "%s\"table\": [\n" (indent ^ (String.make 4 ' '))) ^
            String.concat ~sep:",\n"

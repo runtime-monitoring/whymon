@@ -9,7 +9,6 @@
 (*******************************************************************)
 
 open Base
-open Stdio
 
 module Term = struct
 
@@ -27,7 +26,7 @@ module Term = struct
 
     let rec fv_list = function
       | [] -> []
-      | Const c :: trms -> fv_list trms
+      | Const _ :: trms -> fv_list trms
       | Var x :: trms -> x :: fv_list trms
 
     let equal t t' = match t, t' with
@@ -92,7 +91,7 @@ let check_terms p_name trms =
   if List.length trms = sig_pred.arity then
     if (List.for_all2_exn trms sig_pred.ntconsts
           ~f:(fun t ntc -> match t with
-                           | Term.Var x -> true
+                           | Term.Var _ -> true
                            | Const c -> Dom.tt_equal (Dom.tt_of_domain c) (snd ntc))) then trms
     else raise (Invalid_argument (Printf.sprintf "type of terms of %s do not match the signature" p_name))
   else raise (Invalid_argument (Printf.sprintf "arity of %s is %d" p_name sig_pred.arity))

@@ -9,8 +9,6 @@
 (*******************************************************************)
 
 open Base
-open Pred
-open Etc
 
 module Event : sig
   type t = string * Dom.t list [@@deriving compare, sexp_of]

@@ -10,7 +10,6 @@
 (*******************************************************************)
 
 open Etc
-open Formula
 open Formula_parser
 
 let make_interval lexbuf = Interval.lex (fun () -> lexing_error lexbuf "interval lexing did not succeed")

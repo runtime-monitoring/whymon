@@ -31,7 +31,7 @@ let add cs el = match cs with
 
 let is_empty = function
   | Finite s -> Set.is_empty s
-  | Complement s -> false
+  | Complement _ -> false
 
 let inter cs1 cs2 =
   if phys_equal cs1 cs2 then cs1

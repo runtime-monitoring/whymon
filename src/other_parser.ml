@@ -10,7 +10,6 @@
 
 open Base
 open Stdio
-open Etc
 
 let string_of_token (t: Other_lexer.token) =
   match t with
@@ -47,8 +46,6 @@ module Parsebuf = struct
                          ; db = Db.create [] }
 
   let add_event evt pb = pb.db <- Db.add_event pb.db evt
-
-  let clear pb = pb
 
 end
 

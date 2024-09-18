@@ -1513,20 +1513,15 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      ([expl], MEqConst (x, d))
   | MPredicate (r, trms) ->
      let db' = Set.filter db ~f:(fun evt -> String.equal r (fst(evt))) in
-     if List.is_empty trms then
-       (let expl = if Set.is_empty db' then Pdt.Leaf (Proof.V (VPred (tp, r, trms)))
-                   else Leaf (S (SPred (tp, r, trms))) in
-        ([expl], MPredicate (r, trms)))
-     else
-       let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
-       let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
-                                                                 | None -> false
-                                                                 | Some(map) -> not (Map.is_empty map)))
-                     ~f:(fun map_opt -> Option.value_exn map_opt) in
-       let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
-       let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:String.equal) in
-       let expl = pdt_of tp r trms fv_vars maps' in
-       ([expl], MPredicate (r, trms))
+     let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
+     let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
+                                                               | None -> false
+                                                               | Some(map) -> not (Map.is_empty map)))
+                   ~f:(fun map_opt -> Option.value_exn map_opt) in
+     let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
+     let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:String.equal) in
+     let expl = pdt_of tp r trms fv_vars maps' in
+     ([expl], MPredicate (r, trms))
   | MNeg (mf) ->
      let (expls, mf') = meval vars ts tp db is_vis mf in
      let f_expls = List.map expls ~f:(fun expl -> (Pdt.apply1_reduce Proof.equal vars (fun p -> do_neg p) expl)) in

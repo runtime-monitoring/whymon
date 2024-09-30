@@ -1458,7 +1458,7 @@ let do_forall_leaf x tc = function
 
 let do_forall_node x tc part =
   if Part.for_all part Proof.isS then
-    [Proof.S (SForall (x, Part.map part Proof.unS))]
+    [Proof.S (SForall (x, Part.map_dedup Proof.s_equal part Proof.unS))]
   else
     (let vios = Part.filter part (fun p -> Proof.isV p) in
      (Part.values (Part.map2_dedup Proof.equal vios (fun (s, p) ->

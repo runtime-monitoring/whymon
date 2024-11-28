@@ -1683,7 +1683,7 @@ module MState = struct
 
   let init mf = { mf = mf
                 ; tp_cur = 0
-                ; tp_out = -1
+                ; tp_out = 0
                 ; ts_waiting = Queue.create ()
                 ; tsdbs = Queue.create ()
                 ; tpts = Hashtbl.create (module Int) }
@@ -1713,7 +1713,7 @@ let mstep mode vars ts db (ms: MState.t) is_vis =
   let (expls, mf') = meval vars ts ms.tp_cur db is_vis ms.mf in
   Queue.enqueue ms.ts_waiting ts;
   let tstps = List.zip_exn (List.take (Queue.to_list ms.ts_waiting) (List.length expls))
-                (List.range ms.tp_cur (ms.tp_cur + List.length expls)) in
+                (List.range ms.tp_out (ms.tp_out + List.length expls)) in
   let tsdbs = match mode with
     | Out.Plain.VERIFIED -> Queue.enqueue ms.tsdbs (ts, db); ms.tsdbs
     | _ -> ms.tsdbs in
@@ -1721,6 +1721,7 @@ let mstep mode vars ts db (ms: MState.t) is_vis =
    { ms with
      mf = mf'
    ; tp_cur = ms.tp_cur + 1
+   ; tp_out = ms.tp_out + List.length expls
    ; ts_waiting = queue_drop ms.ts_waiting (List.length expls)
    ; tsdbs = tsdbs })
 

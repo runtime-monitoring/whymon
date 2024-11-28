@@ -1514,9 +1514,7 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
   | MPredicate (r, trms) ->
      let db' = Set.filter db ~f:(fun evt -> String.equal r (fst(evt))) in
      let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
-     let maps' = List.map (List.filter maps ~f:(fun map_opt -> match map_opt with
-                                                               | None -> false
-                                                               | Some(map) -> not (Map.is_empty map)))
+     let maps' = List.map (List.filter maps ~f:(fun map_opt -> Option.is_some map_opt))
                    ~f:(fun map_opt -> Option.value_exn map_opt) in
      let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
      let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:String.equal) in

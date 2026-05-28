@@ -20,6 +20,7 @@ module Whymon = struct
   let formula_ref = ref None
   let sig_ref = ref In_channel.stdin
   let logstr_ref = ref ""
+  let latency = ref false
 
   let n_args = ref 0
 
@@ -41,7 +42,8 @@ module Whymon = struct
        \t -log
        \t\t <file>             - specify log file as trace (default: stdin)
        \t -out
-       \t\t <file>             - output file (default: stdout)\n%!";
+       \t\t <file>             - output file (default: stdout)\n%!
+       \t -latency             - forces output after each complete processing step";
     exit 0
 
   let mode_error () =
@@ -93,6 +95,9 @@ module Whymon = struct
       | ("-out" :: outf :: args) ->
          Etc.outc_ref := Out_channel.create outf;
          process_args_rec args
+      | ("-latency" :: args) ->
+         latency := true;
+         process_args_rec args
       | [] -> if !n_args >= 2 then () else usage ()
       | _ -> usage () in
     process_args_rec
@@ -103,7 +108,7 @@ module Whymon = struct
       let formula = Option.value_exn !formula_ref in
       match !mode_ref with
       | Out.Plain.DEBUGVIS -> let _ = Monitor.exec_vis None formula !logstr_ref in ()
-      | _ -> Monitor.exec !mode_ref !measure_ref formula !Etc.inc_ref
+      | _ -> let _ = Monitor.exec !mode_ref !measure_ref formula !Etc.inc_ref !latency in ()
     with End_of_file -> Out_channel.close !Etc.outc_ref; exit 0
 
 end

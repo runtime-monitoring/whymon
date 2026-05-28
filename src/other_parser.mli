@@ -34,7 +34,7 @@ module Trace : sig
               | Skipped   of Parsebuf.t * string
               | Finished
 
-  val parse_from_channel: Stdio.In_channel.t -> Parsebuf.t option -> cursor
+  val parse_from_channel: ?latency:bool -> Stdio.In_channel.t -> Parsebuf.t option -> cursor
 
   val parse_from_string: string -> cursor
 

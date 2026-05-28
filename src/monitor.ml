@@ -1723,7 +1723,7 @@ let mstep mode vars ts db (ms: MState.t) is_vis =
    ; ts_waiting = queue_drop ms.ts_waiting (List.length expls)
    ; tsdbs = tsdbs })
 
-let exec mode measure f inc =
+let exec mode measure f inc latency =
   let vars = Set.elements (Formula.fv f) in
   let out tstp_expls (ms: MState.t) =
     match mode with
@@ -1739,12 +1739,13 @@ let exec mode measure f inc =
        Out.Plain.expls tstp_expls (Some(c)) (Some(paths)) None mode
     | Out.Plain.DEBUGVIS -> raise (Failure "function exec is undefined for the mode debugvis") in
   let rec step pb_opt ms =
-    match Other_parser.Trace.parse_from_channel inc pb_opt with
+    match Other_parser.Trace.parse_from_channel ~latency inc pb_opt with
     | Finished -> ()
     | Skipped (pb, msg) -> Stdio.printf "The parser skipped an event because %s" msg;
                            step (Some(pb)) ms
     | Processed pb -> let (tstp_expls, ms) = mstep mode vars pb.ts pb.db ms false in
                       out tstp_expls ms;
+                      (if latency then Stdio.printf "At time point\n%!" else ());
                       step (Some(pb)) ms in
   let mf = init f in
   let ms = MState.init mf in

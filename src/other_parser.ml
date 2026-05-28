@@ -127,11 +127,14 @@ module Trace = struct
               | Skipped   of Parsebuf.t * string
               | Finished
 
-  let parse_aux (pb: Parsebuf.t) =
+
+  let parse_aux ?(latency=false) (pb: Parsebuf.t) =
     let rec parse_init () =
       match pb.token with
       | AT -> Parsebuf.next pb; parse_ts ()
       | EOF -> Finished
+      | SEP -> if latency then (Parsebuf.next pb; parse_init ())
+               else Skipped (pb, "expected '@' but found '}'")
       | t -> Skipped (pb, "expected '@' but found " ^ string_of_token t)
     and parse_ts () =
       match pb.token with
@@ -155,7 +158,8 @@ module Trace = struct
                   | None -> Skipped (pb, "predicate " ^ s ^ " was not specified"))
       | AT -> Processed pb
       | EOF -> Processed pb
-      | SEP -> Parsebuf.next pb; Processed pb
+      | SEP -> if latency then Processed pb
+               else (Parsebuf.next pb; Processed pb)
       | t -> Skipped (pb, "expected a predicate or '@' but found " ^ string_of_token t)
     and parse_tuple () =
       match pb.token with
@@ -183,11 +187,10 @@ module Trace = struct
       | t -> Skipped (pb, "expected ',' or ')' but found " ^ string_of_token t) in
     parse_init ()
 
-  let parse_from_channel inc pb_opt =
-    if Option.is_none pb_opt then
-      let lexbuf = Lexing.from_channel inc in
-      parse_aux (Parsebuf.init lexbuf)
-    else parse_aux (Parsebuf.clean (Option.value_exn pb_opt))
+  let parse_from_channel ?(latency=false) inc pb_opt =
+    let pb = if Option.is_none pb_opt then Parsebuf.init (Lexing.from_channel inc)
+             else Parsebuf.clean (Option.value_exn pb_opt) in
+    parse_aux ~latency pb
 
   let parse_from_string log =
     let lexbuf = Lexing.from_string log in

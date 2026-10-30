@@ -16,6 +16,7 @@ module Parsebuf : sig
            ; mutable token: Other_lexer.token
            ; mutable pred_sig: Pred.Sig.t option
            ; mutable ts: int
+           ; mutable is_finite: bool
            ; mutable db: Db.t }
 
 end

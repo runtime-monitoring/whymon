@@ -30,6 +30,7 @@ module Part : sig
   val values: 'a t -> 'a list
   val tabulate: (Dom.t, Dom.comparator_witness) Set.t -> (Dom.t -> 'a) -> 'a -> 'a t
 
+  val merge2 : ('a -> 'a -> 'b) -> 'a t -> 'a t -> 'b t
   val dedup: ('a -> 'a -> bool) -> 'a t -> 'a t
   val map_dedup: ('a -> 'a -> bool) -> 'd t -> ('d -> 'a) -> 'a t
   val map2_dedup: ('a -> 'a -> bool) -> 'a t -> (sub * 'a -> sub * 'a) -> 'a t
@@ -44,6 +45,7 @@ module Proof : sig
     | SEqConst of int * string * Dom.t
     | SPred of int * string * Term.t list
     | SNeg of vp
+    | SNegL of vp
     | SOrL of sp
     | SOrR of sp
     | SAnd of sp * sp
@@ -67,6 +69,7 @@ module Proof : sig
     | VEqConst of int * string * Dom.t
     | VPred of int * string * Term.t list
     | VNeg of sp
+    | VNegL of sp
     | VOr of vp * vp
     | VAndL of vp
     | VAndR of vp

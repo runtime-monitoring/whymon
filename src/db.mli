@@ -11,7 +11,7 @@
 open Base
 
 module Event : sig
-  type t = string * Dom.t list [@@deriving compare, sexp_of]
+  type t = string * Dom.t list * bool [@@deriving compare, sexp_of]
   include Comparable.S with type t := t
 end
 
@@ -19,7 +19,7 @@ type t = (Event.t, Event.comparator_witness) Set.t
 
 val create: Event.t list -> t
 
-val event: string -> string list -> Event.t
+val event: string -> string list -> bool -> Event.t
 
 val add_event: t -> Event.t -> t
 

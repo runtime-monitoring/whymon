@@ -22,7 +22,7 @@ module Dbs = struct
 
   let row tp db f : row =
     List.rev (List.foldi (Set.to_list (Formula.pred_names f)) ~init:[] ~f:(fun idx acc r ->
-                  (tp, idx, Set.filter db ~f:(fun (r', _) -> String.equal r r')) :: acc))
+                  (tp, idx, Set.filter db ~f:(fun (r', _, _) -> String.equal r r')) :: acc))
 
   let cell_to_json indent tp idx db =
     (Printf.sprintf "%s{\n" indent) ^

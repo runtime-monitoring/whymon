@@ -11,7 +11,7 @@
 
 open Etc
 
-type token = AT | LPA | RPA | COM | SEP | EOF | STR of string
+type token = AT | LPA | RPA | COM | SEP | LCO | RCO | EOF | STR of string
 
 }
 
@@ -24,7 +24,7 @@ let letter = uc | lc
 let digit = ['0'-'9']
 
 let digits = ['0'-'9']+
-let string = (letter | digit | '_' | '[' | ']' | '/' | '-' | '.' | '!' | ':')+
+let string = (letter | digit | '_' | '[' | ']' | '/' | '-' | '.' | ':')+
 let quoted_string = ([^ '"' '\\'] | '\\' _)*
 
 rule token = parse
@@ -35,6 +35,7 @@ rule token = parse
   | ")"                            { RPA }
   | ","                            { COM }
   | ";"                            { SEP }
+  | "!"                             { LCO }
   | "#"                            { skip_line lexbuf }
   | string as s                    { STR s }
   | '"' (quoted_string as s) '"'   { STR s }

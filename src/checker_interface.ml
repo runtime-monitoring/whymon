@@ -181,7 +181,7 @@ module Checker_interface = struct
     | Until (i, f, g) -> Until (convert_f f, convert_interval i, convert_f g)
 
   let convert_db db =
-    specialized_set (Set.fold db ~init:[] ~f:(fun acc (name, ds) ->
+    specialized_set (Set.fold db ~init:[] ~f:(fun acc (name, ds, _) ->
                          (name, List.map ds ~f:to_event_data)::acc))
 
   let convert_trace_aux trace_lst =

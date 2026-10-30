@@ -138,6 +138,7 @@ module Proof = struct
     | SEqConst of int * string * Dom.t
     | SPred of int * string * Term.t list
     | SNeg of vp
+    | SNegL of vp
     | SOrL of sp
     | SOrR of sp
     | SAnd of sp * sp
@@ -161,6 +162,7 @@ module Proof = struct
     | VEqConst of int * string * Dom.t
     | VPred of int * string * Term.t list
     | VNeg of sp
+    | VNegL of sp
     | VOr of vp * vp
     | VAndL of vp
     | VAndR of vp
@@ -197,6 +199,7 @@ module Proof = struct
        Int.equal tp tp' && String.equal r r' &&
          Int.equal (List.length terms) (List.length terms') &&
            List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
+    | SNegL vp, SNegL vp'
     | SNeg vp, SNeg vp'
       | SImpL vp, SImpL vp' -> v_equal vp vp'
     | SImpR sp, SImpR sp'
@@ -236,6 +239,7 @@ module Proof = struct
          Int.equal (List.length terms) (List.length terms') &&
            List.for_all2_exn terms terms' ~f:(fun t1 t2 -> Term.equal t1 t2)
     | VNeg sp, VNeg sp' -> s_equal sp sp'
+    | VNegL sp, VNegL sp' -> s_equal sp sp'
     | VAndL vp, VAndL vp'
       | VAndR vp, VAndR vp'
       | VPrev vp, VPrev vp'
@@ -334,6 +338,7 @@ module Proof = struct
     | SEqConst (tp, _, _) -> tp
     | SPred (tp, _, _) -> tp
     | SNeg vp -> v_at vp
+    | SNegL vp -> v_at vp
     | SOrL sp1 -> s_at sp1
     | SOrR sp2 -> s_at sp2
     | SAnd (sp1, _) -> s_at sp1
@@ -359,6 +364,7 @@ module Proof = struct
     | VEqConst (tp, _, _) -> tp
     | VPred (tp, _, _) -> tp
     | VNeg sp -> s_at sp
+    | VNegL sp -> s_at sp
     | VOr (vp1, _) -> v_at vp1
     | VAndL vp1 -> v_at vp1
     | VAndR vp2 -> v_at vp2
@@ -407,6 +413,7 @@ module Proof = struct
     | SEqConst (tp, x, c) -> Printf.sprintf "%sSEqConst(%d, %s, %s)" indent tp x (Dom.to_string c)
     | SPred (tp, r, trms) -> Printf.sprintf "%sSPred(%d, %s, [%s])" indent tp r (Term.list_to_string trms)
     | SNeg vp -> Printf.sprintf "%sSNeg{%d}\n%s" indent (s_at p) (v_to_string indent' vp)
+    | SNegL vp -> Printf.sprintf "%sSNegL{%d}\n%s" indent (s_at p) (v_to_string indent' vp)
     | SOrL sp1 -> Printf.sprintf "%sSOrL{%d}\n%s" indent (s_at p) (s_to_string indent' sp1)
     | SOrR sp2 -> Printf.sprintf "%sSOrR{%d}\n%s" indent (s_at p) (s_to_string indent' sp2)
     | SAnd (sp1, sp2) -> Printf.sprintf "%sSAnd{%d}\n%s\n%s" indent (s_at p)
@@ -442,6 +449,7 @@ module Proof = struct
     | VEqConst (tp, x, c) -> Printf.sprintf "%sVEqConst(%d, %s, %s)" indent tp x (Dom.to_string c)
     | VPred (tp, r, trms) -> Printf.sprintf "%sVPred(%d, %s, [%s])" indent tp r (Term.list_to_string trms)
     | VNeg sp -> Printf.sprintf "%sVNeg{%d}\n%s" indent (v_at p) (s_to_string indent' sp)
+    | VNegL sp -> Printf.sprintf "%sVNegL{%d}\n%s" indent (v_at p) (s_to_string indent' sp)
     | VOr (vp1, vp2) -> Printf.sprintf "%sVOr{%d}\n%s\n%s" indent (v_at p) (v_to_string indent' vp1) (v_to_string indent' vp2)
     | VAndL vp1 -> Printf.sprintf "%sVAndL{%d}\n%s" indent (v_at p) (v_to_string indent' vp1)
     | VAndR vp2 -> Printf.sprintf "%sVAndR{%d}\n%s" indent (v_at p) (v_to_string indent' vp2)
@@ -590,6 +598,9 @@ module Proof = struct
     | VNeg sp, Neg f ->
        Printf.sprintf "\\infer[\\Vneg]{%s, %d \\nvd %s}\n%s{%s}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp f)
+    | VNegL sp, Neg f ->
+        Printf.sprintf "\\infer[\\VnegL]{%s, %d \\nvd %s}\n%s{%s}\n"
+          (val_changes_to_latex v) (v_at p) (Formula.to_latex h) indent (s_to_latex indent' v idx sp f)
     | VOr (vp1, vp2), Or (f, g) ->
        Printf.sprintf "\\infer[\\Vdisj]{%s, %d \\nvd %s}\n%s{{%s} & {%s}}\n"
          (val_changes_to_latex v) (v_at p) (Formula.to_latex h)
@@ -703,6 +714,7 @@ module Proof = struct
       | SEqConst _ -> 1
       | SPred _ -> 1
       | SNeg vp -> 1 + v vp
+      | SNegL vp -> 1 + v vp
       | SOrL sp1 -> 1 + s sp1
       | SOrR sp2 -> 1 + s sp2
       | SAnd (sp1, sp2) -> 1 + s sp1 + s sp2
@@ -726,6 +738,7 @@ module Proof = struct
       | VEqConst _ -> 1
       | VPred _ -> 1
       | VNeg sp -> 1 + s sp
+      | VNegL sp -> 1 + s sp
       | VOr (vp1, vp2) -> 1 + v vp1 + v vp2
       | VAndL vp1 -> 1 + v vp1
       | VAndR vp2 -> 1 + v vp2

@@ -18,6 +18,7 @@ let string_of_token (t: Other_lexer.token) =
   | RPA -> "')'"
   | COM -> "','"
   | SEP -> "';'"
+  | LCO -> "!"
   | STR s -> "\"" ^ String.escaped s ^ "\""
   | EOF -> "<EOF>"
 
@@ -27,12 +28,14 @@ module Parsebuf = struct
            ; mutable token: Other_lexer.token
            ; mutable pred_sig: Pred.Sig.t option
            ; mutable ts: int
+           ; mutable is_finite: bool
            ; mutable db: Db.t }
 
   let init lexbuf = { lexbuf = lexbuf
                     ; token = Other_lexer.token lexbuf
                     ; pred_sig = None
                     ; ts = -1
+                    ; is_finite = true
                     ; db = Db.create [] }
 
   let next pb = pb.token <- Other_lexer.token pb.lexbuf
@@ -57,6 +60,7 @@ module Sig = struct
       | LPA, LPA
       | RPA, RPA
       | COM, COM
+      | LCO, LCO
       | SEP, SEP
       | EOF, EOF -> true
     | STR s1, STR s2 -> String.equal s1 s2
@@ -151,6 +155,9 @@ module Trace = struct
                                              parse_tuple ()
                                     | t -> Skipped (pb, "expected '(' but found " ^ string_of_token t)))
                   | None -> Skipped (pb, "predicate " ^ s ^ " was not specified"))
+      | LCO -> Parsebuf.next pb; 
+               pb.is_finite <- false;
+               parse_db()
       | AT -> Processed pb
       | EOF -> Processed pb
       | SEP -> Parsebuf.next pb; Processed pb
@@ -165,13 +172,13 @@ module Trace = struct
       match pb.token with
       | RPA -> Parsebuf.next pb;
                (if Int.equal (Queue.length q) (Parsebuf.arity pb) then
-                  let evt = Db.event (Parsebuf.pred pb) (Queue.to_list q) in
+                  let evt = Db.event (Parsebuf.pred pb) (Queue.to_list q) pb.is_finite in
                   Parsebuf.add_event evt pb;
                   (match pb.token with
                    | LPA -> Parsebuf.next pb; parse_tuple ()
-                   | _ -> parse_db ())
+                   | _ -> pb.is_finite <- true; parse_db ())
                 else Skipped (pb, Printf.sprintf "expected a tuple of arity %d but found %d arguments"
-                                    (Parsebuf.arity pb) (Queue.length q)))
+                   (Parsebuf.arity pb) (Queue.length q)))                               
       | COM -> Parsebuf.next pb;
                (match pb.token with
                 | STR s -> Parsebuf.next pb;

@@ -1413,6 +1413,10 @@ let do_neg = function
   | Proof.S sp -> Proof.V (VNeg sp)
   | V vp -> S (SNeg vp)
 
+  let do_neg2 = function
+  | Proof.S sp -> Proof.V (VNegL sp)
+  | V vp -> S (SNegL vp)
+
 let do_and (p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
   | S sp1, S sp2 -> [S (SAnd (sp1, sp2))]
   | S _ , V vp2 -> [V (VAndR (vp2))]
@@ -1424,6 +1428,12 @@ let do_or (p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
   | S sp1, V _ -> [S (SOrL (sp1))]
   | V _ , S sp2 -> [S (SOrR (sp2))]
   | V vp1, V vp2 -> [V (VOr (vp1, vp2))]
+
+let do_or2(p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
+  | S sp1, S sp2 -> [(S (sp1)); (S (sp2))]
+  | S sp1, V _ -> [S (sp1)]
+  | V _ , S sp2 -> [S (sp2)]
+  | V vp1, V vp2 -> [(V (vp1)); (V (vp2))]
 
 let do_imp (p1: Proof.t) (p2: Proof.t) : Proof.t list = match p1, p2 with
   | S _, S sp2 -> [S (SImpR sp2)]
@@ -1511,15 +1521,46 @@ let rec meval vars ts tp (db: Db.t) is_vis = function
      let expl = Pdt.Node (x, [(Setc.Complement (Set.of_list (module Dom) [d]), l2);
                               (Setc.Finite (Set.of_list (module Dom) [d]), l1)]) in
      ([expl], MEqConst (x, d))
-  | MPredicate (r, trms) ->
-     let db' = Set.filter db ~f:(fun evt -> String.equal r (fst(evt))) in
-     let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (snd evt) (Map.empty (module String)) :: acc) in
+  | MPredicate (r, trms) -> 
+     let tfst (a, _, _) = a in
+     let tsnd (_, b, _) = b in
+     let tthd (_, _, c) = c in
+
+     (* finite case *)
+     let db' = Set.filter db ~f:(fun evt -> (String.equal r (tfst(evt))) && tthd(evt)) in
+     let maps = Set.fold db' ~init:[] ~f:(fun acc evt -> match_terms trms (tsnd evt) (Map.empty (module String)) :: acc) in
      let maps' = List.map (List.filter maps ~f:(fun map_opt -> Option.is_some map_opt))
                    ~f:(fun map_opt -> Option.value_exn map_opt) in
      let fv = Set.elements (Formula.fv (Predicate (r, trms))) in
      let fv_vars = List.filter vars ~f:(fun var -> List.mem fv var ~equal:String.equal) in
-     let expl = pdt_of tp r trms fv_vars maps' in
-     ([expl], MPredicate (r, trms))
+     let pexpl = pdt_of tp r trms fv_vars maps' in
+
+     (* complement case *)
+     let ndb' = Set.filter db ~f:(fun evt -> (String.equal r (tfst(evt))) && not (tthd(evt))) in
+     let nmaps = Set.fold ndb' ~init:[] ~f:(fun acc evt -> match_terms trms (tsnd evt) (Map.empty (module String)) :: acc) in
+     let nmaps' = List.map (List.filter nmaps ~f:(fun map_opt -> Option.is_some map_opt))
+                   ~f:(fun map_opt -> Option.value_exn map_opt) in
+     let nfv = Set.elements (Formula.fv (Predicate (r, trms))) in
+     (* fv_vars to apply1*)
+     let nfv_vars = List.filter vars ~f:(fun var -> List.mem nfv var ~equal:String.equal) in
+     let nexpl = pdt_of tp r trms nfv_vars nmaps' in
+     
+     (*let nexpl' = Pdt.apply1 fv_vars do_neg nexpl in*)
+     let nexpl' = Pdt.apply1 nfv_vars do_neg2 nexpl in
+      (* union of pexpl and nexpl (or nfv_vars and fv_vars) *)
+     let expl =  Pdt.apply2 nfv_vars (fun p1 p2 -> do_or p1 p2) pexpl nexpl' in
+     let expl' = if Set.is_empty ndb' then pexpl else Pdt.apply1 nfv_vars (fun p -> minp_list p) expl in
+     (*
+(
+     print_endline (r ^ " " ^Expl.to_string  pexpl);
+     print_endline (r ^ " " ^Expl.to_string  nexpl');
+     print_endline (r ^ " " ^Expl.to_string  expl');
+     *)
+
+     ([expl'], MPredicate (r, trms))
+  (*
+  )
+  *)
   | MNeg (mf) ->
      let (expls, mf') = meval vars ts tp db is_vis mf in
      let f_expls = List.map expls ~f:(fun expl -> (Pdt.apply1_reduce Proof.equal vars (fun p -> do_neg p) expl)) in
